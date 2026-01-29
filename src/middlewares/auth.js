@@ -1,0 +1,26 @@
+const jwt = require("jsonwebtoken");
+const { AppError } = require("../utils/errors");
+
+const authMiddleware = (req, _res, next) => {
+  const authHeader = req.headers.authorization || "";
+  const [, token] = authHeader.split(" ");
+
+  if (!token) {
+    return next(new AppError("Unauthorized", 401));
+  }
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    return next(new AppError("JWT secret not configured", 500));
+  }
+
+  try {
+    const payload = jwt.verify(token, secret);
+    req.user = { id: payload.sub };
+    return next();
+  } catch (error) {
+    return next(new AppError("Invalid or expired token", 401));
+  }
+};
+
+module.exports = authMiddleware;
