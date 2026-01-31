@@ -8,13 +8,24 @@ const { AppError } = require("./utils/errors");
 
 const app = express();
 
-const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:5173";
+const allowedOrigins = process.env.CORS_ORIGIN.split(",");
+
 app.use(
   cors({
-    origin: corsOrigin,
+    origin: function (origin, callback) {
+      // allow requests with no origin (like Postman, curl)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
-  })
+  }),
 );
+
 app.use(express.json());
 
 app.use("/auth", authRoutes);
