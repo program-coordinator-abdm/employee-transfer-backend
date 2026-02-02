@@ -22,7 +22,7 @@ const login = async ({ username, email, phone, password }) => {
   }
 
   const passwordMatches = await bcrypt.compare(password, user.passwordHash);
-  if (!passwordMatches) {
+  if (password !== user.passwordHash) {
     throw new AppError("Invalid credentials", 401);
   }
 
