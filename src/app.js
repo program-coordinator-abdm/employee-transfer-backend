@@ -5,7 +5,7 @@ const employeeRoutes = require("./routes/employeeRoutes");
 const exportRoutes = require("./routes/exportRoutes");
 const errorHandler = require("./middlewares/errorHandler");
 const { AppError } = require("./utils/errors");
-
+const raw = process.env.CORS_ORIGIN || "";
 const app = express();
 
 const allowedOrigins = (process.env.CORS_ORIGIN || "")
@@ -15,19 +15,20 @@ const allowedOrigins = (process.env.CORS_ORIGIN || "")
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin (like Postman, curl)
+    origin: (origin, callback) => {
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+      if (allowedOrigins.includes(origin)) return callback(null, true);
 
-      return callback(new Error("Not allowed by CORS"));
+      return callback(null, false);
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+
+app.options("*", cors());
 
 app.use(express.json());
 
