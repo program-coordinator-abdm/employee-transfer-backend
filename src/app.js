@@ -5,7 +5,6 @@ const employeeRoutes = require("./routes/employeeRoutes");
 const exportRoutes = require("./routes/exportRoutes");
 const errorHandler = require("./middlewares/errorHandler");
 const { AppError } = require("./utils/errors");
-const raw = process.env.CORS_ORIGIN || "";
 const app = express();
 
 const allowedOrigins = (process.env.CORS_ORIGIN || "")
@@ -13,33 +12,29 @@ const allowedOrigins = (process.env.CORS_ORIGIN || "")
   .map((s) => s.trim())
   .filter(Boolean);
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  credentials: false, // JWT header auth (not cookies)
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 204,
+};
 
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
-      return callback(null, false);
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-);
-
-app.options("*", cors());
+// hard-guard: never let OPTIONS hit app routes
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 
 app.use(express.json());
 
 app.use("/auth", authRoutes);
 app.use("/employees", employeeRoutes);
 app.use("/exports", exportRoutes);
-
-app.use((_req, _res, next) => {
-  next(new AppError("Not found", 404));
-});
-
-app.use(errorHandler);
-
-module.exports = app;
