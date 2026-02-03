@@ -25,7 +25,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+app.options("/.*/", cors(corsOptions));
 
 // hard-guard: never let OPTIONS hit app routes
 app.use((req, res, next) => {
