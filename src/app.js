@@ -35,6 +35,23 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
+app.get("/health", (req, res) => {
+  res.status(200).json({ ok: true });
+});
+
 app.use("/auth", authRoutes);
 app.use("/employees", employeeRoutes);
 app.use("/exports", exportRoutes);
+
+app.use((_req, _res, next) => {
+  next(new AppError("Not found", 404));
+});
+
+app.use((err, req, res, next) => {
+  console.error("UNHANDLED:", err);
+  next(err);
+});
+
+app.use(errorHandler);
+
+module.exports = app;
