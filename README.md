@@ -3,7 +3,7 @@ Backend code for Employee Transfer application.
 
 ## Tech
 - Node.js + Express
-- Prisma ORM + SQLite
+- Prisma ORM + PostgreSQL (Neon compatible)
 - JWT authentication
 - Zod validation
 - PDF export via pdfkit
@@ -12,7 +12,8 @@ Backend code for Employee Transfer application.
 ```bash
 npm install
 cp .env.example .env
-npx prisma migrate dev --name init
+# Set DATABASE_URL to your Neon connection string
+npx prisma migrate dev
 npm run seed
 npm run dev
 ```

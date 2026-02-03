@@ -6,7 +6,7 @@ CREATE TABLE "User" (
     "phone" TEXT NOT NULL,
     "password" TEXT NOT NULL,
     "profilePictureUrl" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CreateTable
@@ -16,11 +16,11 @@ CREATE TABLE "Employee" (
     "empKgid" TEXT NOT NULL,
     "role" TEXT NOT NULL,
     "yearsOfWork" INTEGER NOT NULL,
-    "dob" DATETIME NOT NULL,
+    "dob" TIMESTAMP NOT NULL,
     "currentCity" TEXT NOT NULL,
     "currentPosition" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL
 );
 
 -- CreateTable
@@ -31,8 +31,8 @@ CREATE TABLE "Transfer" (
     "fromPosition" TEXT NOT NULL,
     "toCity" TEXT NOT NULL,
     "toPosition" TEXT NOT NULL,
-    "effectiveFrom" DATETIME NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "effectiveFrom" TIMESTAMP NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdByUserId" TEXT NOT NULL,
     "remarks" TEXT,
     CONSTRAINT "Transfer_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
