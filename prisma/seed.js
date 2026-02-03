@@ -1,7 +1,6 @@
-const { PrismaClient } = require("@prisma/client");
-const bcrypt = require("bcrypt");
+require("dotenv").config();
 
-const prisma = new PrismaClient();
+const prisma = require("../src/services/prisma");
 
 const cities = [
   "Bengaluru",
@@ -135,14 +134,12 @@ const seed = async () => {
   await prisma.employee.deleteMany();
   await prisma.user.deleteMany();
 
-  const passwordHash = await bcrypt.hash("Admin@123", 10);
-
   await prisma.user.create({
     data: {
       username: "admin",
       email: "admin@karnataka.gov.in",
       phone: "9000000000",
-      passwordHash,
+      password: "Admin@123",
       profilePictureUrl: null,
     },
   });

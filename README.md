@@ -28,7 +28,7 @@ The server runs on `http://localhost:4000`.
 ## API Endpoints
 ### Auth
 - `POST /auth/login`
-  - body: `{ username?, email?, phone?, password }`
+  - body: `{ email, password }`
 
 ### Employees
 - `GET /employees?searchMode=name|kgid&query=&page=&limit=`
