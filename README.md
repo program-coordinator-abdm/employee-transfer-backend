@@ -26,8 +26,8 @@ The server runs on `http://localhost:4000`.
 - **Phone:** 9000000000
 - **Password:** Admin@123
 
-Note: The database stores the plaintext password in the `passwordHash` column for
-legacy compatibility, but no hashing is performed in code.
+Note: The database stores plaintext passwords in the `password` column. No
+hashing is performed in code.
 
 ## API Endpoints
 ### Auth

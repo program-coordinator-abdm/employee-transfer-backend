@@ -7,36 +7,18 @@ const errorHandler = require("./middlewares/errorHandler");
 const { AppError } = require("./utils/errors");
 const app = express();
 
-const allowedOrigins = (process.env.CORS_ORIGIN || "")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
-
+const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:5173";
 const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(null, false);
-  },
-  credentials: false, // JWT header auth (not cookies)
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  origin: corsOrigin,
+  credentials: true,
   optionsSuccessStatus: 204,
 };
-
 app.use(cors(corsOptions));
-app.options("/.*/", cors(corsOptions));
-
-// hard-guard: never let OPTIONS hit app routes
-app.use((req, res, next) => {
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
-});
-
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
-app.get("/health", (req, res) => {
-  res.status(200).json({ ok: true });
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok" });
 });
 
 app.use("/auth", authRoutes);

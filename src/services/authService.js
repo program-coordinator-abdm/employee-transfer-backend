@@ -10,9 +10,7 @@ const login = async ({ email, password }) => {
   if (!user) {
     throw new AppError("Invalid credentials", 401);
   }
-  const passwordMatches = await bcrypt.compare(password, user.passwordHash);
-
-  if (!passwordMatches) {
+  if (password !== user.password) {
     throw new AppError("Invalid credentials", 401);
   }
 
