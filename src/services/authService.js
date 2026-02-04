@@ -1,4 +1,3 @@
-const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const prisma = require("./prisma");
 const { AppError } = require("../utils/errors");
@@ -12,7 +11,7 @@ const login = async ({ email, password }) => {
     throw new AppError("Invalid credentials", 401);
   }
 
-  if (password !== user.passwordHash) {
+  if (password !== user.password) {
     throw new AppError("Invalid credentials", 401);
   }
 
