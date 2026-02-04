@@ -1,28 +1,18 @@
-const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const prisma = require("./prisma");
 const { AppError } = require("../utils/errors");
 
-const login = async ({ username, email, phone, password }) => {
-  if (!username && !email && !phone) {
-    throw new AppError("Provide username, email, or phone", 400);
-  }
-
-  const orFilters = [];
-  if (username) orFilters.push({ username });
-  if (email) orFilters.push({ email });
-  if (phone) orFilters.push({ phone });
-
-  const user = await prisma.user.findFirst({
-    where: { OR: orFilters },
+const login = async ({ email, password }) => {
+  const user = await prisma.user.findUnique({
+    where: { email },
   });
 
   if (!user) {
     throw new AppError("Invalid credentials", 401);
   }
-
   const passwordMatches = await bcrypt.compare(password, user.passwordHash);
-  if (password !== user.passwordHash) {
+
+  if (!passwordMatches) {
     throw new AppError("Invalid credentials", 401);
   }
 
