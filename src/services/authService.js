@@ -11,7 +11,7 @@ const login = async ({ email, password }) => {
     throw new AppError("Invalid credentials", 401);
   }
 
-  if (password !== user.password) {
+  if (password !== user.passwordHash) {
     throw new AppError("Invalid credentials", 401);
   }
 

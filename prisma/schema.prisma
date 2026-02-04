@@ -11,7 +11,7 @@ model User {
   username          String     @unique
   email             String     @unique
   phone             String     @unique
-  password          String
+  passwordHash      String
   profilePictureUrl String?
   createdAt         DateTime   @default(now())
   transfersCreated  Transfer[] @relation("TransfersCreated")

@@ -4,7 +4,7 @@ CREATE TABLE "User" (
     "username" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "phone" TEXT NOT NULL,
-    "password" TEXT NOT NULL,
+    "passwordHash" TEXT NOT NULL,
     "profilePictureUrl" TEXT,
     "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

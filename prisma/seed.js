@@ -139,7 +139,7 @@ const seed = async () => {
       username: "admin",
       email: "admin@karnataka.gov.in",
       phone: "9000000000",
-      password: "Admin@123",
+      passwordHash: "Admin@123",
       profilePictureUrl: null,
     },
   });
