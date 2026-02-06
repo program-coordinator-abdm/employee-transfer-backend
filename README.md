@@ -40,10 +40,14 @@ hashing is performed in code.
 
 ### Employees
 - `GET /employees?category=&searchMode=name|kgid&query=&page=&limit=`
+  - category is optional; if omitted, data is aggregated across categories
 - `GET /employees/suggestions?category=&searchMode=name|kgid&query=&limit=`
+  - category is optional; if omitted, suggestions are aggregated
 - `GET /employees/:id?category=`
+  - category is optional; if omitted, backend searches all categories
 - `POST /employees/:id/transfers?category=`
-  - body: `{ toCity, toPosition, toHospital?, effectiveFrom }`
+  - category is optional; if omitted, backend searches all categories
+  - body: `{ toCity, toPosition, toHospital?, toHospitalName?, effectiveFrom }`
 
 ### Exports
 - `GET /exports/employees.csv`

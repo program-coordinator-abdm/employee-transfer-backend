@@ -15,7 +15,7 @@ const categoryEnum = z.enum([
 ]);
 
 const listSchema = z.object({
-  category: categoryEnum,
+  category: categoryEnum.optional(),
   searchMode: z.enum(["name", "kgid"]).optional().default("name"),
   query: z.string().optional().default(""),
   page: z.coerce.number().int().positive().optional().default(1),
@@ -23,7 +23,7 @@ const listSchema = z.object({
 });
 
 const suggestionsSchema = z.object({
-  category: categoryEnum,
+  category: categoryEnum.optional(),
   searchMode: z.enum(["name", "kgid"]).optional().default("name"),
   query: z.string().optional().default(""),
   limit: z.coerce.number().int().positive().max(20).optional().default(8),
@@ -42,7 +42,9 @@ const getSuggestions = asyncHandler(async (req, res) => {
 });
 
 const getEmployeeById = asyncHandler(async (req, res) => {
-  const category = categoryEnum.parse(req.query.category);
+  const category = req.query.category
+    ? categoryEnum.parse(req.query.category)
+    : undefined;
   const employee = await employeeService.getEmployeeById(
     category,
     req.params.id

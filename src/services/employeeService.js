@@ -30,6 +30,7 @@ const CATEGORY_MODELS = {
 };
 
 const getCategoryModel = (category, client = prisma) => {
+  if (!category) return null;
   const config = CATEGORY_MODELS[category];
   if (!config) {
     throw new AppError("Invalid category", 400);
@@ -44,7 +45,7 @@ const calculateExperienceYears = (dateOfJoining, fallbackYears = 0) => {
   return Math.max(years, fallbackYears);
 };
 
-const normalizeEmployee = (employee) => {
+const normalizeEmployee = (employee, category) => {
   const assignmentHistory = Array.isArray(employee.assignmentHistory)
     ? employee.assignmentHistory
     : [];
@@ -63,11 +64,11 @@ const normalizeEmployee = (employee) => {
       endedOn: entry.endedOn,
     })),
     totalExperienceYears,
+    category,
   };
 };
 
-const listEmployees = async ({ category, searchMode, query, page, limit }) => {
-  const model = getCategoryModel(category);
+const buildSearchWhere = (searchMode, query) => {
   const where = {};
   if (query) {
     if (searchMode === "kgid") {
@@ -79,6 +80,21 @@ const listEmployees = async ({ category, searchMode, query, page, limit }) => {
       where.empName = { contains: query, mode: "insensitive" };
     }
   }
+  return where;
+};
+
+const listEmployeesForCategory = async ({
+  category,
+  searchMode,
+  query,
+  page,
+  limit,
+}) => {
+  const model = getCategoryModel(category);
+  if (!model) {
+    throw new AppError("Category is required", 400);
+  }
+  const where = buildSearchWhere(searchMode, query);
 
   const total = await model.count({ where });
   const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
@@ -91,7 +107,7 @@ const listEmployees = async ({ category, searchMode, query, page, limit }) => {
   });
 
   return {
-    data: data.map(normalizeEmployee),
+    data: data.map((employee) => normalizeEmployee(employee, category)),
     page,
     limit,
     total,
@@ -99,20 +115,80 @@ const listEmployees = async ({ category, searchMode, query, page, limit }) => {
   };
 };
 
+const listEmployeesAcrossCategories = async ({
+  searchMode,
+  query,
+  page,
+  limit,
+}) => {
+  const where = buildSearchWhere(searchMode, query);
+  const entries = Object.values(CATEGORY_MODELS);
+
+  const results = await Promise.all(
+    entries.map(async (entry) => {
+      const model = prisma[entry.model];
+      const [items, count] = await Promise.all([
+        model.findMany({ where, orderBy: { empName: "asc" } }),
+        model.count({ where }),
+      ]);
+      return {
+        category: entry.key,
+        count,
+        items: items.map((employee) =>
+          normalizeEmployee(employee, entry.key)
+        ),
+      };
+    })
+  );
+
+  const total = results.reduce((sum, result) => sum + result.count, 0);
+  const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+  const combined = results.flatMap((result) => result.items);
+
+  combined.sort((a, b) => a.empName.localeCompare(b.empName));
+
+  const start = (page - 1) * limit;
+  const data = combined.slice(start, start + limit);
+
+  return {
+    data,
+    page,
+    limit,
+    total,
+    totalPages,
+  };
+};
+
+const listEmployees = async ({ category, searchMode, query, page, limit }) => {
+  if (!category) {
+    return listEmployeesAcrossCategories({ searchMode, query, page, limit });
+  }
+  return listEmployeesForCategory({ category, searchMode, query, page, limit });
+};
+
 const getSuggestions = async ({ category, searchMode, query, limit }) => {
   if (!query) return [];
-  const model = getCategoryModel(category);
 
-  const where = {};
-  if (searchMode === "kgid") {
-    where.OR = [
-      { empKgid: { startsWith: query, mode: "insensitive" } },
-      { empKgid: { contains: query, mode: "insensitive" } },
-    ];
-  } else {
-    where.empName = { contains: query, mode: "insensitive" };
+  const where = buildSearchWhere(searchMode, query);
+
+  if (!category) {
+    const entries = Object.values(CATEGORY_MODELS);
+    const results = await Promise.all(
+      entries.map(async (entry) => {
+        const model = prisma[entry.model];
+        const items = await model.findMany({
+          where,
+          select: { id: true, empName: true, empKgid: true },
+          orderBy: { empName: "asc" },
+          take: limit,
+        });
+        return items.map((item) => ({ ...item, category: entry.key }));
+      })
+    );
+    return results.flat();
   }
 
+  const model = getCategoryModel(category);
   return model.findMany({
     where,
     select: { id: true, empName: true, empKgid: true },
@@ -121,17 +197,37 @@ const getSuggestions = async ({ category, searchMode, query, limit }) => {
   });
 };
 
-const getEmployeeById = async (category, id) => {
-  const model = getCategoryModel(category);
-  const employee = await model.findUnique({
-    where: { id },
-  });
+const findEmployeeById = async (id, client = prisma) => {
+  const entries = Object.values(CATEGORY_MODELS);
+  for (const entry of entries) {
+    const model = client[entry.model];
+    const employee = await model.findUnique({ where: { id } });
+    if (employee) {
+      return {
+        employee,
+        category: entry.key,
+        model,
+      };
+    }
+  }
+  return null;
+};
 
-  if (!employee) {
-    throw new AppError("Employee not found", 404);
+const getEmployeeById = async (category, id) => {
+  if (category) {
+    const model = getCategoryModel(category);
+    const employee = await model.findUnique({ where: { id } });
+    if (!employee) {
+      throw new AppError("Employee not found", 404);
+    }
+    return normalizeEmployee(employee, category);
   }
 
-  return normalizeEmployee(employee);
+  const found = await findEmployeeById(id);
+  if (!found) {
+    throw new AppError("Employee not found", 404);
+  }
+  return normalizeEmployee(found.employee, found.category);
 };
 
 const createTransfer = async (
@@ -141,12 +237,22 @@ const createTransfer = async (
   _userId
 ) => {
   return prisma.$transaction(async (tx) => {
-    const model = getCategoryModel(category, tx);
-    const employee = await model.findUnique({
-      where: { id: employeeId },
-    });
+    let resolvedCategory = category;
+    let model = getCategoryModel(category, tx);
+    let employee = null;
 
-    if (!employee) {
+    if (model) {
+      employee = await model.findUnique({ where: { id: employeeId } });
+    } else {
+      const found = await findEmployeeById(employeeId, tx);
+      if (found) {
+        employee = found.employee;
+        resolvedCategory = found.category;
+        model = found.model;
+      }
+    }
+
+    if (!employee || !model) {
       throw new AppError("Employee not found", 404);
     }
 
@@ -175,7 +281,7 @@ const createTransfer = async (
 
     return {
       transfer: assignmentHistory[assignmentHistory.length - 1],
-      employee: normalizeEmployee(updatedEmployee),
+      employee: normalizeEmployee(updatedEmployee, resolvedCategory),
     };
   });
 };
