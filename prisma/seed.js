@@ -138,6 +138,36 @@ const generateEmployees = (count) => {
   return employees;
 };
 
+const buildAssignmentHistory = (params) => {
+  const { dateOfJoining, role, baseIndex } = params;
+  const firstStart = new Date(dateOfJoining);
+  const firstEnd = new Date(firstStart);
+  firstEnd.setFullYear(firstEnd.getFullYear() + 2);
+
+  const secondStart = new Date(firstEnd);
+  const secondEnd = new Date(secondStart);
+  secondEnd.setFullYear(secondEnd.getFullYear() + 3);
+
+  return [
+    {
+      role,
+      city: cities[(baseIndex + 1) % cities.length],
+      hospital: hospitals[(baseIndex + 1) % hospitals.length],
+      position: positions[(baseIndex + 1) % positions.length],
+      startedOn: firstStart.toISOString(),
+      endedOn: firstEnd.toISOString(),
+    },
+    {
+      role,
+      city: cities[(baseIndex + 2) % cities.length],
+      hospital: hospitals[(baseIndex + 2) % hospitals.length],
+      position: positions[(baseIndex + 2) % positions.length],
+      startedOn: secondStart.toISOString(),
+      endedOn: secondEnd.toISOString(),
+    },
+  ];
+};
+
 const generateCategoryEmployees = ({
   count,
   prefix,
@@ -162,6 +192,12 @@ const generateCategoryEmployees = ({
     const currentHospital = hospitals[index % hospitals.length];
     const currentPosition = positions[index % positions.length];
 
+    const assignmentHistory = buildAssignmentHistory({
+      dateOfJoining,
+      role,
+      baseIndex: index,
+    });
+
     employees.push({
       empName,
       empKgid,
@@ -172,7 +208,7 @@ const generateCategoryEmployees = ({
       currentCity,
       currentHospital,
       currentPosition,
-      assignmentHistory: [],
+      assignmentHistory,
     });
   }
   return employees;

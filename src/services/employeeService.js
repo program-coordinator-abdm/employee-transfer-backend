@@ -260,11 +260,19 @@ const createTransfer = async (
       ? [...employee.assignmentHistory]
       : [];
 
+    const lastHistoryEntry = assignmentHistory[assignmentHistory.length - 1];
+    const startedOn =
+      lastHistoryEntry?.endedOn ||
+      (employee.dateOfJoining
+        ? new Date(employee.dateOfJoining).toISOString()
+        : new Date().toISOString());
+
     assignmentHistory.push({
       role: employee.role,
       city: employee.currentCity,
       hospital: employee.currentHospital,
       position: employee.currentPosition,
+      startedOn,
       endedOn: new Date(effectiveFrom).toISOString(),
     });
 
