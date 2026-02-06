@@ -62,6 +62,15 @@ const positions = [
   "Administrative Officer",
 ];
 
+const hospitals = [
+  "District Hospital",
+  "Taluk Hospital",
+  "Community Health Center",
+  "Primary Health Center",
+  "Government Medical College",
+  "Sub-District Hospital",
+];
+
 const firstNames = [
   "Aarav",
   "Ananya",
@@ -129,9 +138,58 @@ const generateEmployees = (count) => {
   return employees;
 };
 
+const generateCategoryEmployees = ({
+  count,
+  prefix,
+  role,
+  startIndex,
+}) => {
+  const employees = [];
+  for (let i = 0; i < count; i += 1) {
+    const index = startIndex + i;
+    const firstName = firstNames[index % firstNames.length];
+    const lastName = lastNames[(index * 3) % lastNames.length];
+    const empName = `${firstName} ${lastName}`;
+    const empKgid = `${prefix}${1000 + index}`;
+    const yearsOfWork = Math.max(1, (index * 2) % 31);
+    const dob = new Date(1975 + (index % 20), (index * 2) % 12, (index * 7) % 28 + 1);
+    const dateOfJoining = new Date(
+      2000 + (index % 20),
+      (index * 3) % 12,
+      (index * 5) % 28 + 1
+    );
+    const currentCity = cities[index % cities.length];
+    const currentHospital = hospitals[index % hospitals.length];
+    const currentPosition = positions[index % positions.length];
+
+    employees.push({
+      empName,
+      empKgid,
+      role,
+      yearsOfWork,
+      dob,
+      dateOfJoining,
+      currentCity,
+      currentHospital,
+      currentPosition,
+      assignmentHistory: [],
+    });
+  }
+  return employees;
+};
+
 const seed = async () => {
   await prisma.transfer.deleteMany();
   await prisma.employee.deleteMany();
+  await prisma.doctor.deleteMany();
+  await prisma.nurse.deleteMany();
+  await prisma.pharmacist.deleteMany();
+  await prisma.labTechnician.deleteMany();
+  await prisma.radiologyStaff.deleteMany();
+  await prisma.supportStaff.deleteMany();
+  await prisma.itHelpdeskStaff.deleteMany();
+  await prisma.emtStaff.deleteMany();
+  await prisma.administrationStaff.deleteMany();
   await prisma.user.deleteMany();
 
   await prisma.user.create({
@@ -146,6 +204,34 @@ const seed = async () => {
 
   const employees = generateEmployees(45);
   await prisma.employee.createMany({ data: employees });
+
+  await prisma.doctor.createMany({
+    data: generateCategoryEmployees({ count: 12, prefix: "DOC", role: "Doctor", startIndex: 1 }),
+  });
+  await prisma.nurse.createMany({
+    data: generateCategoryEmployees({ count: 18, prefix: "NUR", role: "Nurse", startIndex: 40 }),
+  });
+  await prisma.pharmacist.createMany({
+    data: generateCategoryEmployees({ count: 10, prefix: "PHA", role: "Pharmacist", startIndex: 80 }),
+  });
+  await prisma.labTechnician.createMany({
+    data: generateCategoryEmployees({ count: 9, prefix: "LAB", role: "Lab Technician", startIndex: 120 }),
+  });
+  await prisma.radiologyStaff.createMany({
+    data: generateCategoryEmployees({ count: 7, prefix: "RAD", role: "Radiology", startIndex: 160 }),
+  });
+  await prisma.supportStaff.createMany({
+    data: generateCategoryEmployees({ count: 15, prefix: "SUP", role: "Support Staff", startIndex: 200 }),
+  });
+  await prisma.itHelpdeskStaff.createMany({
+    data: generateCategoryEmployees({ count: 6, prefix: "ITH", role: "IT Help Desk", startIndex: 240 }),
+  });
+  await prisma.emtStaff.createMany({
+    data: generateCategoryEmployees({ count: 8, prefix: "EMT", role: "EMT", startIndex: 280 }),
+  });
+  await prisma.administrationStaff.createMany({
+    data: generateCategoryEmployees({ count: 11, prefix: "ADM", role: "Administration", startIndex: 320 }),
+  });
 };
 
 seed()

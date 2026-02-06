@@ -34,12 +34,16 @@ hashing is performed in code.
 - `POST /auth/login`
   - body: `{ email, password }`
 
+### Categories
+- `GET /categories`
+  - returns counts per category
+
 ### Employees
-- `GET /employees?searchMode=name|kgid&query=&page=&limit=`
-- `GET /employees/suggestions?searchMode=name|kgid&query=&limit=`
-- `GET /employees/:id`
-- `POST /employees/:id/transfers`
-  - body: `{ toCity, toPosition, effectiveFrom }`
+- `GET /employees?category=&searchMode=name|kgid&query=&page=&limit=`
+- `GET /employees/suggestions?category=&searchMode=name|kgid&query=&limit=`
+- `GET /employees/:id?category=`
+- `POST /employees/:id/transfers?category=`
+  - body: `{ toCity, toPosition, toHospital?, effectiveFrom }`
 
 ### Exports
 - `GET /exports/employees.csv`

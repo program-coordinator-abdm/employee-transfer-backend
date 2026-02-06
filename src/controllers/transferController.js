@@ -3,9 +3,22 @@ const asyncHandler = require("../utils/asyncHandler");
 const employeeService = require("../services/employeeService");
 const { AppError } = require("../utils/errors");
 
+const categorySchema = z.enum([
+  "doctors",
+  "nurses",
+  "pharmacists",
+  "lab-technicians",
+  "radiology",
+  "support-staff",
+  "it-helpdesk",
+  "emt",
+  "administration",
+]);
+
 const transferSchema = z.object({
   toCity: z.string().min(1),
   toPosition: z.string().min(1),
+  toHospital: z.string().min(1).optional(),
   effectiveFrom: z.coerce.date(),
 });
 
@@ -14,7 +27,9 @@ const createTransfer = asyncHandler(async (req, res) => {
   if (!req.user?.id) {
     throw new AppError("Unauthorized", 401);
   }
+  const category = categorySchema.parse(req.query.category);
   const result = await employeeService.createTransfer(
+    category,
     req.params.id,
     payload,
     req.user.id

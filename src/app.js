@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const employeeRoutes = require("./routes/employeeRoutes");
+const categoryRoutes = require("./routes/categoryRoutes");
 const exportRoutes = require("./routes/exportRoutes");
 const errorHandler = require("./middlewares/errorHandler");
 const { AppError } = require("./utils/errors");
@@ -22,6 +23,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/auth", authRoutes);
+app.use("/categories", categoryRoutes);
 app.use("/employees", employeeRoutes);
 app.use("/exports", exportRoutes);
 

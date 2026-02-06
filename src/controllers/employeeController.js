@@ -2,7 +2,20 @@ const { z } = require("zod");
 const asyncHandler = require("../utils/asyncHandler");
 const employeeService = require("../services/employeeService");
 
+const categoryEnum = z.enum([
+  "doctors",
+  "nurses",
+  "pharmacists",
+  "lab-technicians",
+  "radiology",
+  "support-staff",
+  "it-helpdesk",
+  "emt",
+  "administration",
+]);
+
 const listSchema = z.object({
+  category: categoryEnum,
   searchMode: z.enum(["name", "kgid"]).optional().default("name"),
   query: z.string().optional().default(""),
   page: z.coerce.number().int().positive().optional().default(1),
@@ -10,6 +23,7 @@ const listSchema = z.object({
 });
 
 const suggestionsSchema = z.object({
+  category: categoryEnum,
   searchMode: z.enum(["name", "kgid"]).optional().default("name"),
   query: z.string().optional().default(""),
   limit: z.coerce.number().int().positive().max(20).optional().default(8),
@@ -28,7 +42,11 @@ const getSuggestions = asyncHandler(async (req, res) => {
 });
 
 const getEmployeeById = asyncHandler(async (req, res) => {
-  const employee = await employeeService.getEmployeeById(req.params.id);
+  const category = categoryEnum.parse(req.query.category);
+  const employee = await employeeService.getEmployeeById(
+    category,
+    req.params.id
+  );
   res.json(employee);
 });
 
