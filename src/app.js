@@ -8,10 +8,22 @@ const errorHandler = require("./middlewares/errorHandler");
 const { AppError } = require("./utils/errors");
 const app = express();
 
-const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:5173";
+const defaultOrigins = ["http://localhost:5173", "http://localhost:8080"];
+const allowedOrigins = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const origins = allowedOrigins.length > 0 ? allowedOrigins : defaultOrigins;
+
 const corsOptions = {
-  origin: corsOrigin,
-  credentials: true,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (origins.includes(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  credentials: false,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   optionsSuccessStatus: 204,
 };
 app.use(cors(corsOptions));

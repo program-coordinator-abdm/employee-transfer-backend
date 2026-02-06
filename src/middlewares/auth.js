@@ -2,6 +2,9 @@ const jwt = require("jsonwebtoken");
 const { AppError } = require("../utils/errors");
 
 const authMiddleware = (req, _res, next) => {
+  if (req.method === "OPTIONS") {
+    return next();
+  }
   const authHeader = req.headers.authorization || "";
   const [, token] = authHeader.split(" ");
 
