@@ -49,13 +49,28 @@ const normalizeEmployee = (employee, category) => {
   const assignmentHistory = Array.isArray(employee.assignmentHistory)
     ? employee.assignmentHistory
     : [];
+  const lastHistoryEntry = assignmentHistory[assignmentHistory.length - 1];
+  const currentStartedOn =
+    lastHistoryEntry?.endedOn ||
+    (employee.dateOfJoining
+      ? new Date(employee.dateOfJoining).toISOString()
+      : new Date().toISOString());
+  const currentEntry = {
+    role: employee.role,
+    city: employee.currentCity,
+    hospital: employee.currentHospital,
+    position: employee.currentPosition,
+    startedOn: currentStartedOn,
+    endedOn: null,
+  };
+  const assignmentHistoryWithCurrent = [...assignmentHistory, currentEntry];
   const totalExperienceYears = calculateExperienceYears(
     employee.dateOfJoining,
     employee.yearsOfWork
   );
   return {
     ...employee,
-    assignmentHistory,
+    assignmentHistory: assignmentHistoryWithCurrent,
     previousAssignments: assignmentHistory.map((entry) => ({
       role: entry.role,
       city: entry.city,
