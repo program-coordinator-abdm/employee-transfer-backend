@@ -49,3 +49,291 @@ model Transfer {
   @@index([employeeId])
   @@index([createdByUserId])
 }
+
+model Doctor {
+  id                String   @id @default(uuid())
+  empName           String
+  empKgid           String   @unique
+  role              String
+  yearsOfWork       Int
+  dob               DateTime
+  dateOfJoining     DateTime
+  currentCity       String
+  currentHospital   String
+  currentPosition   String
+  currentDesignation String?
+  postAppliedFor     String?
+  submittedOn        String?
+  objections         String?
+  education          Json?
+  serviceInformation Json?
+  appointmentDetails Json?
+  probationDetails   String?
+  timeboundPromotions Json?
+  postgraduateQualifications Json?
+  administrativeRoles Json?
+  additionalCharges  Json?
+  achievements       Json?
+  disciplinaryRecord Json?
+  declaration        Json?
+  documents          Json?
+  assignmentHistory Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Nurse {
+  id                String   @id @default(uuid())
+  empName           String
+  empKgid           String   @unique
+  role              String
+  yearsOfWork       Int
+  dob               DateTime
+  dateOfJoining     DateTime
+  currentCity       String
+  currentHospital   String
+  currentPosition   String
+  currentDesignation String?
+  postAppliedFor     String?
+  submittedOn        String?
+  objections         String?
+  education          Json?
+  serviceInformation Json?
+  appointmentDetails Json?
+  probationDetails   String?
+  timeboundPromotions Json?
+  postgraduateQualifications Json?
+  administrativeRoles Json?
+  additionalCharges  Json?
+  achievements       Json?
+  disciplinaryRecord Json?
+  declaration        Json?
+  documents          Json?
+  assignmentHistory Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Pharmacist {
+  id                String   @id @default(uuid())
+  empName           String
+  empKgid           String   @unique
+  role              String
+  yearsOfWork       Int
+  dob               DateTime
+  dateOfJoining     DateTime
+  currentCity       String
+  currentHospital   String
+  currentPosition   String
+  currentDesignation String?
+  postAppliedFor     String?
+  submittedOn        String?
+  objections         String?
+  education          Json?
+  serviceInformation Json?
+  appointmentDetails Json?
+  probationDetails   String?
+  timeboundPromotions Json?
+  postgraduateQualifications Json?
+  administrativeRoles Json?
+  additionalCharges  Json?
+  achievements       Json?
+  disciplinaryRecord Json?
+  declaration        Json?
+  documents          Json?
+  assignmentHistory Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model LabTechnician {
+  id                String   @id @default(uuid())
+  empName           String
+  empKgid           String   @unique
+  role              String
+  yearsOfWork       Int
+  dob               DateTime
+  dateOfJoining     DateTime
+  currentCity       String
+  currentHospital   String
+  currentPosition   String
+  currentDesignation String?
+  postAppliedFor     String?
+  submittedOn        String?
+  objections         String?
+  education          Json?
+  serviceInformation Json?
+  appointmentDetails Json?
+  probationDetails   String?
+  timeboundPromotions Json?
+  postgraduateQualifications Json?
+  administrativeRoles Json?
+  additionalCharges  Json?
+  achievements       Json?
+  disciplinaryRecord Json?
+  declaration        Json?
+  documents          Json?
+  assignmentHistory Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model RadiologyStaff {
+  id                String   @id @default(uuid())
+  empName           String
+  empKgid           String   @unique
+  role              String
+  yearsOfWork       Int
+  dob               DateTime
+  dateOfJoining     DateTime
+  currentCity       String
+  currentHospital   String
+  currentPosition   String
+  currentDesignation String?
+  postAppliedFor     String?
+  submittedOn        String?
+  objections         String?
+  education          Json?
+  serviceInformation Json?
+  appointmentDetails Json?
+  probationDetails   String?
+  timeboundPromotions Json?
+  postgraduateQualifications Json?
+  administrativeRoles Json?
+  additionalCharges  Json?
+  achievements       Json?
+  disciplinaryRecord Json?
+  declaration        Json?
+  documents          Json?
+  assignmentHistory Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model SupportStaff {
+  id                String   @id @default(uuid())
+  empName           String
+  empKgid           String   @unique
+  role              String
+  yearsOfWork       Int
+  dob               DateTime
+  dateOfJoining     DateTime
+  currentCity       String
+  currentHospital   String
+  currentPosition   String
+  currentDesignation String?
+  postAppliedFor     String?
+  submittedOn        String?
+  objections         String?
+  education          Json?
+  serviceInformation Json?
+  appointmentDetails Json?
+  probationDetails   String?
+  timeboundPromotions Json?
+  postgraduateQualifications Json?
+  administrativeRoles Json?
+  additionalCharges  Json?
+  achievements       Json?
+  disciplinaryRecord Json?
+  declaration        Json?
+  documents          Json?
+  assignmentHistory Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model ItHelpdeskStaff {
+  id                String   @id @default(uuid())
+  empName           String
+  empKgid           String   @unique
+  role              String
+  yearsOfWork       Int
+  dob               DateTime
+  dateOfJoining     DateTime
+  currentCity       String
+  currentHospital   String
+  currentPosition   String
+  currentDesignation String?
+  postAppliedFor     String?
+  submittedOn        String?
+  objections         String?
+  education          Json?
+  serviceInformation Json?
+  appointmentDetails Json?
+  probationDetails   String?
+  timeboundPromotions Json?
+  postgraduateQualifications Json?
+  administrativeRoles Json?
+  additionalCharges  Json?
+  achievements       Json?
+  disciplinaryRecord Json?
+  declaration        Json?
+  documents          Json?
+  assignmentHistory Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model EmtStaff {
+  id                String   @id @default(uuid())
+  empName           String
+  empKgid           String   @unique
+  role              String
+  yearsOfWork       Int
+  dob               DateTime
+  dateOfJoining     DateTime
+  currentCity       String
+  currentHospital   String
+  currentPosition   String
+  currentDesignation String?
+  postAppliedFor     String?
+  submittedOn        String?
+  objections         String?
+  education          Json?
+  serviceInformation Json?
+  appointmentDetails Json?
+  probationDetails   String?
+  timeboundPromotions Json?
+  postgraduateQualifications Json?
+  administrativeRoles Json?
+  additionalCharges  Json?
+  achievements       Json?
+  disciplinaryRecord Json?
+  declaration        Json?
+  documents          Json?
+  assignmentHistory Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model AdministrationStaff {
+  id                String   @id @default(uuid())
+  empName           String
+  empKgid           String   @unique
+  role              String
+  yearsOfWork       Int
+  dob               DateTime
+  dateOfJoining     DateTime
+  currentCity       String
+  currentHospital   String
+  currentPosition   String
+  currentDesignation String?
+  postAppliedFor     String?
+  submittedOn        String?
+  objections         String?
+  education          Json?
+  serviceInformation Json?
+  appointmentDetails Json?
+  probationDetails   String?
+  timeboundPromotions Json?
+  postgraduateQualifications Json?
+  administrativeRoles Json?
+  additionalCharges  Json?
+  achievements       Json?
+  disciplinaryRecord Json?
+  declaration        Json?
+  documents          Json?
+  assignmentHistory Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
