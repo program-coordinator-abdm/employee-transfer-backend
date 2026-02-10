@@ -5,28 +5,12 @@ const CATEGORY_MODELS = {
   doctors: { key: "doctors", label: "Doctors", model: "doctor" },
   nurses: { key: "nurses", label: "Nurses", model: "nurse" },
   pharmacists: { key: "pharmacists", label: "Pharmacists", model: "pharmacist" },
-  "lab-technicians": {
-    key: "lab-technicians",
-    label: "Lab Technicians",
-    model: "labTechnician",
-  },
+  "lab-technicians": { key: "lab-technicians", label: "Lab Technicians", model: "labTechnician" },
   radiology: { key: "radiology", label: "Radiology", model: "radiologyStaff" },
-  "support-staff": {
-    key: "support-staff",
-    label: "Support Staff",
-    model: "supportStaff",
-  },
-  "it-helpdesk": {
-    key: "it-helpdesk",
-    label: "IT Help Desk",
-    model: "itHelpdeskStaff",
-  },
+  "support-staff": { key: "support-staff", label: "Support Staff", model: "supportStaff" },
+  "it-helpdesk": { key: "it-helpdesk", label: "IT Help Desk", model: "itHelpdeskStaff" },
   emt: { key: "emt", label: "EMT", model: "emtStaff" },
-  administration: {
-    key: "administration",
-    label: "Administration",
-    model: "administrationStaff",
-  },
+  administration: { key: "administration", label: "Administration", model: "administrationStaff" },
 };
 
 const getCategoryModel = (category, client = prisma) => {
@@ -45,16 +29,44 @@ const calculateExperienceYears = (dateOfJoining, fallbackYears = 0) => {
   return Math.max(years, fallbackYears);
 };
 
+const formatPeriod = (startedOn, endedOn) => {
+  if (!startedOn) return "-";
+  const start = new Date(startedOn);
+  const end = endedOn ? new Date(endedOn) : new Date();
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "-";
+  const totalMonths =
+    end.getFullYear() * 12 +
+    end.getMonth() -
+    (start.getFullYear() * 12 + start.getMonth());
+  const years = Math.floor(totalMonths / 12);
+  const months = Math.max(0, totalMonths % 12);
+  if (years > 0 && months > 0) {
+    return `${years} year${years !== 1 ? "s" : ""} ${months} month${months !== 1 ? "s" : ""}`;
+  }
+  if (years > 0) {
+    return `${years} year${years !== 1 ? "s" : ""}`;
+  }
+  return `${months} month${months !== 1 ? "s" : ""}`;
+};
+
 const normalizeEmployee = (employee, category) => {
   const assignmentHistory = Array.isArray(employee.assignmentHistory)
     ? employee.assignmentHistory
     : [];
-  const lastHistoryEntry = assignmentHistory[assignmentHistory.length - 1];
+  const normalizedHistory = assignmentHistory.map((entry) => ({
+    ...entry,
+    type: entry.type || "past",
+    district: entry.district || entry.city,
+    period: entry.period || formatPeriod(entry.startedOn, entry.endedOn),
+  }));
+
+  const lastHistoryEntry = normalizedHistory[normalizedHistory.length - 1];
   const currentStartedOn =
     lastHistoryEntry?.endedOn ||
     (employee.dateOfJoining
       ? new Date(employee.dateOfJoining).toISOString()
       : new Date().toISOString());
+
   const currentEntry = {
     role: employee.role,
     city: employee.currentCity,
@@ -62,22 +74,20 @@ const normalizeEmployee = (employee, category) => {
     position: employee.currentPosition,
     startedOn: currentStartedOn,
     endedOn: null,
+    type: "current",
+    district: employee.currentCity,
+    period: formatPeriod(currentStartedOn, null),
   };
-  const assignmentHistoryWithCurrent = [...assignmentHistory, currentEntry];
+
+  const assignmentHistoryWithCurrent = [...normalizedHistory, currentEntry];
   const totalExperienceYears = calculateExperienceYears(
     employee.dateOfJoining,
     employee.yearsOfWork
   );
+
   return {
     ...employee,
     assignmentHistory: assignmentHistoryWithCurrent,
-    previousAssignments: assignmentHistory.map((entry) => ({
-      role: entry.role,
-      city: entry.city,
-      hospital: entry.hospital,
-      position: entry.position,
-      endedOn: entry.endedOn,
-    })),
     totalExperienceYears,
     category,
   };
@@ -98,13 +108,7 @@ const buildSearchWhere = (searchMode, query) => {
   return where;
 };
 
-const listEmployeesForCategory = async ({
-  category,
-  searchMode,
-  query,
-  page,
-  limit,
-}) => {
+const listEmployeesForCategory = async ({ category, searchMode, query, page, limit }) => {
   const model = getCategoryModel(category);
   if (!model) {
     throw new AppError("Category is required", 400);
@@ -130,12 +134,7 @@ const listEmployeesForCategory = async ({
   };
 };
 
-const listEmployeesAcrossCategories = async ({
-  searchMode,
-  query,
-  page,
-  limit,
-}) => {
+const listEmployeesAcrossCategories = async ({ searchMode, query, page, limit }) => {
   const where = buildSearchWhere(searchMode, query);
   const entries = Object.values(CATEGORY_MODELS);
 
@@ -149,9 +148,7 @@ const listEmployeesAcrossCategories = async ({
       return {
         category: entry.key,
         count,
-        items: items.map((employee) =>
-          normalizeEmployee(employee, entry.key)
-        ),
+        items: items.map((employee) => normalizeEmployee(employee, entry.key)),
       };
     })
   );
@@ -183,7 +180,6 @@ const listEmployees = async ({ category, searchMode, query, page, limit }) => {
 
 const getSuggestions = async ({ category, searchMode, query, limit }) => {
   if (!query) return [];
-
   const where = buildSearchWhere(searchMode, query);
 
   if (!category) {
@@ -289,6 +285,9 @@ const createTransfer = async (
       position: employee.currentPosition,
       startedOn,
       endedOn: new Date(effectiveFrom).toISOString(),
+      type: "past",
+      district: employee.currentCity,
+      period: formatPeriod(startedOn, effectiveFrom),
     });
 
     const updatedEmployee = await model.update({
@@ -297,13 +296,13 @@ const createTransfer = async (
         currentCity: toCity,
         currentPosition: toPosition,
         currentHospital: toHospital || employee.currentHospital,
+        currentDesignation: `${toPosition} ${toCity}`,
         assignmentHistory,
         yearsOfWork: calculateExperienceYears(employee.dateOfJoining, employee.yearsOfWork),
       },
     });
 
     return {
-      transfer: assignmentHistory[assignmentHistory.length - 1],
       employee: normalizeEmployee(updatedEmployee, resolvedCategory),
     };
   });

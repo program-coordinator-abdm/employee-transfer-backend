@@ -138,8 +138,27 @@ const generateEmployees = (count) => {
   return employees;
 };
 
-const buildAssignmentHistory = (params) => {
-  const { dateOfJoining, role, baseIndex } = params;
+const formatDate = (date) => date.toISOString().split("T")[0];
+
+const formatPeriod = (startedOn, endedOn) => {
+  const start = new Date(startedOn);
+  const end = new Date(endedOn);
+  const totalMonths =
+    end.getFullYear() * 12 +
+    end.getMonth() -
+    (start.getFullYear() * 12 + start.getMonth());
+  const years = Math.floor(totalMonths / 12);
+  const months = Math.max(0, totalMonths % 12);
+  if (years > 0 && months > 0) {
+    return `${years} year${years !== 1 ? "s" : ""} ${months} month${months !== 1 ? "s" : ""}`;
+  }
+  if (years > 0) {
+    return `${years} year${years !== 1 ? "s" : ""}`;
+  }
+  return `${months} month${months !== 1 ? "s" : ""}`;
+};
+
+const buildAssignmentHistory = (index, role, dateOfJoining) => {
   const firstStart = new Date(dateOfJoining);
   const firstEnd = new Date(firstStart);
   firstEnd.setFullYear(firstEnd.getFullYear() + 2);
@@ -148,32 +167,149 @@ const buildAssignmentHistory = (params) => {
   const secondEnd = new Date(secondStart);
   secondEnd.setFullYear(secondEnd.getFullYear() + 3);
 
-  return [
-    {
-      role,
-      city: cities[(baseIndex + 1) % cities.length],
-      hospital: hospitals[(baseIndex + 1) % hospitals.length],
-      position: positions[(baseIndex + 1) % positions.length],
-      startedOn: firstStart.toISOString(),
-      endedOn: firstEnd.toISOString(),
-    },
-    {
-      role,
-      city: cities[(baseIndex + 2) % cities.length],
-      hospital: hospitals[(baseIndex + 2) % hospitals.length],
-      position: positions[(baseIndex + 2) % positions.length],
-      startedOn: secondStart.toISOString(),
-      endedOn: secondEnd.toISOString(),
-    },
-  ];
+  const typeCycle = ["past", "rural", "contract", "admin", "additional"];
+
+  const firstEntry = {
+    role,
+    city: cities[(index + 1) % cities.length],
+    hospital: hospitals[(index + 1) % hospitals.length],
+    position: positions[(index + 1) % positions.length],
+    startedOn: firstStart.toISOString(),
+    endedOn: firstEnd.toISOString(),
+    district: cities[(index + 1) % cities.length],
+    period: formatPeriod(firstStart, firstEnd),
+    type: typeCycle[index % typeCycle.length],
+  };
+
+  const secondEntry = {
+    role,
+    city: cities[(index + 2) % cities.length],
+    hospital: hospitals[(index + 2) % hospitals.length],
+    position: positions[(index + 2) % positions.length],
+    startedOn: secondStart.toISOString(),
+    endedOn: secondEnd.toISOString(),
+    district: cities[(index + 2) % cities.length],
+    period: formatPeriod(secondStart, secondEnd),
+    type: typeCycle[(index + 1) % typeCycle.length],
+  };
+
+  return [firstEntry, secondEntry];
 };
 
-const generateCategoryEmployees = ({
-  count,
-  prefix,
-  role,
-  startIndex,
-}) => {
+const buildProfileData = (index, role, currentCity, currentPosition) => {
+  return {
+    currentDesignation: `${currentPosition} ${currentCity}`,
+    postAppliedFor: `${role} Transfer`,
+    submittedOn: formatDate(new Date(2025, 9, 5)),
+    objections: "Not provided",
+    education: [
+      {
+        type: "MBBS",
+        institution: "Government Medical College",
+        year: "2008",
+      },
+      {
+        type: "Post Graduation",
+        degree: "MD",
+        institution: "Bangalore Medical College",
+        university: "RGUHS",
+        year: "2012",
+        specialization: "General Medicine",
+      },
+    ],
+    serviceInformation: {
+      deputedByGovernment: "Yes",
+      specialistService: "Yes",
+      trainingInHospitalAdmin: "Completed",
+      spouseInGovtService: "No",
+      spouseServiceDetails: "",
+    },
+    appointmentDetails: {
+      slNoInOrder: `${100 + index}`,
+      orderNoAndDate: `GOK/ETM/${2020 + (index % 4)}/${formatDate(new Date(2020, 5, 15))}`,
+      dateOfInitialAppointment: formatDate(new Date(2010 + (index % 10), 2, 1)),
+    },
+    probationDetails: "Probation completed successfully.",
+    timeboundPromotions: [
+      {
+        label: "6 Year Promotion",
+        status: "Granted",
+        order: `TBP-${200 + index}`,
+        date: formatDate(new Date(2016, 6, 1)),
+      },
+      {
+        label: "13 Year Promotion",
+        status: "Pending",
+        order: `TBP-${300 + index}`,
+        date: formatDate(new Date(2023, 6, 1)),
+      },
+    ],
+    postgraduateQualifications: [
+      {
+        degree: "MD",
+        institution: "Bangalore Medical College",
+        university: "RGUHS",
+        year: "2012",
+        specialization: "General Medicine",
+      },
+    ],
+    administrativeRoles: [
+      {
+        role: "Department Coordinator",
+        fromDate: formatDate(new Date(2021, 1, 1)),
+        toDate: formatDate(new Date(2022, 11, 31)),
+        details: "Oversaw departmental operations",
+      },
+    ],
+    additionalCharges: [
+      {
+        designation: "In-charge",
+        place: currentCity,
+        fromDate: formatDate(new Date(2023, 1, 1)),
+        toDate: formatDate(new Date(2024, 1, 1)),
+      },
+    ],
+    achievements: [
+      {
+        type: "significant",
+        description: "No significant achievements recorded",
+      },
+      {
+        type: "special",
+        description: `State award best program officer of ${currentCity} district 2023 received at Bangalore`,
+      },
+    ],
+    disciplinaryRecord: {
+      departmentalEnquiries: "no",
+      suspensionPeriods: "no",
+      punishmentsReceived: "no",
+      criminalProceedings: "No criminal proceedings recorded",
+      pendingLegalMatters: "no",
+    },
+    declaration: {
+      declarationDate: formatDate(new Date(2025, 9, 5)),
+      declarationPlace: currentCity.toLowerCase(),
+      agreedToDeclaration: "Yes",
+      remarks: "Not provided",
+    },
+    documents: [
+      {
+        name: "13 YR TIME BOND.pdf",
+        sizeKB: 1254.51,
+        uploadedAt: "10/6/2025, 12:54:30 PM",
+        downloadUrl: "https://example.com/docs/13yr-time-bond.pdf",
+      },
+      {
+        name: "06YEAR TIME BOND.jpeg",
+        sizeKB: 123.25,
+        uploadedAt: "10/6/2025, 12:54:30 PM",
+        downloadUrl: "https://example.com/docs/06year-time-bond.jpeg",
+      },
+    ],
+  };
+};
+
+const generateCategoryEmployees = ({ count, prefix, role, startIndex }) => {
   const employees = [];
   for (let i = 0; i < count; i += 1) {
     const index = startIndex + i;
@@ -192,11 +328,7 @@ const generateCategoryEmployees = ({
     const currentHospital = hospitals[index % hospitals.length];
     const currentPosition = positions[index % positions.length];
 
-    const assignmentHistory = buildAssignmentHistory({
-      dateOfJoining,
-      role,
-      baseIndex: index,
-    });
+    const assignmentHistory = buildAssignmentHistory(index, role, dateOfJoining);
 
     employees.push({
       empName,
@@ -209,6 +341,7 @@ const generateCategoryEmployees = ({
       currentHospital,
       currentPosition,
       assignmentHistory,
+      ...buildProfileData(index, role, currentCity, currentPosition),
     });
   }
   return employees;
