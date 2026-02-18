@@ -7,333 +7,288 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum UserRole {
+  ADMIN
+  DATA_OFFICER
+}
+
+enum AssignmentType {
+  current
+  additional
+  past
+  rural
+  contract
+  admin
+}
+
+enum AchievementType {
+  significant
+  special
+}
+
 model User {
-  id                String     @id @default(uuid())
-  username          String     @unique
-  email             String     @unique
-  phone             String     @unique
+  id                Int       @id @default(autoincrement())
+  username          String    @unique
+  email             String    @unique
+  phone             String?
   password          String
+  role              UserRole
   profilePictureUrl String?
-  createdAt         DateTime   @default(now())
+  createdAt         DateTime  @default(now())
   transfersCreated  Transfer[] @relation("TransfersCreated")
 }
 
 model Employee {
-  id              String     @id @default(uuid())
-  empName         String
-  empKgid         String     @unique
-  role            String
-  yearsOfWork     Int
-  dob             DateTime
-  currentCity     String
-  currentPosition String
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  transfers       Transfer[]
+  id                     Int       @id @default(autoincrement())
+  empName                String
+  empKgid                String    @unique
+  designation            String
+  designationGroup       String
+  designationSubGroup    String
+  dateOfEntry            DateTime
+  dateOfJoining          DateTime
+  gender                 String
+  dob                    DateTime
+  yearsOfWork            Int?
+  currentPostHeld        String
+  currentPostGroup       String
+  currentPostSubGroup    String
+  currentInstitution     String
+  currentDistrict        String
+  currentTaluk           String
+  currentCityTownVillage String
+  currentWorkingSince    DateTime
+  currentDesignation     String?
+  email                  String
+  phoneNumber            String
+  telephoneNumber        String?
+  address                String
+  pinCode                String
+  officeAddress          String
+  officePinCode          String
+  officeEmail            String
+  officePhoneNumber      String
+  officeTelephoneNumber  String?
+  postAppliedFor         String?
+  submittedOn            DateTime?
+  objections             String?
+  probationaryPeriod     Boolean
+  probationaryPeriodDoc  String?
+  terminallyIll          Boolean
+  terminallyIllDoc       String?
+  pregnantOrChildUnderOne Boolean
+  pregnantOrChildUnderOneDoc String?
+  retiringWithinTwoYears Boolean
+  retiringWithinTwoYearsDoc String?
+  childSpouseDisability  Boolean
+  childSpouseDisabilityDoc String?
+  divorceeWidowWithChild Boolean
+  divorceeWidowWithChildDoc String?
+  spouseGovtServant      Boolean
+  spouseGovtServantDoc   String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  assignmentHistory         AssignmentHistory[]
+  educations                Education[]
+  postgraduateQualifications PostgraduateQualification[]
+  timeboundPromotions        TimeboundPromotion[]
+  administrativeRoles        AdministrativeRole[]
+  additionalCharges          AdditionalCharge[]
+  achievements               Achievement[]
+  documents                  Document[]
+  pastServices               PastService[]
+  disciplinaryRecord         DisciplinaryRecord?
+  serviceInformation         ServiceInformation?
+  appointmentDetails         AppointmentDetails?
+  declaration                Declaration?
+  transfers                  Transfer[]
+
+  @@index([designationGroup])
+  @@index([designationSubGroup])
+}
+
+model AssignmentHistory {
+  id         Int            @id @default(autoincrement())
+  employeeId Int
+  employee   Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  role       String
+  city       String
+  hospital   String
+  position   String
+  district   String?
+  startedOn  DateTime
+  endedOn    DateTime?
+  period     String?
+  type       AssignmentType
+  createdAt  DateTime       @default(now())
+
+  @@index([employeeId])
+}
+
+model PastService {
+  id             Int      @id @default(autoincrement())
+  employeeId     Int
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  postHeld       String
+  postGroup      String
+  postSubGroup   String
+  institution    String
+  district       String
+  taluk          String?
+  cityTownVillage String?
+  fromDate       DateTime
+  toDate         DateTime
+  tenure         String?
+
+  @@index([employeeId])
+}
+
+model Education {
+  id             Int      @id @default(autoincrement())
+  employeeId     Int
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type           String?
+  qualification  String?
+  degree         String?
+  institution    String?
+  university     String?
+  year           String?
+  specialization String?
+
+  @@index([employeeId])
+}
+
+model PostgraduateQualification {
+  id             Int      @id @default(autoincrement())
+  employeeId     Int
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  qualification  String?
+  degree         String?
+  institution    String?
+  university     String?
+  year           String?
+  specialization String?
+
+  @@index([employeeId])
+}
+
+model TimeboundPromotion {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  label      String
+  status     String
+  order      String?
+  date       DateTime?
+
+  @@index([employeeId])
+}
+
+model AdministrativeRole {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  role       String
+  fromDate   DateTime?
+  toDate     DateTime?
+  details    String?
+
+  @@index([employeeId])
+}
+
+model AdditionalCharge {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  designation String
+  place       String?
+  fromDate    DateTime?
+  toDate      DateTime?
+
+  @@index([employeeId])
+}
+
+model Achievement {
+  id          Int            @id @default(autoincrement())
+  employeeId  Int
+  employee    Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type        AchievementType
+  description String
+
+  @@index([employeeId])
+}
+
+model DisciplinaryRecord {
+  id                    Int      @id @default(autoincrement())
+  employeeId            Int      @unique
+  employee              Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  departmentalEnquiries String?
+  suspensionPeriods     String?
+  punishmentsReceived   String?
+  criminalProceedings   String?
+  pendingLegalMatters   String?
+}
+
+model Declaration {
+  id                Int      @id @default(autoincrement())
+  employeeId        Int      @unique
+  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  empDeclAgreed     Boolean
+  empDeclName       String?
+  empDeclDate       DateTime?
+  officerDeclAgreed Boolean
+  officerDeclName   String?
+  officerDeclDate   DateTime?
+  remarks           String?
+}
+
+model Document {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name       String
+  sizeKB     Float?
+  uploadedAt DateTime?
+  downloadUrl String?
+
+  @@index([employeeId])
+}
+
+model ServiceInformation {
+  id                     Int      @id @default(autoincrement())
+  employeeId             Int      @unique
+  employee               Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  deputedByGovernment    String?
+  specialistService      String?
+  trainingInHospitalAdmin String?
+  spouseInGovtService    String?
+  spouseServiceDetails   String?
+}
+
+model AppointmentDetails {
+  id                  Int      @id @default(autoincrement())
+  employeeId          Int      @unique
+  employee            Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  slNoInOrder         String?
+  orderNoAndDate      String?
+  dateOfInitialAppointment DateTime?
 }
 
 model Transfer {
-  id              String   @id @default(uuid())
-  employeeId      String
-  employee        Employee @relation(fields: [employeeId], references: [id])
+  id              Int      @id @default(autoincrement())
+  employeeId      Int
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   fromCity        String
   fromPosition    String
   toCity          String
   toPosition      String
   effectiveFrom   DateTime
   createdAt       DateTime @default(now())
-  createdByUserId String
+  createdByUserId Int
   createdByUser   User     @relation("TransfersCreated", fields: [createdByUserId], references: [id])
   remarks         String?
 
   @@index([employeeId])
   @@index([createdByUserId])
-}
-
-model Doctor {
-  id                String   @id @default(uuid())
-  empName           String
-  empKgid           String   @unique
-  role              String
-  yearsOfWork       Int
-  dob               DateTime
-  dateOfJoining     DateTime
-  currentCity       String
-  currentHospital   String
-  currentPosition   String
-  currentDesignation String?
-  postAppliedFor     String?
-  submittedOn        String?
-  objections         String?
-  education          Json?
-  serviceInformation Json?
-  appointmentDetails Json?
-  probationDetails   String?
-  timeboundPromotions Json?
-  postgraduateQualifications Json?
-  administrativeRoles Json?
-  additionalCharges  Json?
-  achievements       Json?
-  disciplinaryRecord Json?
-  declaration        Json?
-  documents          Json?
-  assignmentHistory Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-}
-
-model Nurse {
-  id                String   @id @default(uuid())
-  empName           String
-  empKgid           String   @unique
-  role              String
-  yearsOfWork       Int
-  dob               DateTime
-  dateOfJoining     DateTime
-  currentCity       String
-  currentHospital   String
-  currentPosition   String
-  currentDesignation String?
-  postAppliedFor     String?
-  submittedOn        String?
-  objections         String?
-  education          Json?
-  serviceInformation Json?
-  appointmentDetails Json?
-  probationDetails   String?
-  timeboundPromotions Json?
-  postgraduateQualifications Json?
-  administrativeRoles Json?
-  additionalCharges  Json?
-  achievements       Json?
-  disciplinaryRecord Json?
-  declaration        Json?
-  documents          Json?
-  assignmentHistory Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-}
-
-model Pharmacist {
-  id                String   @id @default(uuid())
-  empName           String
-  empKgid           String   @unique
-  role              String
-  yearsOfWork       Int
-  dob               DateTime
-  dateOfJoining     DateTime
-  currentCity       String
-  currentHospital   String
-  currentPosition   String
-  currentDesignation String?
-  postAppliedFor     String?
-  submittedOn        String?
-  objections         String?
-  education          Json?
-  serviceInformation Json?
-  appointmentDetails Json?
-  probationDetails   String?
-  timeboundPromotions Json?
-  postgraduateQualifications Json?
-  administrativeRoles Json?
-  additionalCharges  Json?
-  achievements       Json?
-  disciplinaryRecord Json?
-  declaration        Json?
-  documents          Json?
-  assignmentHistory Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-}
-
-model LabTechnician {
-  id                String   @id @default(uuid())
-  empName           String
-  empKgid           String   @unique
-  role              String
-  yearsOfWork       Int
-  dob               DateTime
-  dateOfJoining     DateTime
-  currentCity       String
-  currentHospital   String
-  currentPosition   String
-  currentDesignation String?
-  postAppliedFor     String?
-  submittedOn        String?
-  objections         String?
-  education          Json?
-  serviceInformation Json?
-  appointmentDetails Json?
-  probationDetails   String?
-  timeboundPromotions Json?
-  postgraduateQualifications Json?
-  administrativeRoles Json?
-  additionalCharges  Json?
-  achievements       Json?
-  disciplinaryRecord Json?
-  declaration        Json?
-  documents          Json?
-  assignmentHistory Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-}
-
-model RadiologyStaff {
-  id                String   @id @default(uuid())
-  empName           String
-  empKgid           String   @unique
-  role              String
-  yearsOfWork       Int
-  dob               DateTime
-  dateOfJoining     DateTime
-  currentCity       String
-  currentHospital   String
-  currentPosition   String
-  currentDesignation String?
-  postAppliedFor     String?
-  submittedOn        String?
-  objections         String?
-  education          Json?
-  serviceInformation Json?
-  appointmentDetails Json?
-  probationDetails   String?
-  timeboundPromotions Json?
-  postgraduateQualifications Json?
-  administrativeRoles Json?
-  additionalCharges  Json?
-  achievements       Json?
-  disciplinaryRecord Json?
-  declaration        Json?
-  documents          Json?
-  assignmentHistory Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-}
-
-model SupportStaff {
-  id                String   @id @default(uuid())
-  empName           String
-  empKgid           String   @unique
-  role              String
-  yearsOfWork       Int
-  dob               DateTime
-  dateOfJoining     DateTime
-  currentCity       String
-  currentHospital   String
-  currentPosition   String
-  currentDesignation String?
-  postAppliedFor     String?
-  submittedOn        String?
-  objections         String?
-  education          Json?
-  serviceInformation Json?
-  appointmentDetails Json?
-  probationDetails   String?
-  timeboundPromotions Json?
-  postgraduateQualifications Json?
-  administrativeRoles Json?
-  additionalCharges  Json?
-  achievements       Json?
-  disciplinaryRecord Json?
-  declaration        Json?
-  documents          Json?
-  assignmentHistory Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-}
-
-model ItHelpdeskStaff {
-  id                String   @id @default(uuid())
-  empName           String
-  empKgid           String   @unique
-  role              String
-  yearsOfWork       Int
-  dob               DateTime
-  dateOfJoining     DateTime
-  currentCity       String
-  currentHospital   String
-  currentPosition   String
-  currentDesignation String?
-  postAppliedFor     String?
-  submittedOn        String?
-  objections         String?
-  education          Json?
-  serviceInformation Json?
-  appointmentDetails Json?
-  probationDetails   String?
-  timeboundPromotions Json?
-  postgraduateQualifications Json?
-  administrativeRoles Json?
-  additionalCharges  Json?
-  achievements       Json?
-  disciplinaryRecord Json?
-  declaration        Json?
-  documents          Json?
-  assignmentHistory Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-}
-
-model EmtStaff {
-  id                String   @id @default(uuid())
-  empName           String
-  empKgid           String   @unique
-  role              String
-  yearsOfWork       Int
-  dob               DateTime
-  dateOfJoining     DateTime
-  currentCity       String
-  currentHospital   String
-  currentPosition   String
-  currentDesignation String?
-  postAppliedFor     String?
-  submittedOn        String?
-  objections         String?
-  education          Json?
-  serviceInformation Json?
-  appointmentDetails Json?
-  probationDetails   String?
-  timeboundPromotions Json?
-  postgraduateQualifications Json?
-  administrativeRoles Json?
-  additionalCharges  Json?
-  achievements       Json?
-  disciplinaryRecord Json?
-  declaration        Json?
-  documents          Json?
-  assignmentHistory Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-}
-
-model AdministrationStaff {
-  id                String   @id @default(uuid())
-  empName           String
-  empKgid           String   @unique
-  role              String
-  yearsOfWork       Int
-  dob               DateTime
-  dateOfJoining     DateTime
-  currentCity       String
-  currentHospital   String
-  currentPosition   String
-  currentDesignation String?
-  postAppliedFor     String?
-  submittedOn        String?
-  objections         String?
-  education          Json?
-  serviceInformation Json?
-  appointmentDetails Json?
-  probationDetails   String?
-  timeboundPromotions Json?
-  postgraduateQualifications Json?
-  administrativeRoles Json?
-  additionalCharges  Json?
-  achievements       Json?
-  disciplinaryRecord Json?
-  declaration        Json?
-  documents          Json?
-  assignmentHistory Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
 }

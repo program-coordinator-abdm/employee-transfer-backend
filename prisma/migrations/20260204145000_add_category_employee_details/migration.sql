@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "Doctor" (
+CREATE TABLE IF NOT EXISTS "Doctor" (
     "id" TEXT NOT NULL,
     "empName" TEXT NOT NULL,
     "empKgid" TEXT NOT NULL,
@@ -33,10 +33,10 @@ CREATE TABLE "Doctor" (
     CONSTRAINT "Doctor_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "Doctor_empKgid_key" ON "Doctor"("empKgid");
+CREATE UNIQUE INDEX IF NOT EXISTS "Doctor_empKgid_key" ON "Doctor"("empKgid");
 
 -- CreateTable
-CREATE TABLE "Nurse" (
+CREATE TABLE IF NOT EXISTS "Nurse" (
     "id" TEXT NOT NULL,
     "empName" TEXT NOT NULL,
     "empKgid" TEXT NOT NULL,
@@ -70,10 +70,10 @@ CREATE TABLE "Nurse" (
     CONSTRAINT "Nurse_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "Nurse_empKgid_key" ON "Nurse"("empKgid");
+CREATE UNIQUE INDEX IF NOT EXISTS "Nurse_empKgid_key" ON "Nurse"("empKgid");
 
 -- CreateTable
-CREATE TABLE "Pharmacist" (
+CREATE TABLE IF NOT EXISTS "Pharmacist" (
     "id" TEXT NOT NULL,
     "empName" TEXT NOT NULL,
     "empKgid" TEXT NOT NULL,
@@ -107,10 +107,10 @@ CREATE TABLE "Pharmacist" (
     CONSTRAINT "Pharmacist_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "Pharmacist_empKgid_key" ON "Pharmacist"("empKgid");
+CREATE UNIQUE INDEX IF NOT EXISTS "Pharmacist_empKgid_key" ON "Pharmacist"("empKgid");
 
 -- CreateTable
-CREATE TABLE "LabTechnician" (
+CREATE TABLE IF NOT EXISTS "LabTechnician" (
     "id" TEXT NOT NULL,
     "empName" TEXT NOT NULL,
     "empKgid" TEXT NOT NULL,
@@ -144,10 +144,10 @@ CREATE TABLE "LabTechnician" (
     CONSTRAINT "LabTechnician_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "LabTechnician_empKgid_key" ON "LabTechnician"("empKgid");
+CREATE UNIQUE INDEX IF NOT EXISTS "LabTechnician_empKgid_key" ON "LabTechnician"("empKgid");
 
 -- CreateTable
-CREATE TABLE "RadiologyStaff" (
+CREATE TABLE IF NOT EXISTS "RadiologyStaff" (
     "id" TEXT NOT NULL,
     "empName" TEXT NOT NULL,
     "empKgid" TEXT NOT NULL,
@@ -181,10 +181,10 @@ CREATE TABLE "RadiologyStaff" (
     CONSTRAINT "RadiologyStaff_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "RadiologyStaff_empKgid_key" ON "RadiologyStaff"("empKgid");
+CREATE UNIQUE INDEX IF NOT EXISTS "RadiologyStaff_empKgid_key" ON "RadiologyStaff"("empKgid");
 
 -- CreateTable
-CREATE TABLE "SupportStaff" (
+CREATE TABLE IF NOT EXISTS "SupportStaff" (
     "id" TEXT NOT NULL,
     "empName" TEXT NOT NULL,
     "empKgid" TEXT NOT NULL,
@@ -218,10 +218,10 @@ CREATE TABLE "SupportStaff" (
     CONSTRAINT "SupportStaff_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "SupportStaff_empKgid_key" ON "SupportStaff"("empKgid");
+CREATE UNIQUE INDEX IF NOT EXISTS "SupportStaff_empKgid_key" ON "SupportStaff"("empKgid");
 
 -- CreateTable
-CREATE TABLE "ItHelpdeskStaff" (
+CREATE TABLE IF NOT EXISTS "ItHelpdeskStaff" (
     "id" TEXT NOT NULL,
     "empName" TEXT NOT NULL,
     "empKgid" TEXT NOT NULL,
@@ -255,10 +255,10 @@ CREATE TABLE "ItHelpdeskStaff" (
     CONSTRAINT "ItHelpdeskStaff_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "ItHelpdeskStaff_empKgid_key" ON "ItHelpdeskStaff"("empKgid");
+CREATE UNIQUE INDEX IF NOT EXISTS "ItHelpdeskStaff_empKgid_key" ON "ItHelpdeskStaff"("empKgid");
 
 -- CreateTable
-CREATE TABLE "EmtStaff" (
+CREATE TABLE IF NOT EXISTS "EmtStaff" (
     "id" TEXT NOT NULL,
     "empName" TEXT NOT NULL,
     "empKgid" TEXT NOT NULL,
@@ -292,10 +292,10 @@ CREATE TABLE "EmtStaff" (
     CONSTRAINT "EmtStaff_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "EmtStaff_empKgid_key" ON "EmtStaff"("empKgid");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmtStaff_empKgid_key" ON "EmtStaff"("empKgid");
 
 -- CreateTable
-CREATE TABLE "AdministrationStaff" (
+CREATE TABLE IF NOT EXISTS "AdministrationStaff" (
     "id" TEXT NOT NULL,
     "empName" TEXT NOT NULL,
     "empKgid" TEXT NOT NULL,
@@ -329,4 +329,4 @@ CREATE TABLE "AdministrationStaff" (
     CONSTRAINT "AdministrationStaff_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "AdministrationStaff_empKgid_key" ON "AdministrationStaff"("empKgid");
+CREATE UNIQUE INDEX IF NOT EXISTS "AdministrationStaff_empKgid_key" ON "AdministrationStaff"("empKgid");

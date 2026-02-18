@@ -28,11 +28,11 @@ const buildEmployeeSnapshot = async () => {
     return {
       empName: employee.empName,
       empKgid: employee.empKgid,
-      fromCity: employee.currentCity,
-      toCity: employee.currentCity,
+      fromCity: employee.currentCityTownVillage,
+      toCity: employee.currentCityTownVillage,
       effectiveFrom: null,
-      fromPosition: employee.currentPosition,
-      toPosition: employee.currentPosition,
+      fromPosition: employee.currentPostHeld,
+      toPosition: employee.currentPostHeld,
     };
   });
 };
