@@ -2,10 +2,16 @@ const { z } = require("zod");
 const asyncHandler = require("../utils/asyncHandler");
 const authService = require("../services/authService");
 
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-});
+const loginSchema = z
+  .object({
+    email: z.string().email().optional(),
+    username: z.string().min(1).optional(),
+    password: z.string().min(6),
+  })
+  .refine((data) => data.email || data.username, {
+    message: "Email or username is required",
+    path: ["email"],
+  });
 
 const login = asyncHandler(async (req, res) => {
   const payload = loginSchema.parse(req.body);

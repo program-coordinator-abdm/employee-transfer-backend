@@ -1,51 +1,40 @@
 const prisma = require("./prisma");
-const { CATEGORY_MODELS } = require("./employeeService");
-
-const getLatestHistory = (employee) => {
-  const history = Array.isArray(employee.assignmentHistory)
-    ? employee.assignmentHistory
-    : [];
-  if (history.length === 0) return null;
-  return history[history.length - 1];
-};
 
 const buildEmployeeSnapshot = async () => {
-  const entries = Object.values(CATEGORY_MODELS);
-  const results = await Promise.all(
-    entries.map(async (entry) => {
-      const employees = await prisma[entry.model].findMany({
-        orderBy: { empName: "asc" },
-      });
-      return employees.map((employee) => {
-        const latestHistory = getLatestHistory(employee);
-        if (latestHistory) {
-          return {
-            empName: employee.empName,
-            empKgid: employee.empKgid,
-            fromCity: latestHistory.city,
-            toCity: employee.currentCity,
-            effectiveFrom: latestHistory.endedOn
-              ? new Date(latestHistory.endedOn)
-              : null,
-            fromPosition: latestHistory.position,
-            toPosition: employee.currentPosition,
-          };
-        }
+  const employees = await prisma.employee.findMany({
+    include: {
+      transfers: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
+    orderBy: { empName: "asc" },
+  });
 
-        return {
-          empName: employee.empName,
-          empKgid: employee.empKgid,
-          fromCity: employee.currentCity,
-          toCity: employee.currentCity,
-          effectiveFrom: null,
-          fromPosition: employee.currentPosition,
-          toPosition: employee.currentPosition,
-        };
-      });
-    })
-  );
+  return employees.map((employee) => {
+    const latestTransfer = employee.transfers[0];
+    if (latestTransfer) {
+      return {
+        empName: employee.empName,
+        empKgid: employee.empKgid,
+        fromCity: latestTransfer.fromCity,
+        toCity: latestTransfer.toCity,
+        effectiveFrom: latestTransfer.effectiveFrom,
+        fromPosition: latestTransfer.fromPosition,
+        toPosition: latestTransfer.toPosition,
+      };
+    }
 
-  return results.flat();
+    return {
+      empName: employee.empName,
+      empKgid: employee.empKgid,
+      fromCity: employee.currentCityTownVillage,
+      toCity: employee.currentCityTownVillage,
+      effectiveFrom: null,
+      fromPosition: employee.currentPostHeld,
+      toPosition: employee.currentPostHeld,
+    };
+  });
 };
 
 const escapeCsvValue = (value) => {

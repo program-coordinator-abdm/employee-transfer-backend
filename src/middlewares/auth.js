@@ -19,7 +19,12 @@ const authMiddleware = (req, _res, next) => {
 
   try {
     const payload = jwt.verify(token, secret);
-    req.user = { id: payload.sub };
+    const userId =
+      typeof payload.sub === "string" ? Number(payload.sub) : payload.sub;
+    if (!userId || Number.isNaN(userId)) {
+      return next(new AppError("Invalid or expired token", 401));
+    }
+    req.user = { id: userId, role: payload.role };
     return next();
   } catch (error) {
     return next(new AppError("Invalid or expired token", 401));
