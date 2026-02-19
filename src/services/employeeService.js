@@ -235,8 +235,8 @@ const getSuggestions = async ({ category, searchMode, query, limit }) => {
   return results.map((item) => ({ ...item, id: String(item.id) }));
 };
 
-const getEmployeeById = async (id) => {
-  const employee = await prisma.employee.findUnique({
+const fetchEmployeeWithRelations = async (client, id) =>
+  client.employee.findUnique({
     where: { id },
     include: {
       assignmentHistory: { orderBy: { startedOn: "asc" } },
@@ -254,6 +254,9 @@ const getEmployeeById = async (id) => {
       documents: true,
     },
   });
+
+const getEmployeeById = async (id) => {
+  const employee = await fetchEmployeeWithRelations(prisma, id);
   if (!employee) {
     throw new AppError("Employee not found", 404);
   }
@@ -447,7 +450,11 @@ const createEmployee = async (payload) => {
       },
     });
 
-    return getEmployeeById(employee.id);
+    const detailed = await fetchEmployeeWithRelations(tx, employee.id);
+    if (!detailed) {
+      throw new AppError("Employee not found", 404);
+    }
+    return mapEmployeeDetail(detailed);
   });
 };
 
@@ -624,7 +631,11 @@ const updateEmployee = async (id, payload) => {
       },
     });
 
-    return getEmployeeById(id);
+    const detailed = await fetchEmployeeWithRelations(tx, id);
+    if (!detailed) {
+      throw new AppError("Employee not found", 404);
+    }
+    return mapEmployeeDetail(detailed);
   });
 };
 
