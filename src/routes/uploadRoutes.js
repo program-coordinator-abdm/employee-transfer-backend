@@ -1,34 +1,48 @@
-const path = require("path");
-const fs = require("fs");
 const express = require("express");
 const multer = require("multer");
 const authMiddleware = require("../middlewares/auth");
 const uploadController = require("../controllers/uploadController");
+const { AppError } = require("../utils/errors");
 
 const router = express.Router();
 
-const uploadDir = path.join(__dirname, "..", "..", "uploads");
-fs.mkdirSync(uploadDir, { recursive: true });
+const maxUploadMb = Number(process.env.MAX_UPLOAD_MB || "5");
+const maxUploadBytes = Math.max(1, maxUploadMb) * 1024 * 1024;
+const allowedMimeTypes = (process.env.ALLOWED_UPLOAD_MIME_TYPES || "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
 
-const sanitizeFilename = (name) =>
-  name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext);
-    const safeBase = sanitizeFilename(base) || "upload";
-    cb(null, `${Date.now()}-${safeBase}${ext}`);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: maxUploadBytes },
+  fileFilter: (_req, file, cb) => {
+    if (allowedMimeTypes.length === 0) {
+      return cb(null, true);
+    }
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      return cb(null, true);
+    }
+    return cb(new AppError("Unsupported file type", 400));
   },
 });
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-});
+const handleUpload = (req, res, next) => {
+  upload.single("file")(req, res, (err) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+      return next(
+        new AppError(`File too large. Max ${maxUploadMb} MB`, 413)
+      );
+    }
+    if (err instanceof AppError) {
+      return next(err);
+    }
+    return next(new AppError(err.message || "Upload failed", 400));
+  });
+};
 
 router.use(authMiddleware);
-router.post("/", upload.single("file"), uploadController.uploadFile);
+router.post("/", handleUpload, uploadController.uploadFile);
 
 module.exports = router;

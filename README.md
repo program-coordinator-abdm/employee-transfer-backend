@@ -12,7 +12,7 @@ Backend code for Employee Transfer application.
 ```bash
 npm install
 cp .env.example .env
-# Set DATABASE_URL to your Neon connection string
+# Set DATABASE_URL to your PostgreSQL (AWS RDS) connection string
 npx prisma migrate deploy
 npm run seed
 npm run dev
@@ -65,4 +65,28 @@ hashing is performed in code.
 
 ### Notes
 - Passwords are plaintext (no hashing).
-- Uploads are stored on the local filesystem under `/uploads` (dev-only).
+- Uploads are stored on the local filesystem under `/uploads` for backward compatibility.
+- New uploads are sent to S3 and return a public URL.
+
+## AWS RDS + S3 Notes
+### RDS
+1. Set `DATABASE_URL` to your RDS PostgreSQL connection string.
+2. Run:
+   ```bash
+   npx prisma migrate deploy
+   npm run seed
+   ```
+
+### S3 Uploads
+Required environment variables:
+- `AWS_REGION`
+- `AWS_S3_BUCKET`
+
+Optional:
+- `PUBLIC_UPLOAD_BASE_URL` (e.g. CloudFront URL)
+- `AWS_S3_PUBLIC_READ=true` to set ACL `public-read` on each upload (if bucket allows ACLs)
+- `MAX_UPLOAD_MB` to control file size limit (default 5MB)
+- `ALLOWED_UPLOAD_MIME_TYPES` (comma-separated) to restrict file types
+
+If `AWS_S3_PUBLIC_READ` is false, ensure your bucket policy allows public reads
+for the `uploads/*` prefix.

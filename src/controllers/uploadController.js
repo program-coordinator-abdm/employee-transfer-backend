@@ -1,13 +1,13 @@
 const asyncHandler = require("../utils/asyncHandler");
 const { AppError } = require("../utils/errors");
+const { uploadFileToS3 } = require("../services/s3Uploader");
 
 const uploadFile = asyncHandler(async (req, res) => {
   if (!req.file) {
     throw new AppError("File is required", 400);
   }
 
-  const baseUrl = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
-  const downloadUrl = `${baseUrl}/uploads/${req.file.filename}`;
+  const { url: downloadUrl } = await uploadFileToS3(req.file);
 
   res.status(201).json({
     name: req.file.originalname,
