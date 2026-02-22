@@ -33,8 +33,7 @@ The server runs on `http://localhost:4000`.
 - **Phone:** 9000000001
 - **Password:** Data@1234
 
-Note: The database stores plaintext passwords in the `password` column. No
-hashing is performed in code.
+Note: Passwords are stored as bcrypt hashes in the `password` column.
 
 ## API Endpoints
 ### Auth
@@ -64,7 +63,7 @@ hashing is performed in code.
 - **DATA_OFFICER**: can create employees, view data
 
 ### Notes
-- Passwords are plaintext (no hashing).
+- Passwords are stored as bcrypt hashes.
 - Uploads are stored on the local filesystem under `/uploads` for backward compatibility.
 - New uploads are sent to S3 and return a public URL.
 

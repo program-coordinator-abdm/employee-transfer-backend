@@ -9,8 +9,7 @@
     "postinstall": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:generate": "prisma generate",
-    "seed": "prisma db seed",
-    "seed:safe-education": "node prisma/seed_safe_education.js"
+    "seed": "node prisma/seed.js"
   },
   "repository": {
     "type": "git",
@@ -31,6 +30,7 @@
     "@aws-sdk/lib-storage": "^3.995.0",
     "@prisma/adapter-pg": "^6.19.2",
     "@prisma/client": "^6.19.2",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
