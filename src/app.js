@@ -33,8 +33,16 @@ app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
+app.get("/", (_req, res) => {
+  res.status(200).json({ ok: true, service: "ETMS API" });
+});
+
 app.get("/health", (_req, res) => {
-  res.status(200).json({ status: "ok" });
+  res.status(200).json({
+    ok: true,
+    uptimeSeconds: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.use("/auth", authRoutes);
@@ -45,11 +53,6 @@ app.use("/uploads", uploadRoutes);
 
 app.use((_req, _res, next) => {
   next(new AppError("Not found", 404));
-});
-
-app.use((err, req, res, next) => {
-  console.error("UNHANDLED:", err);
-  next(err);
 });
 
 app.use(errorHandler);
