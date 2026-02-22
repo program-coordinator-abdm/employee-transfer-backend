@@ -1,32 +1,23 @@
 require("dotenv").config();
 
-const bcrypt = require("bcrypt");
 const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
-const buildUser = async (data) => {
-  const passwordHash = await bcrypt.hash(data.password, 10);
-  return {
-    ...data,
-    password: passwordHash,
-  };
-};
-
 const seed = async () => {
-  const admin = await buildUser({
+  const admin = {
     username: "admin",
     email: "admin@etms.gov.in",
     password: "Admin@1234",
     role: "ADMIN",
-  });
+  };
 
-  const dataOfficer = await buildUser({
+  const dataOfficer = {
     username: "dataofficer",
     email: "dataofficer@karnataka.gov.in",
     password: "Data@1234",
     role: "DATA_OFFICER",
-  });
+  };
 
   await prisma.user.upsert({
     where: { email: admin.email },
