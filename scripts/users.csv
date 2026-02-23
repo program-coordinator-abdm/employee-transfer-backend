@@ -1,0 +1,96 @@
+username,password,role,email,email_alt,group,location,name
+cao_hfws_1,Hfws1CAO@26,DATA_OFFICER,sm.srinivasa@gmail.com,,CAO,HFWS-1,Srinivas SM
+cao_hfws_2,Hfws2CAO@26,DATA_OFFICER,geethahuded20@gmail.com,,CAO,HFWS-2,Geeta Huded
+dho_bagalkote,BagalkoteDHO@26,DATA_OFFICER,dhobagalkote-hfws@karnataka.gov.in,dlobagalkote@gmail.com,DHO,BAGALKOTE,MANJUNATH D N
+dho_bangalore_rural,BangaloreRuralDHO@26,DATA_OFFICER,dhobengalururural-hfws@karnataka.gov.in,dhobangalorerural@gmail.com,DHO,BANGALORE RURAL,LAKKA KRISHNA REDDY
+dho_bangalore_urban,BangaloreUrbanDHO@26,DATA_OFFICER,dhobengaluruurban-hfws@karnataka.gov.in,dhobangaloreurban@gmail.com,DHO,BANGALORE URBAN,RAVINDRANATH METI
+dho_belagavi,BelagaviDHO@26,DATA_OFFICER,dhobelagavi-hfws@karnataka.gov.in,dhobelgaum@gmail.com,DHO,BELAGAVI,I P GADAD
+dho_bellari,BellariDHO@26,DATA_OFFICER,dhoballari-hfws@karnataka.gov.in,dhobellari@gmail.com,DHO,BELLARI,YELLA RAMESH BABU
+dho_bidar,BidarDHO@26,DATA_OFFICER,dhobidar-hfws@karnataka.gov.in,dhobidar@gmail.com,DHO,BIDAR,DYANESHWAR NIRGUDE
+dho_bijapur,BijapurDHO@26,DATA_OFFICER,dhovijayapura-hfws@karnataka.gov.in,dhobijapur@gmail.com,DHO,BIJAPUR,SAMPATH GUNARI
+dho_chamrajnagar,ChamrajnagarDHO@26,DATA_OFFICER,dhochamarajanagar-hfws@karnataka.gov.in,dhochamarajanagar@gmail.com,DHO,CHAMRAJNAGAR,CHIDAMBARA S
+dho_chikkaballapura,ChikkaballapuraDHO@26,DATA_OFFICER,dhochikkaballapur-hfws@karnataka.gov.in,dhochikballapur@gmail.com,DHO,CHIKKABALLAPURA,MAHESH KUMAR S S
+dho_chikkamagalore,ChikkamagaluruDHO@26,DATA_OFFICER,dhochikkamagaluru-hfws@karnataka.gov.in,dhochikmagalur@gmail.com,DHO,CHIKKAMAGALORE,ASHWATH BABU H S
+dho_chitradurga,ChitradurgaDHO@26,DATA_OFFICER,dhochitradurga-hfws@karnataka.gov.in,dhochitradurga@gmail.com,DHO,CHITRADURGA,RENUPRASAD GP
+dho_dakshina_kannada,DakshinaKannadaDHO@26,DATA_OFFICER,dhodkannada-hfws@karnataka.gov.in,dhodkannada2019@gmail.com,DHO,DAKSHINA KANNADA,THIMMAIAH H R
+dho_davangere,DavangereDHO@26,DATA_OFFICER,dhodavanagere-hfws@karnataka.gov.in,dhodavangere@gmail.com,DHO,DAVANGERE,SHANMUKHAPPA S
+dho_dharwad,DharwadDHO@26,DATA_OFFICER,dhodharwad-hfws@karnataka.gov.in,dhodharwad@gmail.com,DHO,DHARWAD,S M HONAKERI
+dho_gadag,GadagDHO@26,DATA_OFFICER,dhogadag-hfws@karnataka.gov.in,dhogadag@gmail.com,DHO,GADAG,S S NEELGUND
+dho_kalaburagi,KalaburagiDHO@26,DATA_OFFICER,dhokalaburagi-hfws@karnataka.gov.in,dhogulbarga@gmail.com,DHO,KALABURGI,SHARNABASAPPA
+dho_hassan,HassanDHO@26,DATA_OFFICER,dhohassan-hfws@karnataka.gov.in,dhohassan@gmail.com,DHO,HASSAN,ANIL H
+dho_haveri,HaveriDHO@26,DATA_OFFICER,dhohaveri-hfws@karnataka.gov.in,dhohaveri@gmail.com,DHO,HAVERI,JAYYAND M
+dho_kodagu,KodaguDHO@26,DATA_OFFICER,dhokodagu-hfws@karnataka.gov.in,,DHO,KODAGU,SATISH KUMAR K M
+dho_kolar,KolarDHO@26,DATA_OFFICER,dhokolar-hfws@karnataka.gov.in,dhoklr@gmaill.com,DHO,KOLAR,SRINIVAS G
+dho_koppal,KoppalDHO@26,DATA_OFFICER,dhokoppal-hfws@karnataka.gov.in,dhokoppal@gmail.com,DHO,KOPPAL,LINGARAJU T
+dho_mandya,MandyaDHO@26,DATA_OFFICER,dhomandya-hfws@karnataka.gov.in,,DHO,MANDYA,MOHAN K
+dho_mysore,MysuruDHO@26,DATA_OFFICER,dhomysuru-hfws@karnataka.gov.in,dhomysore@gmail.com,DHO,MYSORE,KUMARSWAMY P C
+dho_ramnagara,RamanagaraDHO@26,DATA_OFFICER,dhoramanagara-hfws@karnataka.gov.in,dhoramanagaram@gmail.com,DHO,RAMNAGARA,NIRANJAN B S
+dho_raichur,RaichurDHO@26,DATA_OFFICER,dhoraichur-hfws@karnataka.gov.in,,DHO,RAICHUR,SURENDRA BABU
+dho_shimoga,ShivamoggaDHO@26,DATA_OFFICER,dhoshivamogga-hfws@karnataka.gov.in,dhoshimoga@gmail.com,DHO,SHIMOGA,NATARAJ K S
+dho_tumkur,TumkurDHO@26,DATA_OFFICER,dhotumkur-hfws@karnataka.gov.in,dhotumkur@gmail.com,DHO,TUMKUR,CHANDRASHEKHAR B M
+dho_udupi,UdupiDHO@26,DATA_OFFICER,dhoudupi-hfws@karnataka.gov.in,dhoudupi@gmail.com,DHO,UDUPI,BASAVARAJ HUBBALLI
+dho_uttara_kannada,UttaraKannadaDHO@26,DATA_OFFICER,dhoukannda-hfws@karnataka.gov.in,dhoukannada@gmail.com,DHO,UTTARA KANNADA,SHANKAR RAO
+dho_vijayanagara,VijayanagaraDHO@26,DATA_OFFICER,dhovijayanagara21@gmail.com,,DHO,VIJAYANAGARA,L R SHANKAR NAIK
+dho_yadgiri,YadgiriDHO@26,DATA_OFFICER,dhoyadgiri-hfws@karnataka.gov.in,dhoyadgiri2@gmail.com,DHO,YADGIRI,MAHESH BIRADAR
+djd_bengaluru,BengaluruDJD@26,DATA_OFFICER,djdblrdn.hfws@gmail.com,,DJD,Bengaluru,Ravi M C
+djd_bengaluru_urban_bbmp,BengaluruUrbanBbmpDJD@26,DATA_OFFICER,djdbbmp2019@gmail.com,,DJD,Bengaluru Urban(BBMP),Mamatha MS
+djd_belagavi,BelagaviDJD@26,DATA_OFFICER,djdbgm-hfws@karnataka.gov.in,,DJD,Belagavi,Pushalata H R
+djd_kalburgi,KalburgiDJD@26,DATA_OFFICER,djdklbdiv-hfws@karnataka.gov.in,,DJD,Kalburgi,SHANKARAPPA
+djd_mysuru,MysuruDJD@26,DATA_OFFICER,djdmysurudiv-hfws@karnataka.gov.in,,DJD,Mysuru,MALLIKA B
+ds_bagalkote,BagalkoteDS@26,DATA_OFFICER,dsbagalkote-hfws@karnataka.gov.in,dsobagalkote@gmail.com,DS,BAGALKOTE,DAYANANDA KARIYANAVARA
+ds_bangalore_rural,BangaloreRuralDS@26,DATA_OFFICER,dsbangalururural-hfws@karnataka.gov.in,amodbpura02@gmail.com,DS,BANGALORE RURAL,RAMESH PS
+ds_bangalore_urban,BangaloreUrbanDS@26,DATA_OFFICER,dsbengaluruurban-hfws@karnataka.gov.in,edh.bang@gmail.com,DS,BANGALORE URBAN,SURESH N V
+ds_belagavi,BelagaviDS@26,DATA_OFFICER,dsbelagavi-hfws@karnataka.gov.in,dsbelgaum@gmail.com,DS,BELAGAVI,JAGADISH GANAGI
+ds_bellari,BellariDS@26,DATA_OFFICER,dsballari-hfws@karnataka.gov.in,dsbellary@gmail.com,DS,BELLARI,BASAREDDY N
+ds_bidar,BidarDS@26,DATA_OFFICER,dsbidar-hfws@karnataka.gov.in,dsbidar@gmail.com,DS,BIDAR,MD AHMEDUDDIN
+ds_bijapur,VijayapuraDS@26,DATA_OFFICER,dsvijayapura-hfws@karnataka.gov.in,dsbijapur@gmail.com,DS,BIJAPUR,SHIVANAND MASTIHOLE
+ds_chamrajnagar,ChamarajanagarDS@26,DATA_OFFICER,dschamarajanagar-hfws@karnataka.gov.in,dschamarajanagara@gmail.com,DS,CHAMRAJNAGAR,CHINNABOVI M
+ds_chikkaballapura,ChikkaballapuraDS@26,DATA_OFFICER,dschikkaballapur-hfws@karnataka.gov.in,dscbpur@gmail.com,DS,CHIKKABALLAPURA,MANJULA DEVI
+ds_chikkamagalore,ChikkamagaluruDS@26,DATA_OFFICER,dschikkamagaluru-hfws@karnataka.gov.in,dschikmagalur@gmail.com,DS,CHIKKAMAGALORE,CHANDRA SHEKHARA H B
+ds_chitradurga,ChitradurgaDS@26,DATA_OFFICER,dschitradurga-hfws@karnataka.gov.in,dschitradurga@gmail.com,DS,CHITRADURGA,RAVINDRA SP
+ds_dakshina_kannada,DakshinaKannadaDS@26,DATA_OFFICER,dsdkannada-hfws@karnataka.gov.in,dsdkannada@gmail.com,DS,DAKSHINA KANNADA,SHIVAPRAKASH D S
+ds_davangere,DavangereDS@26,DATA_OFFICER,dsdavanagere-hfws@karnataka.gov.in,dsdavangere@gmail.com,DS,DAVANGERE,NAGENDRAPPA M B
+ds_dharwad,DharwadDS@26,DATA_OFFICER,dsdharwad-hfws@karnataka.gov.in,dsdharwad@gmail.com,DS,DHARWAD,SANGAPPA GABI
+ds_gadag,GadagDS@26,DATA_OFFICER,dsgadag-hfws@karnataka.gov.in,dsgadag@gmail.com,DS,GADAG,B C KARIGOUDAR
+ds_kalaburagi,GulbargaDS@26,DATA_OFFICER,dsgulbarga-hfws@karnataka.gov.in,dsgulbarga@gmail.com,DS,KALABURGI,ASAN RABHA
+ds_hasan,HassanDS@26,DATA_OFFICER,dshassan-hfws@karnataka.gov.in,schospital.hims@gmail.com,DS,HASAN,NAGAPPA G S
+ds_haveri,HaveriDS@26,DATA_OFFICER,dshaveri-hfws@karnataka.gov.in,dshaveri@gmail.com,DS,HAVERI,P R HAVANUR
+ds_kodagu,KodaguDS@26,DATA_OFFICER,dskodagu-hfws@karnataka.gov.in,,DS,KODAGU,NANJUNDAIAH
+ds_kolar,KolarDS@26,DATA_OFFICER,dskolar-hfws@karnataka.gov.in,dskolar@gmail.com,DS,KOLAR,JAGADISH M
+ds_koppal,KoppalDS@26,DATA_OFFICER,dskoppal-hfws@karnataka.gov.in,dskoppal@gmail.com,DS,KOPPAL,KRISHNA OMAKAR
+ds_mandya,MandyaDS@26,DATA_OFFICER,dsmandya-hfws@karnataka.gov.in,,DS,MANDYA,GAYITHRI
+ds_mysore,MysuruDS@26,DATA_OFFICER,dsmysuru-hfws@karnataka.gov.in,dsmysore@gmail.com,DS,MYSORE,SATHISH N V
+ds_ramnagara,RamanagaraDS@26,DATA_OFFICER,dsramanagara-hfws@karnataka.gov.in,dsramanagaram@gmail.com,DS,RAMNAGARA,MANJUNATH C
+ds_raichur,RaichurDS@26,DATA_OFFICER,dsraichur-hfws@karnataka.gov.in,,DS,RAICHUR,VIJAYASHANKAR
+ds_shimoga,ShivamoggaDS@26,DATA_OFFICER,dsshivamogga-hfws@karnataka.gov.in,dsshimoga@gmail.com,DS,SHIMOGA,GEETHA
+ds_tumkur,TumkurDS@26,DATA_OFFICER,dstumkur-hfws@karnataka.gov.in,dstumkur@gmail.com,DS,TUMKUR,ASGHAR BAIG
+ds_udupi,UdupiDS@26,DATA_OFFICER,dsudupi-hfws@karnataka.gov.in,dsudupi@gmail.com,DS,UDUPI,ASHOK H
+ds_uttara_kannada,UttaraKannadaDS@26,DATA_OFFICER,dsukannda-hfws@karnataka.gov.in,dsukannada@gmail.com,DS,UTTARA KANNADA,GANESH D S
+ds_yadgiri,YadgiriDS@26,DATA_OFFICER,dsyadgiri-hfws@karnataka.gov.in,dsdhyadgiri@gmail.com,DS,YADGIRI,RIZWAN AFREEN
+dtc_bagalkote,BagalkoteDTC@26,DATA_OFFICER,dsobagalkote@gmail.com,,DTC,BAGALKOTE,MAHESH KONNI
+dtc_bangalore_urban,BangaloreUrbanDTC@26,DATA_OFFICER,hfwtcbangalore@gmail.com,,DTC,BANGALORE URBAN,H R KUMAR
+dtc_belagavi,BelagaviDTC@26,DATA_OFFICER,dtcprincipal@gmail.com,,DTC,BELAGAVI,PUSHALATA H R
+dtc_bellari,BellariDTC@26,DATA_OFFICER,dfwoballari@gmail.com,,DTC,BELLARI,POORNIMA KATTIMANI
+dtc_bidar,BidarDTC@26,DATA_OFFICER,dtcbidar@gmail.com,,DTC,BIDAR,SANJEEVKUMAR M PATIL
+dtc_bijapur,BijapurDTC@26,DATA_OFFICER,dtc.bijapur@gmail.com,,DTC,BIJAPUR,JYOTI PATIL
+dtc_chikkamagalore,ChikkamagaloreDTC@26,DATA_OFFICER,dtc.ckmg@gmail.com,,DTC,CHIKKAMAGALORE,SUNIL KUMAR S N
+dtc_chitradurga,ChitradurgaDTC@26,DATA_OFFICER,principaldtcchitradurga@gmail.com,,DTC,CHITRADURGA,SATHISH
+dtc_dakshina_kannada,DakshinaKannadaDTC@26,DATA_OFFICER,dtcsurathkal@yahoo.com,,DTC,DAKSHINA KANNADA,KISHOR KUMAR
+dtc_davangere,DavangereDTC@26,DATA_OFFICER,principaldtcdavanagere@gmail.com,,DTC,DAVANGERE,SATHISH
+dtc_dharwad,DharwadDTC@26,DATA_OFFICER,principaldtcdharwad@gmail.com,,DTC,DHARWAD,C D KALASAGOUDAR
+dtc_gadag,GadagDTC@26,DATA_OFFICER,dsgadag@gmail.com,,DTC,GADAG,B C KARIGOUDAR
+dtc_kalaburgi,KalaburgiDTC@26,DATA_OFFICER,principaldtcfwglb@gmail.com,,DTC,KALABURGI,RAVIKANTI
+dtc_hasan,HasanDTC@26,DATA_OFFICER,dtchassan@gmail.com,,DTC,HASAN,PRADEEP KUMAR D P
+dtc_kodagu,KodaguDTC@26,DATA_OFFICER,principaldtckodagu@gmail.com,,DTC,KODAGU,ABDUL AZEEZ
+dtc_kolar,KolarDTC@26,DATA_OFFICER,dtckolar@gmail.com,,DTC,KOLAR,KAMALAMMA M
+dtc_mandya,MandyaDTC@26,DATA_OFFICER,mandyadistricthtc@yahoo.com,,DTC,MANDYA,MAMATHA H M
+dtc_mysore,MysoreDTC@26,DATA_OFFICER,dtcmysore@gmail.com,,DTC,MYSORE,RAVI L
+dtc_ramnagara,RamanagaraDTC@26,DATA_OFFICER,pridtcrmg@gmail.com,,DTC,RAMNAGARA,K P KANTHARAJU
+dtc_raichur,RaichurDTC@26,DATA_OFFICER,dsraichur@gmail.com,,DTC,RAICHUR,VIAJAYASHANKAR
+dtc_shimoga,ShimogaDTC@26,DATA_OFFICER,dtcshivamogga@gmail.com,,DTC,SHIMOGA,SHAMA BEGUM FAKRUDDIN
+dtc_tumkur,TumkurDTC@26,DATA_OFFICER,dtcprincipaltumkur@gmail.com,,DTC,TUMKUR,MUKTAMBA G C
+dtc_uttara_kannada,UttaraKannadaDTC@26,DATA_OFFICER,hfwdtckarwar@gmail.com,,DTC,UTTARA KANNADA,VINOD P BHUTE
+hfwtc_bangalore_urban,BangaloreUrbanHFWTC@26,DATA_OFFICER,hfwtcbangalore@gmail.com,,HFWTC,BANGALORE URBAN,H R Kumar
+hfwtc_mysore,MysoreHFWTC@26,DATA_OFFICER,hfwtcmysore@gmail.com,,HFWTC,MYSORE,ASHA
+hfwtc_kalaburugi,KalaburugiHFWTC@26,DATA_OFFICER,principalgulbarga544@yahoo.com,,HFWTC,KALABURGI,Deepakumar Suke
+hfwtc_dharwad_hubbali,DharwadHubbaliHFWTC@26,DATA_OFFICER,hfwtc.hubli@gmail.com,,HFWTC,DHARWAD/ HUBBALI,S M Kaggalagowda

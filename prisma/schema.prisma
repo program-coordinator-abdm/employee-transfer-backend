@@ -31,7 +31,7 @@ model User {
   username          String    @unique
   email             String    @unique
   phone             String?
-  password          String
+  passwordHash      String
   role              UserRole
   profilePictureUrl String?
   createdAt         DateTime  @default(now())
