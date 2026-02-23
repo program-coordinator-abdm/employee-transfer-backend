@@ -1,6 +1,5 @@
 import fs from "fs";
 import path from "path";
-import bcrypt from "bcrypt";
 import { PrismaClient, UserRole } from "@prisma/client";
 
 type CsvRow = Record<string, string>;
@@ -118,12 +117,11 @@ const seed = async () => {
       continue;
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
     await prisma.user.create({
       data: {
         username,
         email,
-        passwordHash,
+        password,
         role: UserRole.DATA_OFFICER,
       },
     });

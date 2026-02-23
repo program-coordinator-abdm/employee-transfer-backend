@@ -31,7 +31,7 @@ The server runs on `http://localhost:4000`.
 - **Email:** dataofficer@karnataka.gov.in
 - **Password:** Data@1234
 
-Note: Passwords are stored as bcrypt hashes in the `passwordHash` column.
+Note: Passwords are stored as plaintext in the `password` column.
 
 ## API Endpoints
 ### Auth
@@ -61,7 +61,7 @@ Note: Passwords are stored as bcrypt hashes in the `passwordHash` column.
 - **DATA_OFFICER**: can create employees, view data
 
 ### Notes
-- Passwords are stored as bcrypt hashes in `passwordHash`.
+- Passwords are stored as plaintext in `password`.
 - Uploads are stored on the local filesystem under `/uploads` for backward compatibility.
 - New uploads are sent to S3 and return a public URL.
 
