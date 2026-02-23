@@ -1,5 +1,6 @@
 const path = require("path");
 const crypto = require("crypto");
+const sharp = require("sharp");
 const { S3Client } = require("@aws-sdk/client-s3");
 const { Upload } = require("@aws-sdk/lib-storage");
 
@@ -18,9 +19,9 @@ const client = new S3Client({ region });
 const sanitizeFilename = (name) =>
   name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
 
-const buildObjectKey = (originalName) => {
-  const ext = path.extname(originalName);
-  const base = path.basename(originalName, ext);
+const buildObjectKey = (filename) => {
+  const ext = path.extname(filename);
+  const base = path.basename(filename, ext);
   const safeBase = sanitizeFilename(base) || "upload";
   const now = new Date();
   const year = now.getFullYear();
@@ -36,17 +37,59 @@ const buildPublicUrl = (key) => {
   return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
 };
 
+const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
+
+const processUploadFile = async (file) => {
+  const originalSize = file.size || (file.buffer ? file.buffer.length : 0);
+  if (!file.buffer) {
+    throw new Error("File buffer is missing");
+  }
+
+  if (!IMAGE_MIME_TYPES.has(file.mimetype)) {
+    return {
+      buffer: file.buffer,
+      contentType: file.mimetype || "application/octet-stream",
+      filename: file.originalname,
+      originalSize,
+      processedSize: originalSize,
+      processed: false,
+    };
+  }
+
+  const ext = path.extname(file.originalname);
+  const base = path.basename(file.originalname, ext);
+  const safeBase = sanitizeFilename(base) || "upload";
+  const processedBuffer = await sharp(file.buffer)
+    .rotate()
+    .resize({ width: 1800, height: 1800, fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 75 })
+    .toBuffer();
+
+  return {
+    buffer: processedBuffer,
+    contentType: "image/jpeg",
+    filename: `${safeBase}.jpg`,
+    originalSize,
+    processedSize: processedBuffer.length,
+    processed: true,
+  };
+};
+
 const uploadFileToS3 = async (file) => {
   if (!file || !file.buffer) {
     throw new Error("File buffer is missing");
   }
 
-  const key = buildObjectKey(file.originalname);
+  const processedFile = await processUploadFile(file);
+  const key = buildObjectKey(processedFile.filename);
   const params = {
     Bucket: bucket,
     Key: key,
-    Body: file.buffer,
-    ContentType: file.mimetype || "application/octet-stream",
+    Body: processedFile.buffer,
+    ContentType: processedFile.contentType,
+    Metadata: {
+      originalname: file.originalname,
+    },
   };
 
   if (usePublicReadAcl) {
@@ -63,6 +106,10 @@ const uploadFileToS3 = async (file) => {
   return {
     key,
     url: buildPublicUrl(key),
+    filename: processedFile.filename,
+    originalSize: processedFile.originalSize,
+    processedSize: processedFile.processedSize,
+    processed: processedFile.processed,
   };
 };
 
