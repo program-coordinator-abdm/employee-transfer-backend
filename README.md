@@ -23,14 +23,12 @@ The server runs on `http://localhost:4000`.
 ## Seeded Users
 **Admin**
 - **Username:** admin
-- **Email:** admin@karnataka.gov.in
-- **Phone:** 9000000000
-- **Password:** Admin@123
+- **Email:** admin@etms.gov.in
+- **Password:** Admin@1234
 
 **Data Officer**
 - **Username:** dataofficer
 - **Email:** dataofficer@karnataka.gov.in
-- **Phone:** 9000000001
 - **Password:** Data@1234
 
 Note: Passwords are stored as plaintext in the `password` column.
