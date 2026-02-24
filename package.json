@@ -23,7 +23,7 @@
   },
   "homepage": "https://github.com/program-coordinator-abdm/employee-transfer-backend#readme",
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "node prisma/seed.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.995.0",
@@ -42,8 +42,6 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.11",
-    "prisma": "^6.19.2",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "prisma": "^6.19.2"
   }
 }

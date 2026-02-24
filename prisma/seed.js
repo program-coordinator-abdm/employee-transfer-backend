@@ -1,17 +1,16 @@
-import fs from "fs";
-import path from "path";
-import { PrismaClient, UserRole } from "@prisma/client";
+require("dotenv").config();
 
-type CsvRow = Record<string, string>;
+const fs = require("fs");
+const path = require("path");
+const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
-
 const csvPath = path.join(process.cwd(), "scripts", "users.csv");
 
-const parseCsv = (input: string): string[][] => {
-  const rows: string[][] = [];
+const parseCsv = (input) => {
+  const rows = [];
   let current = "";
-  let row: string[] = [];
+  let row = [];
   let inQuotes = false;
 
   for (let i = 0; i < input.length; i += 1) {
@@ -58,8 +57,8 @@ const parseCsv = (input: string): string[][] => {
   return rows;
 };
 
-const toRecord = (headers: string[], row: string[]): CsvRow => {
-  const record: CsvRow = {};
+const toRecord = (headers, row) => {
+  const record = {};
   headers.forEach((header, index) => {
     record[header] = row[index] ?? "";
   });
@@ -78,17 +77,18 @@ const seed = async () => {
     return;
   }
 
-  const headers = rows.shift()!.map((header) => header.trim());
+  const headers = rows.shift().map((header) => header.trim());
   let created = 0;
+  let updated = 0;
   let skipped = 0;
 
   for (const row of rows) {
-    if (row.length === 0) {
+    if (!row || row.length === 0) {
       continue;
     }
     const record = toRecord(headers, row);
     const role = (record.role || "").trim().toUpperCase();
-    if (role !== UserRole.DATA_OFFICER) {
+    if (role !== "DATA_OFFICER") {
       continue;
     }
 
@@ -97,7 +97,10 @@ const seed = async () => {
     const password = (record.password || "").trim();
 
     if (!username || !email || !password) {
-      console.warn("User skipped (missing fields):", username || email || "unknown");
+      console.warn(
+        "User skipped (missing fields):",
+        username || email || "unknown"
+      );
       skipped += 1;
       continue;
     }
@@ -112,8 +115,20 @@ const seed = async () => {
     });
 
     if (existing) {
-      console.log(`User skipped (exists): ${username}`);
-      skipped += 1;
+      if (existing.role === "ADMIN") {
+        console.log(`User skipped (admin): ${existing.username}`);
+        skipped += 1;
+        continue;
+      }
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          password,
+          role: "DATA_OFFICER",
+        },
+      });
+      console.log(`User updated: ${existing.username}`);
+      updated += 1;
       continue;
     }
 
@@ -122,14 +137,14 @@ const seed = async () => {
         username,
         email,
         password,
-        role: UserRole.DATA_OFFICER,
+        role: "DATA_OFFICER",
       },
     });
     console.log(`User created: ${username}`);
     created += 1;
   }
 
-  console.log(`Seed complete. Created ${created}, skipped ${skipped}.`);
+  console.log(`Seed complete. Created ${created}, updated ${updated}, skipped ${skipped}.`);
 };
 
 seed()
