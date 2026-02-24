@@ -152,9 +152,17 @@ model Education {
   qualification  String?
   degree         String?
   institution    String?
+  level          String?
+  institutionName String?
   university     String?
   year           String?
+  yearOfPassing  String?
+  gradePercentage String?
   specialization String?
+  documentName   String?
+  documentUrl    String?
+  documentSizeKB Float?
+  documentUploadedAt String?
 
   @@index([employeeId])
 }

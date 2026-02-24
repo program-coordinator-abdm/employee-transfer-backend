@@ -15,15 +15,25 @@ const pastServiceSchema = z.object({
   tenure: z.string().optional().default(""),
 });
 
-const educationSchema = z.object({
-  type: z.string().optional(),
-  qualification: z.string().optional(),
-  degree: z.string().optional(),
-  institution: z.string().optional(),
-  university: z.string().optional(),
-  year: z.string().optional(),
-  specialization: z.string().optional(),
-});
+const educationSchema = z
+  .object({
+    type: z.string().optional(),
+    qualification: z.string().optional(),
+    degree: z.string().optional(),
+    institution: z.string().optional(),
+    level: z.string().optional(),
+    institutionName: z.string().optional(),
+    university: z.string().optional(),
+    year: z.string().optional(),
+    yearOfPassing: z.string().optional(),
+    gradePercentage: z.string().optional(),
+    specialization: z.string().optional(),
+    documentName: z.string().optional(),
+    documentUrl: z.string().optional(),
+    documentSizeKB: z.coerce.number().optional(),
+    documentUploadedAt: z.string().optional(),
+  })
+  .strip();
 
 const postgradSchema = z.object({
   qualification: z.string().optional(),
