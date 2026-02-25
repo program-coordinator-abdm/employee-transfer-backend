@@ -21,17 +21,9 @@ npm run dev
 The server runs on `http://localhost:4000`.
 
 ## Seeded Users
-**Admin**
-- **Username:** admin
-- **Email:** admin@etms.gov.in
-- **Password:** Admin@1234
-
-**Data Officer**
-- **Username:** dataofficer
-- **Email:** dataofficer@karnataka.gov.in
-- **Password:** Data@1234
-
-Note: Passwords are stored as plaintext in the `password` column.
+- Seed data is loaded from `scripts/users.csv` using `npm run seed`.
+- Seeding upserts `DATA_OFFICER` users by username/email and skips existing `ADMIN` users.
+- Passwords are stored as plaintext in the `password` column.
 
 ## API Endpoints
 ### Auth
