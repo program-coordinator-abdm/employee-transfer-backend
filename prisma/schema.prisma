@@ -78,6 +78,9 @@ model Employee {
   probationDeclarationDate DateTime?
   cltCompleted           Boolean   @default(false)
   cltCompletedDoc        String?
+  isDoctorNursePharmacist Boolean  @default(false)
+  hprId                  String?
+  hfrId                  String?
   terminallyIll          Boolean
   terminallyIllDoc       String?
   pregnantOrChildUnderOne Boolean
