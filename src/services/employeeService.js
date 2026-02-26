@@ -249,28 +249,25 @@ const mapEmployeeDetail = (employee) => {
   };
 };
 
-const listEmployees = async ({ category, searchMode, query, page, limit }) => {
+const listEmployees = async ({ category, searchMode, query }) => {
   const where = {
     ...buildSearchWhere(searchMode, query),
     ...buildCategoryWhere(category),
   };
 
-  const total = await prisma.employee.count({ where });
-  const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
-
   const data = await prisma.employee.findMany({
     where,
     orderBy: { empName: "asc" },
-    skip: (page - 1) * limit,
-    take: limit,
   });
+
+  const total = data.length;
 
   return {
     data: data.map(mapEmployeeList),
-    page,
-    limit,
+    page: 1,
+    limit: total,
     total,
-    totalPages,
+    totalPages: total === 0 ? 0 : 1,
   };
 };
 
