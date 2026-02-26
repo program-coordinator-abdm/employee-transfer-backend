@@ -1,4 +1,5 @@
 const prisma = require("./prisma");
+const { Prisma } = require("@prisma/client");
 const { AppError } = require("../utils/errors");
 
 const formatPeriod = (startedOn, endedOn) => {
@@ -91,6 +92,26 @@ const mapEducationDetails = (entries = []) =>
   }));
 
 const toArray = (value) => (Array.isArray(value) ? value : []);
+const normalizeForCompare = (value) => String(value || "").trim().toLowerCase();
+const extractUniqueFields = (error) => {
+  const target = error?.meta?.target;
+  if (Array.isArray(target) && target.length > 0) {
+    return target.map((field) => String(field));
+  }
+  if (typeof target === "string" && target.trim().length > 0) {
+    return target
+      .split(",")
+      .map((field) => field.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+const buildDuplicateEntryError = (fields) => {
+  const uniqueFields = fields.length > 0 ? fields : ["value"];
+  return new AppError("Duplicate entry", 400, {
+    message: `An employee with this ${uniqueFields.join(", ")} already exists`,
+  });
+};
 
 const mapEmployeeList = (employee) => {
   const yearsOfWork = employee.yearsOfWork ?? calculateYearsFromDate(employee.dateOfEntry);
@@ -340,71 +361,117 @@ const createEmployee = async (payload) => {
     const achievements = toArray(payload.achievements);
     const documents = toArray(payload.documents);
 
-    const employee = await tx.employee.create({
-      data: {
-        empName,
-        empKgid: payload.empKgid,
-        designation: payload.designation,
-        designationGroup: payload.designationGroup,
-        designationSubGroup: payload.designationSubGroup,
-        firstPostHeld: payload.firstPostHeld || null,
-        dateOfEntry,
-        dateOfJoining,
-        gender: payload.gender,
-        dob: payload.dob,
-        yearsOfWork,
-        currentPostHeld: payload.currentPostHeld,
-        currentPostGroup: payload.currentPostGroup,
-        currentPostSubGroup: payload.currentPostSubGroup,
-        currentFirstPostHeld: payload.currentFirstPostHeld || null,
-        currentInstitution: payload.currentInstitution,
-        currentDistrict: payload.currentDistrict,
-        currentTaluk: payload.currentTaluk,
-        currentCityTownVillage: payload.currentCityTownVillage,
-        currentAreaType: payload.currentAreaType || null,
-        currentWorkingSince: payload.currentWorkingSince,
-        currentDesignation: payload.currentPostHeld,
-        email: payload.email,
-        phoneNumber: payload.phoneNumber,
-        telephoneNumber: payload.telephoneNumber || null,
-        address: payload.address,
-        pinCode: payload.pinCode,
-        officeAddress: payload.officeAddress,
-        officePinCode: payload.officePinCode,
-        officeEmail: payload.officeEmail,
-        officePhoneNumber: payload.officePhoneNumber,
-        officeTelephoneNumber: payload.officeTelephoneNumber || null,
-        postAppliedFor: payload.postAppliedFor || null,
-        submittedOn: payload.submittedOn || new Date(),
-        objections: payload.objections || null,
-        probationaryPeriod: payload.probationaryPeriod,
-        probationaryPeriodDoc: payload.probationaryPeriodDoc || null,
-        probationDeclarationDate: payload.probationDeclarationDate || null,
-        cltCompleted: payload.cltCompleted,
-        cltCompletedDoc: payload.cltCompletedDoc || null,
-        isDoctorNursePharmacist: payload.isDoctorNursePharmacist,
-        hprId: payload.hprId || null,
-        hfrId: payload.hfrId || null,
-        terminallyIll: payload.terminallyIll,
-        terminallyIllDoc: payload.terminallyIllDoc || null,
-        pregnantOrChildUnderOne: payload.pregnantOrChildUnderOne,
-        pregnantOrChildUnderOneDoc: payload.pregnantOrChildUnderOneDoc || null,
-        retiringWithinTwoYears: payload.retiringWithinTwoYears,
-        retiringWithinTwoYearsDoc: payload.retiringWithinTwoYearsDoc || null,
-        childSpouseDisability: payload.childSpouseDisability,
-        childSpouseDisabilityDoc: payload.childSpouseDisabilityDoc || null,
-        divorceeWidowWithChild: payload.divorceeWidowWithChild,
-        divorceeWidowWithChildDoc: payload.divorceeWidowWithChildDoc || null,
-        spouseGovtServant: payload.spouseGovtServant,
-        spouseGovtServantDoc: payload.spouseGovtServantDoc || null,
-        spouseDesignation: payload.spouseDesignation || null,
-        spouseDistrict: payload.spouseDistrict || null,
-        spouseTaluk: payload.spouseTaluk || null,
-        spouseCityTownVillage: payload.spouseCityTownVillage || null,
-        ngoBenefits: payload.ngoBenefits,
-        ngoBenefitsDoc: payload.ngoBenefitsDoc || null,
+    const duplicateExistingEmployee = await tx.employee.findFirst({
+      where: {
+        OR: [
+          { empKgid: { equals: payload.empKgid, mode: "insensitive" } },
+          { email: { equals: payload.email, mode: "insensitive" } },
+        ],
+      },
+      select: {
+        empKgid: true,
+        email: true,
       },
     });
+
+    if (duplicateExistingEmployee) {
+      const duplicateFields = [];
+      if (
+        normalizeForCompare(duplicateExistingEmployee.empKgid) ===
+        normalizeForCompare(payload.empKgid)
+      ) {
+        duplicateFields.push("empKgid");
+      }
+      if (
+        normalizeForCompare(duplicateExistingEmployee.email) ===
+        normalizeForCompare(payload.email)
+      ) {
+        duplicateFields.push("email");
+      }
+      throw buildDuplicateEntryError(duplicateFields);
+    }
+
+    let employee;
+    try {
+      employee = await tx.employee.create({
+        data: {
+          empName,
+          empKgid: payload.empKgid,
+          designation: payload.designation,
+          designationGroup: payload.designationGroup,
+          designationSubGroup: payload.designationSubGroup,
+          firstPostHeld: payload.firstPostHeld || null,
+          dateOfEntry,
+          dateOfJoining,
+          gender: payload.gender,
+          dob: payload.dob,
+          yearsOfWork,
+          currentPostHeld: payload.currentPostHeld,
+          currentPostGroup: payload.currentPostGroup,
+          currentPostSubGroup: payload.currentPostSubGroup,
+          currentFirstPostHeld: payload.currentFirstPostHeld || null,
+          currentInstitution: payload.currentInstitution,
+          currentDistrict: payload.currentDistrict,
+          currentTaluk: payload.currentTaluk,
+          currentCityTownVillage: payload.currentCityTownVillage,
+          currentAreaType: payload.currentAreaType || null,
+          currentWorkingSince: payload.currentWorkingSince,
+          currentDesignation: payload.currentPostHeld,
+          email: payload.email,
+          phoneNumber: payload.phoneNumber,
+          telephoneNumber: payload.telephoneNumber || null,
+          address: payload.address,
+          pinCode: payload.pinCode,
+          officeAddress: payload.officeAddress,
+          officePinCode: payload.officePinCode,
+          officeEmail: payload.officeEmail,
+          officePhoneNumber: payload.officePhoneNumber,
+          officeTelephoneNumber: payload.officeTelephoneNumber || null,
+          postAppliedFor: payload.postAppliedFor || null,
+          submittedOn: payload.submittedOn || new Date(),
+          objections: payload.objections || null,
+          probationaryPeriod: payload.probationaryPeriod,
+          probationaryPeriodDoc: payload.probationaryPeriodDoc || null,
+          probationDeclarationDate: payload.probationDeclarationDate || null,
+          cltCompleted: payload.cltCompleted,
+          cltCompletedDoc: payload.cltCompletedDoc || null,
+          isDoctorNursePharmacist: payload.isDoctorNursePharmacist,
+          hprId: payload.hprId || null,
+          hfrId: payload.hfrId || null,
+          timeboundApplicable: payload.timeboundApplicable,
+          timeboundCategory: payload.timeboundCategory || null,
+          timeboundYears: payload.timeboundYears || null,
+          timeboundDoc: payload.timeboundDoc || null,
+          timeboundDate: payload.timeboundDate || null,
+          terminallyIll: payload.terminallyIll,
+          terminallyIllDoc: payload.terminallyIllDoc || null,
+          pregnantOrChildUnderOne: payload.pregnantOrChildUnderOne,
+          pregnantOrChildUnderOneDoc: payload.pregnantOrChildUnderOneDoc || null,
+          retiringWithinTwoYears: payload.retiringWithinTwoYears,
+          retiringWithinTwoYearsDoc: payload.retiringWithinTwoYearsDoc || null,
+          childSpouseDisability: payload.childSpouseDisability,
+          childSpouseDisabilityDoc: payload.childSpouseDisabilityDoc || null,
+          divorceeWidowWithChild: payload.divorceeWidowWithChild,
+          divorceeWidowWithChildDoc: payload.divorceeWidowWithChildDoc || null,
+          spouseGovtServant: payload.spouseGovtServant,
+          spouseGovtServantDoc: payload.spouseGovtServantDoc || null,
+          spouseDesignation: payload.spouseDesignation || null,
+          spouseDistrict: payload.spouseDistrict || null,
+          spouseTaluk: payload.spouseTaluk || null,
+          spouseCityTownVillage: payload.spouseCityTownVillage || null,
+          ngoBenefits: payload.ngoBenefits,
+          ngoBenefitsDoc: payload.ngoBenefitsDoc || null,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw buildDuplicateEntryError(extractUniqueFields(error));
+      }
+      throw error;
+    }
 
     const assignmentRecords = buildAssignmentRecords(payload).map((record) => ({
       ...record,

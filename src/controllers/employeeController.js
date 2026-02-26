@@ -275,7 +275,7 @@ const listSchema = z.object({
   searchMode: z.enum(["name", "kgid"]).optional().default("name"),
   query: z.string().optional().default(""),
   page: z.coerce.number().int().positive().optional().default(1),
-  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
 });
 
 const suggestionsSchema = z.object({
