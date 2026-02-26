@@ -81,6 +81,11 @@ model Employee {
   isDoctorNursePharmacist Boolean  @default(false)
   hprId                  String?
   hfrId                  String?
+  timeboundApplicable    Boolean   @default(false)
+  timeboundCategory      String?
+  timeboundYears         String?
+  timeboundDoc           String?
+  timeboundDate          DateTime?
   terminallyIll          Boolean
   terminallyIllDoc       String?
   pregnantOrChildUnderOne Boolean

@@ -140,6 +140,11 @@ const employeeSchema = z
     isDoctorNursePharmacist: z.coerce.boolean().optional().default(false),
     hprId: z.string().optional(),
     hfrId: z.string().optional(),
+    timeboundApplicable: z.coerce.boolean().optional().default(false),
+    timeboundCategory: z.string().optional(),
+    timeboundYears: z.string().optional(),
+    timeboundDoc: z.string().optional(),
+    timeboundDate: z.coerce.date().optional(),
     terminallyIll: z.coerce.boolean().default(false),
     terminallyIllDoc: z.string().optional(),
     pregnantOrChildUnderOne: z.coerce.boolean().default(false),
@@ -235,6 +240,22 @@ const employeeSchema = z
         path: ["ngoBenefitsDoc"],
         message: "NGO benefits document is required",
       });
+    }
+    if (data.timeboundApplicable) {
+      if (!data.timeboundCategory) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["timeboundCategory"],
+          message: "Timebound category is required",
+        });
+      }
+      if (!data.timeboundYears) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["timeboundYears"],
+          message: "Timebound years is required",
+        });
+      }
     }
     if (data.empDeclAgreed) {
       if (!data.empDeclName) {
@@ -359,12 +380,17 @@ const normalizeEmployeePayload = (body) => ({
   currentAreaType: body.currentAreaType,
   probationaryPeriod: body.probationaryPeriod,
   probationaryPeriodDoc: body.probationaryPeriodDoc,
-  probationDeclarationDate: body.probationDeclarationDate,
+  probationDeclarationDate: body.probationDeclarationDate || undefined,
   cltCompleted: body.cltCompleted,
   cltCompletedDoc: body.cltCompletedDoc,
   isDoctorNursePharmacist: body.isDoctorNursePharmacist,
   hprId: body.hprId,
   hfrId: body.hfrId,
+  timeboundApplicable: body.timeboundApplicable,
+  timeboundCategory: body.timeboundCategory,
+  timeboundYears: body.timeboundYears,
+  timeboundDoc: body.timeboundDoc,
+  timeboundDate: body.timeboundDate || undefined,
   terminallyIll: body.terminallyIll,
   terminallyIllDoc: body.terminallyIllDoc,
   pregnantOrChildUnderOne: body.pregnantOrChildUnderOne,

@@ -1,0 +1,6 @@
+ALTER TABLE "Employee"
+  ADD COLUMN IF NOT EXISTS "timeboundApplicable" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "timeboundCategory" TEXT,
+  ADD COLUMN IF NOT EXISTS "timeboundYears" TEXT,
+  ADD COLUMN IF NOT EXISTS "timeboundDoc" TEXT,
+  ADD COLUMN IF NOT EXISTS "timeboundDate" TIMESTAMP(3);
