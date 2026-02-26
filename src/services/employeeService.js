@@ -81,6 +81,15 @@ const mapAssignment = (entry) => ({
   type: entry.type,
 });
 
+const mapEducationDetails = (entries = []) =>
+  entries.map((entry) => ({
+    level: entry.level || "",
+    institution: entry.institutionName || entry.institution || "",
+    yearOfPassing: entry.yearOfPassing || entry.year || "",
+    gradePercentage: entry.gradePercentage || "",
+    documentProof: entry.documentName || entry.documentUrl || "",
+  }));
+
 const mapEmployeeList = (employee) => {
   const yearsOfWork = employee.yearsOfWork ?? calculateYearsFromDate(employee.dateOfEntry);
   return {
@@ -109,12 +118,14 @@ const mapEmployeeList = (employee) => {
 const mapEmployeeDetail = (employee) => {
   const assignments = (employee.assignmentHistory || []).map(mapAssignment);
   const totalExperienceYears = calculateTotalExperienceYears(assignments);
+  const education = employee.educations || [];
 
   return {
     id: String(employee.id),
     empName: employee.empName,
     empKgid: employee.empKgid,
     role: employee.designation,
+    firstPostHeld: employee.firstPostHeld,
     yearsOfWork: employee.yearsOfWork ?? calculateYearsFromDate(employee.dateOfEntry),
     totalExperienceYears,
     dob: employee.dob,
@@ -131,10 +142,12 @@ const mapEmployeeDetail = (employee) => {
     currentPostHeld: employee.currentPostHeld,
     currentPostGroup: employee.currentPostGroup,
     currentPostSubGroup: employee.currentPostSubGroup,
+    currentFirstPostHeld: employee.currentFirstPostHeld,
     currentInstitution: employee.currentInstitution,
     currentDistrict: employee.currentDistrict,
     currentTaluk: employee.currentTaluk,
     currentCityTownVillage: employee.currentCityTownVillage,
+    currentAreaType: employee.currentAreaType,
     currentWorkingSince: employee.currentWorkingSince,
     email: employee.email,
     phone: employee.phoneNumber,
@@ -152,6 +165,9 @@ const mapEmployeeDetail = (employee) => {
     objections: employee.objections,
     probationaryPeriod: employee.probationaryPeriod,
     probationaryPeriodDoc: employee.probationaryPeriodDoc,
+    probationDeclarationDate: employee.probationDeclarationDate,
+    cltCompleted: employee.cltCompleted ?? false,
+    cltCompletedDoc: employee.cltCompletedDoc,
     terminallyIll: employee.terminallyIll,
     terminallyIllDoc: employee.terminallyIllDoc,
     pregnantOrChildUnderOne: employee.pregnantOrChildUnderOne,
@@ -164,6 +180,12 @@ const mapEmployeeDetail = (employee) => {
     divorceeWidowWithChildDoc: employee.divorceeWidowWithChildDoc,
     spouseGovtServant: employee.spouseGovtServant,
     spouseGovtServantDoc: employee.spouseGovtServantDoc,
+    spouseDesignation: employee.spouseDesignation,
+    spouseDistrict: employee.spouseDistrict,
+    spouseTaluk: employee.spouseTaluk,
+    spouseCityTownVillage: employee.spouseCityTownVillage,
+    ngoBenefits: employee.ngoBenefits ?? false,
+    ngoBenefitsDoc: employee.ngoBenefitsDoc,
     empDeclAgreed: employee.declaration?.empDeclAgreed ?? false,
     empDeclName: employee.declaration?.empDeclName,
     empDeclDate: employee.declaration?.empDeclDate,
@@ -172,7 +194,8 @@ const mapEmployeeDetail = (employee) => {
     officerDeclDate: employee.declaration?.officerDeclDate,
     assignmentHistory: assignments,
     pastServices: employee.pastServices || [],
-    education: employee.educations || [],
+    education,
+    educationDetails: mapEducationDetails(education),
     postgraduateQualifications: employee.postgraduateQualifications || [],
     timeboundPromotions: employee.timeboundPromotions || [],
     administrativeRoles: employee.administrativeRoles || [],
@@ -308,6 +331,7 @@ const createEmployee = async (payload) => {
         designation: payload.designation,
         designationGroup: payload.designationGroup,
         designationSubGroup: payload.designationSubGroup,
+        firstPostHeld: payload.firstPostHeld || null,
         dateOfEntry,
         dateOfJoining,
         gender: payload.gender,
@@ -316,10 +340,12 @@ const createEmployee = async (payload) => {
         currentPostHeld: payload.currentPostHeld,
         currentPostGroup: payload.currentPostGroup,
         currentPostSubGroup: payload.currentPostSubGroup,
+        currentFirstPostHeld: payload.currentFirstPostHeld || null,
         currentInstitution: payload.currentInstitution,
         currentDistrict: payload.currentDistrict,
         currentTaluk: payload.currentTaluk,
         currentCityTownVillage: payload.currentCityTownVillage,
+        currentAreaType: payload.currentAreaType || null,
         currentWorkingSince: payload.currentWorkingSince,
         currentDesignation: payload.currentPostHeld,
         email: payload.email,
@@ -337,6 +363,9 @@ const createEmployee = async (payload) => {
         objections: payload.objections || null,
         probationaryPeriod: payload.probationaryPeriod,
         probationaryPeriodDoc: payload.probationaryPeriodDoc || null,
+        probationDeclarationDate: payload.probationDeclarationDate || null,
+        cltCompleted: payload.cltCompleted,
+        cltCompletedDoc: payload.cltCompletedDoc || null,
         terminallyIll: payload.terminallyIll,
         terminallyIllDoc: payload.terminallyIllDoc || null,
         pregnantOrChildUnderOne: payload.pregnantOrChildUnderOne,
@@ -349,6 +378,12 @@ const createEmployee = async (payload) => {
         divorceeWidowWithChildDoc: payload.divorceeWidowWithChildDoc || null,
         spouseGovtServant: payload.spouseGovtServant,
         spouseGovtServantDoc: payload.spouseGovtServantDoc || null,
+        spouseDesignation: payload.spouseDesignation || null,
+        spouseDistrict: payload.spouseDistrict || null,
+        spouseTaluk: payload.spouseTaluk || null,
+        spouseCityTownVillage: payload.spouseCityTownVillage || null,
+        ngoBenefits: payload.ngoBenefits,
+        ngoBenefitsDoc: payload.ngoBenefitsDoc || null,
       },
     });
 
@@ -492,6 +527,7 @@ const updateEmployee = async (id, payload) => {
         designation: payload.designation,
         designationGroup: payload.designationGroup,
         designationSubGroup: payload.designationSubGroup,
+        firstPostHeld: payload.firstPostHeld || null,
         dateOfEntry,
         dateOfJoining,
         gender: payload.gender,
@@ -500,10 +536,12 @@ const updateEmployee = async (id, payload) => {
         currentPostHeld: payload.currentPostHeld,
         currentPostGroup: payload.currentPostGroup,
         currentPostSubGroup: payload.currentPostSubGroup,
+        currentFirstPostHeld: payload.currentFirstPostHeld || null,
         currentInstitution: payload.currentInstitution,
         currentDistrict: payload.currentDistrict,
         currentTaluk: payload.currentTaluk,
         currentCityTownVillage: payload.currentCityTownVillage,
+        currentAreaType: payload.currentAreaType || null,
         currentWorkingSince: payload.currentWorkingSince,
         currentDesignation: payload.currentPostHeld,
         email: payload.email,
@@ -521,6 +559,9 @@ const updateEmployee = async (id, payload) => {
         objections: payload.objections || null,
         probationaryPeriod: payload.probationaryPeriod,
         probationaryPeriodDoc: payload.probationaryPeriodDoc || null,
+        probationDeclarationDate: payload.probationDeclarationDate || null,
+        cltCompleted: payload.cltCompleted,
+        cltCompletedDoc: payload.cltCompletedDoc || null,
         terminallyIll: payload.terminallyIll,
         terminallyIllDoc: payload.terminallyIllDoc || null,
         pregnantOrChildUnderOne: payload.pregnantOrChildUnderOne,
@@ -533,6 +574,12 @@ const updateEmployee = async (id, payload) => {
         divorceeWidowWithChildDoc: payload.divorceeWidowWithChildDoc || null,
         spouseGovtServant: payload.spouseGovtServant,
         spouseGovtServantDoc: payload.spouseGovtServantDoc || null,
+        spouseDesignation: payload.spouseDesignation || null,
+        spouseDistrict: payload.spouseDistrict || null,
+        spouseTaluk: payload.spouseTaluk || null,
+        spouseCityTownVillage: payload.spouseCityTownVillage || null,
+        ngoBenefits: payload.ngoBenefits,
+        ngoBenefitsDoc: payload.ngoBenefitsDoc || null,
       },
     });
 

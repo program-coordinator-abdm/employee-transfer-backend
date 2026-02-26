@@ -1,0 +1,16 @@
+ALTER TABLE "Employee"
+  ADD COLUMN IF NOT EXISTS "firstPostHeld" TEXT,
+  ADD COLUMN IF NOT EXISTS "probationDeclarationDate" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "cltCompleted" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "cltCompletedDoc" TEXT,
+  ADD COLUMN IF NOT EXISTS "currentFirstPostHeld" TEXT,
+  ADD COLUMN IF NOT EXISTS "currentAreaType" TEXT,
+  ADD COLUMN IF NOT EXISTS "spouseDesignation" TEXT,
+  ADD COLUMN IF NOT EXISTS "spouseDistrict" TEXT,
+  ADD COLUMN IF NOT EXISTS "spouseTaluk" TEXT,
+  ADD COLUMN IF NOT EXISTS "spouseCityTownVillage" TEXT,
+  ADD COLUMN IF NOT EXISTS "ngoBenefits" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "ngoBenefitsDoc" TEXT;
+
+ALTER TABLE "PastService"
+  ADD COLUMN IF NOT EXISTS "firstPostHeld" TEXT;

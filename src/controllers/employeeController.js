@@ -6,6 +6,7 @@ const pastServiceSchema = z.object({
   postHeld: z.string().min(1),
   postGroup: z.string().min(1),
   postSubGroup: z.string().min(1),
+  firstPostHeld: z.string().optional().default(""),
   institution: z.string().min(1),
   district: z.string().min(1),
   taluk: z.string().optional().default(""),
@@ -106,6 +107,7 @@ const employeeSchema = z
     designation: z.string().min(1),
     designationGroup: z.string().min(1),
     designationSubGroup: z.string().min(1),
+    firstPostHeld: z.string().optional(),
     dateOfEntry: z.coerce.date(),
     dateOfJoining: z.coerce.date().optional(),
     dob: z.coerce.date(),
@@ -123,13 +125,18 @@ const employeeSchema = z
     currentPostHeld: z.string().min(1),
     currentPostGroup: z.string().min(1),
     currentPostSubGroup: z.string().min(1),
+    currentFirstPostHeld: z.string().optional(),
     currentInstitution: z.string().min(1),
     currentDistrict: z.string().min(1),
     currentTaluk: z.string().min(1),
     currentCityTownVillage: z.string().min(1),
     currentWorkingSince: z.coerce.date(),
+    currentAreaType: z.string().optional(),
     probationaryPeriod: z.coerce.boolean().default(false),
     probationaryPeriodDoc: z.string().optional(),
+    probationDeclarationDate: z.coerce.date().optional(),
+    cltCompleted: z.coerce.boolean().optional().default(false),
+    cltCompletedDoc: z.string().optional(),
     terminallyIll: z.coerce.boolean().default(false),
     terminallyIllDoc: z.string().optional(),
     pregnantOrChildUnderOne: z.coerce.boolean().default(false),
@@ -142,6 +149,12 @@ const employeeSchema = z
     divorceeWidowWithChildDoc: z.string().optional(),
     spouseGovtServant: z.coerce.boolean().default(false),
     spouseGovtServantDoc: z.string().optional(),
+    spouseDesignation: z.string().optional(),
+    spouseDistrict: z.string().optional(),
+    spouseTaluk: z.string().optional(),
+    spouseCityTownVillage: z.string().optional(),
+    ngoBenefits: z.coerce.boolean().optional().default(false),
+    ngoBenefitsDoc: z.string().optional(),
     empDeclAgreed: z.coerce.boolean(),
     empDeclName: z.string().optional(),
     empDeclDate: z.coerce.date().optional(),
@@ -213,6 +226,13 @@ const employeeSchema = z
         message: "Spouse govt servant document is required",
       });
     }
+    if (data.ngoBenefits && !data.ngoBenefitsDoc) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["ngoBenefitsDoc"],
+        message: "NGO benefits document is required",
+      });
+    }
     if (data.empDeclAgreed) {
       if (!data.empDeclName) {
         ctx.addIssue({
@@ -262,12 +282,54 @@ const suggestionsSchema = z.object({
   limit: z.coerce.number().int().positive().max(20).optional().default(8),
 });
 
+const toOptionalString = (value) => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const normalizeEducationEntries = (body) => {
+  const rawEntries =
+    Array.isArray(body.educationDetails) && body.educationDetails.length > 0
+      ? body.educationDetails
+      : Array.isArray(body.education)
+        ? body.education
+        : [];
+
+  return rawEntries
+    .map((entry = {}) => ({
+      type: toOptionalString(entry.type),
+      qualification: toOptionalString(entry.qualification),
+      degree: toOptionalString(entry.degree),
+      institution: toOptionalString(entry.institution),
+      level: toOptionalString(entry.level),
+      institutionName: toOptionalString(entry.institutionName ?? entry.institution),
+      university: toOptionalString(entry.university),
+      year: toOptionalString(entry.year),
+      yearOfPassing: toOptionalString(entry.yearOfPassing ?? entry.year),
+      gradePercentage: toOptionalString(entry.gradePercentage),
+      specialization: toOptionalString(entry.specialization),
+      documentName: toOptionalString(entry.documentName ?? entry.documentProof),
+      documentUrl: toOptionalString(entry.documentUrl),
+      documentSizeKB: entry.documentSizeKB,
+      documentUploadedAt: toOptionalString(entry.documentUploadedAt),
+    }))
+    .filter((entry) =>
+      Object.values(entry).some(
+        (value) => value !== undefined && value !== null && value !== ""
+      )
+    );
+};
+
 const normalizeEmployeePayload = (body) => ({
   empKgid: body.empKgid ?? body.kgid,
   empName: body.empName ?? body.name,
   designation: body.designation ?? body.role ?? body.currentPostHeld,
   designationGroup: body.designationGroup ?? body.group ?? body.categoryGroup,
   designationSubGroup: body.designationSubGroup ?? body.subGroup ?? body.categorySubGroup,
+  firstPostHeld: body.firstPostHeld,
   dateOfEntry: body.dateOfEntry ?? body.dateOfJoining ?? body.dateOfEntryIntoService,
   dateOfJoining: body.dateOfJoining ?? body.dateOfEntry,
   dob: body.dob ?? body.dateOfBirth,
@@ -285,13 +347,18 @@ const normalizeEmployeePayload = (body) => ({
   currentPostHeld: body.currentPostHeld ?? body.currentPosition,
   currentPostGroup: body.currentPostGroup,
   currentPostSubGroup: body.currentPostSubGroup,
+  currentFirstPostHeld: body.currentFirstPostHeld,
   currentInstitution: body.currentInstitution ?? body.currentHospital,
   currentDistrict: body.currentDistrict,
   currentTaluk: body.currentTaluk,
   currentCityTownVillage: body.currentCityTownVillage ?? body.currentCity,
   currentWorkingSince: body.currentWorkingSince,
+  currentAreaType: body.currentAreaType,
   probationaryPeriod: body.probationaryPeriod,
   probationaryPeriodDoc: body.probationaryPeriodDoc,
+  probationDeclarationDate: body.probationDeclarationDate,
+  cltCompleted: body.cltCompleted,
+  cltCompletedDoc: body.cltCompletedDoc,
   terminallyIll: body.terminallyIll,
   terminallyIllDoc: body.terminallyIllDoc,
   pregnantOrChildUnderOne: body.pregnantOrChildUnderOne,
@@ -304,6 +371,12 @@ const normalizeEmployeePayload = (body) => ({
   divorceeWidowWithChildDoc: body.divorceeWidowWithChildDoc,
   spouseGovtServant: body.spouseGovtServant,
   spouseGovtServantDoc: body.spouseGovtServantDoc,
+  spouseDesignation: body.spouseDesignation,
+  spouseDistrict: body.spouseDistrict,
+  spouseTaluk: body.spouseTaluk,
+  spouseCityTownVillage: body.spouseCityTownVillage,
+  ngoBenefits: body.ngoBenefits,
+  ngoBenefitsDoc: body.ngoBenefitsDoc,
   empDeclAgreed: body.empDeclAgreed,
   empDeclName: body.empDeclName,
   empDeclDate: body.empDeclDate,
@@ -314,7 +387,7 @@ const normalizeEmployeePayload = (body) => ({
   submittedOn: body.submittedOn,
   objections: body.objections,
   pastServices: body.pastServices,
-  education: body.education,
+  education: normalizeEducationEntries(body),
   postgraduateQualifications: body.postgraduateQualifications,
   timeboundPromotions: body.timeboundPromotions,
   administrativeRoles: body.administrativeRoles,

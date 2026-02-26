@@ -45,6 +45,7 @@ model Employee {
   designation            String
   designationGroup       String
   designationSubGroup    String
+  firstPostHeld          String?
   dateOfEntry            DateTime
   dateOfJoining          DateTime
   gender                 String
@@ -74,6 +75,9 @@ model Employee {
   objections             String?
   probationaryPeriod     Boolean
   probationaryPeriodDoc  String?
+  probationDeclarationDate DateTime?
+  cltCompleted           Boolean   @default(false)
+  cltCompletedDoc        String?
   terminallyIll          Boolean
   terminallyIllDoc       String?
   pregnantOrChildUnderOne Boolean
@@ -86,6 +90,14 @@ model Employee {
   divorceeWidowWithChildDoc String?
   spouseGovtServant      Boolean
   spouseGovtServantDoc   String?
+  spouseDesignation      String?
+  spouseDistrict         String?
+  spouseTaluk            String?
+  spouseCityTownVillage  String?
+  ngoBenefits            Boolean   @default(false)
+  ngoBenefitsDoc         String?
+  currentFirstPostHeld   String?
+  currentAreaType        String?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
@@ -133,6 +145,7 @@ model PastService {
   postHeld       String
   postGroup      String
   postSubGroup   String
+  firstPostHeld  String?
   institution    String
   district       String
   taluk          String?
