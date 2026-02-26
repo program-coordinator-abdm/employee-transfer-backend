@@ -90,6 +90,8 @@ const mapEducationDetails = (entries = []) =>
     documentProof: entry.documentName || entry.documentUrl || "",
   }));
 
+const toArray = (value) => (Array.isArray(value) ? value : []);
+
 const mapEmployeeList = (employee) => {
   const yearsOfWork = employee.yearsOfWork ?? calculateYearsFromDate(employee.dateOfEntry);
   return {
@@ -288,7 +290,7 @@ const getEmployeeById = async (id) => {
 
 const buildAssignmentRecords = (payload) => {
   const records = [];
-  payload.pastServices.forEach((service) => {
+  toArray(payload.pastServices).forEach((service) => {
     records.push({
       role: service.postHeld,
       city: service.cityTownVillage || service.district,
@@ -323,6 +325,14 @@ const createEmployee = async (payload) => {
     const dateOfEntry = payload.dateOfEntry;
     const dateOfJoining = payload.dateOfJoining || payload.dateOfEntry;
     const yearsOfWork = calculateYearsFromDate(dateOfEntry);
+    const pastServices = toArray(payload.pastServices);
+    const education = toArray(payload.education);
+    const postgraduateQualifications = toArray(payload.postgraduateQualifications);
+    const timeboundPromotions = toArray(payload.timeboundPromotions);
+    const administrativeRoles = toArray(payload.administrativeRoles);
+    const additionalCharges = toArray(payload.additionalCharges);
+    const achievements = toArray(payload.achievements);
+    const documents = toArray(payload.documents);
 
     const employee = await tx.employee.create({
       data: {
@@ -395,57 +405,57 @@ const createEmployee = async (payload) => {
       await tx.assignmentHistory.createMany({ data: assignmentRecords });
     }
 
-    if (payload.pastServices.length > 0) {
+    if (pastServices.length > 0) {
       await tx.pastService.createMany({
-        data: payload.pastServices.map((service) => ({
+        data: pastServices.map((service) => ({
           ...service,
           employeeId: employee.id,
         })),
       });
     }
 
-    if (payload.education.length > 0) {
+    if (education.length > 0) {
       await tx.education.createMany({
-        data: payload.education.map((entry) => ({ ...entry, employeeId: employee.id })),
+        data: education.map((entry) => ({ ...entry, employeeId: employee.id })),
       });
     }
 
-    if (payload.postgraduateQualifications.length > 0) {
+    if (postgraduateQualifications.length > 0) {
       await tx.postgraduateQualification.createMany({
-        data: payload.postgraduateQualifications.map((entry) => ({
+        data: postgraduateQualifications.map((entry) => ({
           ...entry,
           employeeId: employee.id,
         })),
       });
     }
 
-    if (payload.timeboundPromotions.length > 0) {
+    if (timeboundPromotions.length > 0) {
       await tx.timeboundPromotion.createMany({
-        data: payload.timeboundPromotions.map((entry) => ({ ...entry, employeeId: employee.id })),
+        data: timeboundPromotions.map((entry) => ({ ...entry, employeeId: employee.id })),
       });
     }
 
-    if (payload.administrativeRoles.length > 0) {
+    if (administrativeRoles.length > 0) {
       await tx.administrativeRole.createMany({
-        data: payload.administrativeRoles.map((entry) => ({ ...entry, employeeId: employee.id })),
+        data: administrativeRoles.map((entry) => ({ ...entry, employeeId: employee.id })),
       });
     }
 
-    if (payload.additionalCharges.length > 0) {
+    if (additionalCharges.length > 0) {
       await tx.additionalCharge.createMany({
-        data: payload.additionalCharges.map((entry) => ({ ...entry, employeeId: employee.id })),
+        data: additionalCharges.map((entry) => ({ ...entry, employeeId: employee.id })),
       });
     }
 
-    if (payload.achievements.length > 0) {
+    if (achievements.length > 0) {
       await tx.achievement.createMany({
-        data: payload.achievements.map((entry) => ({ ...entry, employeeId: employee.id })),
+        data: achievements.map((entry) => ({ ...entry, employeeId: employee.id })),
       });
     }
 
-    if (payload.documents.length > 0) {
+    if (documents.length > 0) {
       await tx.document.createMany({
-        data: payload.documents.map((entry) => ({
+        data: documents.map((entry) => ({
           name: entry.name,
           sizeKB: entry.sizeKB ?? null,
           uploadedAt: entry.uploadedAt ? new Date(entry.uploadedAt) : null,
@@ -504,20 +514,26 @@ const updateEmployee = async (id, payload) => {
     const dateOfEntry = payload.dateOfEntry;
     const dateOfJoining = payload.dateOfJoining || payload.dateOfEntry;
     const yearsOfWork = calculateYearsFromDate(dateOfEntry);
+    const hasPastServices = Array.isArray(payload.pastServices);
+    const hasEducation = Array.isArray(payload.education);
+    const hasPostgraduateQualifications = Array.isArray(payload.postgraduateQualifications);
+    const hasTimeboundPromotions = Array.isArray(payload.timeboundPromotions);
+    const hasAdministrativeRoles = Array.isArray(payload.administrativeRoles);
+    const hasAdditionalCharges = Array.isArray(payload.additionalCharges);
+    const hasAchievements = Array.isArray(payload.achievements);
+    const hasDocuments = Array.isArray(payload.documents);
+    const hasDisciplinaryRecord = payload.disciplinaryRecord !== undefined;
+    const hasServiceInformation = payload.serviceInformation !== undefined;
+    const hasAppointmentDetails = payload.appointmentDetails !== undefined;
 
-    await tx.assignmentHistory.deleteMany({ where: { employeeId: id } });
-    await tx.pastService.deleteMany({ where: { employeeId: id } });
-    await tx.education.deleteMany({ where: { employeeId: id } });
-    await tx.postgraduateQualification.deleteMany({ where: { employeeId: id } });
-    await tx.timeboundPromotion.deleteMany({ where: { employeeId: id } });
-    await tx.administrativeRole.deleteMany({ where: { employeeId: id } });
-    await tx.additionalCharge.deleteMany({ where: { employeeId: id } });
-    await tx.achievement.deleteMany({ where: { employeeId: id } });
-    await tx.document.deleteMany({ where: { employeeId: id } });
-    await tx.disciplinaryRecord.deleteMany({ where: { employeeId: id } });
-    await tx.serviceInformation.deleteMany({ where: { employeeId: id } });
-    await tx.appointmentDetails.deleteMany({ where: { employeeId: id } });
-    await tx.declaration.deleteMany({ where: { employeeId: id } });
+    const pastServices = toArray(payload.pastServices);
+    const education = toArray(payload.education);
+    const postgraduateQualifications = toArray(payload.postgraduateQualifications);
+    const timeboundPromotions = toArray(payload.timeboundPromotions);
+    const administrativeRoles = toArray(payload.administrativeRoles);
+    const additionalCharges = toArray(payload.additionalCharges);
+    const achievements = toArray(payload.achievements);
+    const documents = toArray(payload.documents);
 
     await tx.employee.update({
       where: { id },
@@ -583,91 +599,139 @@ const updateEmployee = async (id, payload) => {
       },
     });
 
-    const assignmentRecords = buildAssignmentRecords(payload).map((record) => ({
-      ...record,
-      employeeId: id,
-    }));
-    if (assignmentRecords.length > 0) {
-      await tx.assignmentHistory.createMany({ data: assignmentRecords });
+    if (hasPastServices) {
+      await tx.assignmentHistory.deleteMany({ where: { employeeId: id } });
+      await tx.pastService.deleteMany({ where: { employeeId: id } });
+
+      const assignmentRecords = buildAssignmentRecords({
+        ...payload,
+        pastServices,
+      }).map((record) => ({
+        ...record,
+        employeeId: id,
+      }));
+
+      if (assignmentRecords.length > 0) {
+        await tx.assignmentHistory.createMany({ data: assignmentRecords });
+      }
+
+      if (pastServices.length > 0) {
+        await tx.pastService.createMany({
+          data: pastServices.map((service) => ({ ...service, employeeId: id })),
+        });
+      }
     }
 
-    if (payload.pastServices.length > 0) {
-      await tx.pastService.createMany({
-        data: payload.pastServices.map((service) => ({ ...service, employeeId: id })),
-      });
+    if (hasEducation) {
+      await tx.education.deleteMany({ where: { employeeId: id } });
+      if (education.length > 0) {
+        await tx.education.createMany({
+          data: education.map((entry) => ({ ...entry, employeeId: id })),
+        });
+      }
     }
 
-    if (payload.education.length > 0) {
-      await tx.education.createMany({
-        data: payload.education.map((entry) => ({ ...entry, employeeId: id })),
-      });
+    if (hasPostgraduateQualifications) {
+      await tx.postgraduateQualification.deleteMany({ where: { employeeId: id } });
+      if (postgraduateQualifications.length > 0) {
+        await tx.postgraduateQualification.createMany({
+          data: postgraduateQualifications.map((entry) => ({
+            ...entry,
+            employeeId: id,
+          })),
+        });
+      }
     }
 
-    if (payload.postgraduateQualifications.length > 0) {
-      await tx.postgraduateQualification.createMany({
-        data: payload.postgraduateQualifications.map((entry) => ({
-          ...entry,
-          employeeId: id,
-        })),
-      });
+    if (hasTimeboundPromotions) {
+      await tx.timeboundPromotion.deleteMany({ where: { employeeId: id } });
+      if (timeboundPromotions.length > 0) {
+        await tx.timeboundPromotion.createMany({
+          data: timeboundPromotions.map((entry) => ({ ...entry, employeeId: id })),
+        });
+      }
     }
 
-    if (payload.timeboundPromotions.length > 0) {
-      await tx.timeboundPromotion.createMany({
-        data: payload.timeboundPromotions.map((entry) => ({ ...entry, employeeId: id })),
-      });
+    if (hasAdministrativeRoles) {
+      await tx.administrativeRole.deleteMany({ where: { employeeId: id } });
+      if (administrativeRoles.length > 0) {
+        await tx.administrativeRole.createMany({
+          data: administrativeRoles.map((entry) => ({ ...entry, employeeId: id })),
+        });
+      }
     }
 
-    if (payload.administrativeRoles.length > 0) {
-      await tx.administrativeRole.createMany({
-        data: payload.administrativeRoles.map((entry) => ({ ...entry, employeeId: id })),
-      });
+    if (hasAdditionalCharges) {
+      await tx.additionalCharge.deleteMany({ where: { employeeId: id } });
+      if (additionalCharges.length > 0) {
+        await tx.additionalCharge.createMany({
+          data: additionalCharges.map((entry) => ({ ...entry, employeeId: id })),
+        });
+      }
     }
 
-    if (payload.additionalCharges.length > 0) {
-      await tx.additionalCharge.createMany({
-        data: payload.additionalCharges.map((entry) => ({ ...entry, employeeId: id })),
-      });
+    if (hasAchievements) {
+      await tx.achievement.deleteMany({ where: { employeeId: id } });
+      if (achievements.length > 0) {
+        await tx.achievement.createMany({
+          data: achievements.map((entry) => ({ ...entry, employeeId: id })),
+        });
+      }
     }
 
-    if (payload.achievements.length > 0) {
-      await tx.achievement.createMany({
-        data: payload.achievements.map((entry) => ({ ...entry, employeeId: id })),
-      });
+    if (hasDocuments) {
+      await tx.document.deleteMany({ where: { employeeId: id } });
+      if (documents.length > 0) {
+        await tx.document.createMany({
+          data: documents.map((entry) => ({
+            name: entry.name,
+            sizeKB: entry.sizeKB ?? null,
+            uploadedAt: entry.uploadedAt ? new Date(entry.uploadedAt) : null,
+            downloadUrl: entry.downloadUrl ?? null,
+            employeeId: id,
+          })),
+        });
+      }
     }
 
-    if (payload.documents.length > 0) {
-      await tx.document.createMany({
-        data: payload.documents.map((entry) => ({
-          name: entry.name,
-          sizeKB: entry.sizeKB ?? null,
-          uploadedAt: entry.uploadedAt ? new Date(entry.uploadedAt) : null,
-          downloadUrl: entry.downloadUrl ?? null,
-          employeeId: id,
-        })),
-      });
+    if (hasDisciplinaryRecord) {
+      await tx.disciplinaryRecord.deleteMany({ where: { employeeId: id } });
+      if (payload.disciplinaryRecord) {
+        await tx.disciplinaryRecord.create({
+          data: { ...payload.disciplinaryRecord, employeeId: id },
+        });
+      }
     }
 
-    if (payload.disciplinaryRecord) {
-      await tx.disciplinaryRecord.create({
-        data: { ...payload.disciplinaryRecord, employeeId: id },
-      });
+    if (hasServiceInformation) {
+      await tx.serviceInformation.deleteMany({ where: { employeeId: id } });
+      if (payload.serviceInformation) {
+        await tx.serviceInformation.create({
+          data: { ...payload.serviceInformation, employeeId: id },
+        });
+      }
     }
 
-    if (payload.serviceInformation) {
-      await tx.serviceInformation.create({
-        data: { ...payload.serviceInformation, employeeId: id },
-      });
+    if (hasAppointmentDetails) {
+      await tx.appointmentDetails.deleteMany({ where: { employeeId: id } });
+      if (payload.appointmentDetails) {
+        await tx.appointmentDetails.create({
+          data: { ...payload.appointmentDetails, employeeId: id },
+        });
+      }
     }
 
-    if (payload.appointmentDetails) {
-      await tx.appointmentDetails.create({
-        data: { ...payload.appointmentDetails, employeeId: id },
-      });
-    }
-
-    await tx.declaration.create({
-      data: {
+    await tx.declaration.upsert({
+      where: { employeeId: id },
+      update: {
+        empDeclAgreed: payload.empDeclAgreed,
+        empDeclName: payload.empDeclName || null,
+        empDeclDate: payload.empDeclDate || null,
+        officerDeclAgreed: payload.officerDeclAgreed,
+        officerDeclName: payload.officerDeclName || null,
+        officerDeclDate: payload.officerDeclDate || null,
+      },
+      create: {
         employeeId: id,
         empDeclAgreed: payload.empDeclAgreed,
         empDeclName: payload.empDeclName || null,
