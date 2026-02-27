@@ -132,6 +132,39 @@ const buildDuplicateEntryError = (fields) => {
   });
 };
 
+// Duplicate guard section: KGID is always validated as unique (case-insensitive).
+const validateEmployeeUniqueness = async (
+  tx,
+  { empKgid, email, excludeEmployeeId = null }
+) => {
+  const duplicate = await tx.employee.findFirst({
+    where: {
+      OR: [
+        { empKgid: { equals: empKgid, mode: "insensitive" } },
+        { email: { equals: email, mode: "insensitive" } },
+      ],
+      ...(excludeEmployeeId ? { NOT: { id: excludeEmployeeId } } : {}),
+    },
+    select: {
+      empKgid: true,
+      email: true,
+    },
+  });
+
+  if (!duplicate) return;
+
+  const duplicateFields = [];
+  if (
+    normalizeForCompare(duplicate.empKgid) === normalizeForCompare(empKgid)
+  ) {
+    duplicateFields.push("empKgid");
+  }
+  if (normalizeForCompare(duplicate.email) === normalizeForCompare(email)) {
+    duplicateFields.push("email");
+  }
+  throw buildDuplicateEntryError(duplicateFields);
+};
+
 const mapEmployeeList = (employee) => {
   const yearsOfWork = employee.yearsOfWork ?? calculateYearsFromDate(employee.dateOfEntry);
   return {
@@ -530,35 +563,10 @@ const createEmployee = async (payload) => {
     const achievements = toArray(payload.achievements);
     const documents = toArray(payload.documents);
 
-    const duplicateExistingEmployee = await tx.employee.findFirst({
-      where: {
-        OR: [
-          { empKgid: { equals: payload.empKgid, mode: "insensitive" } },
-          { email: { equals: payload.email, mode: "insensitive" } },
-        ],
-      },
-      select: {
-        empKgid: true,
-        email: true,
-      },
+    await validateEmployeeUniqueness(tx, {
+      empKgid: payload.empKgid,
+      email: payload.email,
     });
-
-    if (duplicateExistingEmployee) {
-      const duplicateFields = [];
-      if (
-        normalizeForCompare(duplicateExistingEmployee.empKgid) ===
-        normalizeForCompare(payload.empKgid)
-      ) {
-        duplicateFields.push("empKgid");
-      }
-      if (
-        normalizeForCompare(duplicateExistingEmployee.email) ===
-        normalizeForCompare(payload.email)
-      ) {
-        duplicateFields.push("email");
-      }
-      throw buildDuplicateEntryError(duplicateFields);
-    }
 
     let employee;
     try {
@@ -800,6 +808,12 @@ const updateEmployee = async (id, payload) => {
     const additionalCharges = toArray(payload.additionalCharges);
     const achievements = toArray(payload.achievements);
     const documents = toArray(payload.documents);
+
+    await validateEmployeeUniqueness(tx, {
+      empKgid: payload.empKgid,
+      email: payload.email,
+      excludeEmployeeId: id,
+    });
 
     await tx.employee.update({
       where: { id },
