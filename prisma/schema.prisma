@@ -94,6 +94,7 @@ model Employee {
   recruitmentType        String?
   contractRegularised    Boolean   @default(false)
   contractRegularisedDoc String?
+  contractRegularisedDate DateTime?
   terminallyIll          Boolean
   terminallyIllDoc       String?
   pregnantOrChildUnderOne Boolean

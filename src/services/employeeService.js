@@ -151,6 +151,7 @@ const mapEmployeeList = (employee) => {
     recruitmentType: employee.recruitmentType,
     contractRegularised: employee.contractRegularised ?? false,
     contractRegularisedDoc: employee.contractRegularisedDoc,
+    contractRegularisedDate: employee.contractRegularisedDate,
   };
 };
 
@@ -223,6 +224,7 @@ const mapEmployeeDetail = (employee) => {
     recruitmentType: employee.recruitmentType,
     contractRegularised: employee.contractRegularised ?? false,
     contractRegularisedDoc: employee.contractRegularisedDoc,
+    contractRegularisedDate: employee.contractRegularisedDate,
     terminallyIll: employee.terminallyIll,
     terminallyIllDoc: employee.terminallyIllDoc,
     pregnantOrChildUnderOne: employee.pregnantOrChildUnderOne,
@@ -477,6 +479,7 @@ const createEmployee = async (payload) => {
           recruitmentType: payload.recruitmentType || null,
           contractRegularised: payload.contractRegularised,
           contractRegularisedDoc: payload.contractRegularisedDoc || null,
+          contractRegularisedDate: payload.contractRegularisedDate || null,
           terminallyIll: payload.terminallyIll,
           terminallyIllDoc: payload.terminallyIllDoc || null,
           pregnantOrChildUnderOne: payload.pregnantOrChildUnderOne,
@@ -704,6 +707,7 @@ const updateEmployee = async (id, payload) => {
         recruitmentType: payload.recruitmentType || null,
         contractRegularised: payload.contractRegularised,
         contractRegularisedDoc: payload.contractRegularisedDoc || null,
+        contractRegularisedDate: payload.contractRegularisedDate || null,
         terminallyIll: payload.terminallyIll,
         terminallyIllDoc: payload.terminallyIllDoc || null,
         pregnantOrChildUnderOne: payload.pregnantOrChildUnderOne,
