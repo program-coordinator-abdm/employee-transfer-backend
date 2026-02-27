@@ -55,9 +55,11 @@ model Employee {
   currentPostGroup       String
   currentPostSubGroup    String
   currentInstitution     String
+  currentInstitutionType String?
   currentDistrict        String
   currentTaluk           String
   currentCityTownVillage String
+  currentHfrId           String?
   currentWorkingSince    DateTime
   currentDesignation     String?
   email                  String
@@ -78,6 +80,7 @@ model Employee {
   probationDeclarationDate DateTime?
   cltCompleted           Boolean   @default(false)
   cltCompletedDoc        String?
+  cltCompletionDate      DateTime?
   isDoctorNursePharmacist Boolean  @default(false)
   hprId                  String?
   hfrId                  String?
@@ -163,6 +166,8 @@ model PastService {
   postGroup      String
   postSubGroup   String
   firstPostHeld  String?
+  institutionType String?
+  hfrId          String?
   institution    String
   district       String
   taluk          String?

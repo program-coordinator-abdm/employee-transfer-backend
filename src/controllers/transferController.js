@@ -30,7 +30,10 @@ const createTransfer = asyncHandler(async (req, res) => {
     normalizedPayload,
     req.user.id
   );
-  res.status(201).json(result);
+  res.status(201).json({
+    employee: result,
+    ...result,
+  });
 });
 
 module.exports = { createTransfer };

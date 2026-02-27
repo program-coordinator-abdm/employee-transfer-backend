@@ -1,0 +1,8 @@
+ALTER TABLE "Employee"
+  ADD COLUMN IF NOT EXISTS "currentInstitutionType" TEXT,
+  ADD COLUMN IF NOT EXISTS "currentHfrId" TEXT,
+  ADD COLUMN IF NOT EXISTS "cltCompletionDate" TIMESTAMP(3);
+
+ALTER TABLE "PastService"
+  ADD COLUMN IF NOT EXISTS "institutionType" TEXT,
+  ADD COLUMN IF NOT EXISTS "hfrId" TEXT;

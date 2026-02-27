@@ -6,10 +6,11 @@ const loginSchema = z
   .object({
     email: z.string().email().optional(),
     username: z.string().min(1).optional(),
+    identifier: z.string().min(1).optional(),
     password: z.string().min(6),
   })
-  .refine((data) => data.email || data.username, {
-    message: "Email or username is required",
+  .refine((data) => data.email || data.username || data.identifier, {
+    message: "Email, username, or identifier is required",
     path: ["email"],
   });
 

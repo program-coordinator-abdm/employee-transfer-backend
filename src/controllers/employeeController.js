@@ -7,6 +7,8 @@ const pastServiceSchema = z.object({
   postGroup: z.string().min(1),
   postSubGroup: z.string().min(1),
   firstPostHeld: z.string().optional().default(""),
+  institutionType: z.string().optional().default(""),
+  hfrId: z.string().optional().default(""),
   institution: z.string().min(1),
   district: z.string().min(1),
   taluk: z.string().optional().default(""),
@@ -128,9 +130,11 @@ const employeeSchema = z
     currentPostSubGroup: z.string().min(1),
     currentFirstPostHeld: z.string().optional(),
     currentInstitution: z.string().min(1),
+    currentInstitutionType: z.string().optional(),
     currentDistrict: z.string().min(1),
     currentTaluk: z.string().min(1),
     currentCityTownVillage: z.string().min(1),
+    currentHfrId: z.string().optional(),
     currentWorkingSince: z.coerce.date(),
     currentAreaType: z.string().optional(),
     probationaryPeriod: z.coerce.boolean().default(false),
@@ -138,6 +142,7 @@ const employeeSchema = z
     probationDeclarationDate: z.coerce.date().optional(),
     cltCompleted: z.coerce.boolean().optional().default(false),
     cltCompletedDoc: z.string().optional(),
+    cltCompletionDate: z.coerce.date().optional(),
     isDoctorNursePharmacist: z.coerce.boolean().optional().default(false),
     hprId: z.string().optional(),
     hfrId: z.string().optional(),
@@ -410,6 +415,12 @@ const normalizePastServices = (body) => {
 
   return body.pastServices.map((service = {}, index) => ({
     ...service,
+    institutionType:
+      service.institutionType ??
+      service.typeOfInstitution ??
+      service.institution_category ??
+      "",
+    hfrId: service.hfrId ?? service.hfrID ?? service.hfr_id ?? "",
     joiningDocument: service.joiningDocument ?? docs[index] ?? "",
   }));
 };
@@ -443,9 +454,12 @@ const normalizeEmployeePayload = (body) => {
     currentPostSubGroup: body.currentPostSubGroup,
     currentFirstPostHeld: body.currentFirstPostHeld,
     currentInstitution: body.currentInstitution ?? body.currentHospital,
+    currentInstitutionType:
+      body.currentInstitutionType ?? body.currentInstitutionCategory,
     currentDistrict: body.currentDistrict,
     currentTaluk: body.currentTaluk,
     currentCityTownVillage: body.currentCityTownVillage ?? body.currentCity,
+    currentHfrId: body.currentHfrId ?? body.currentHfrID ?? body.current_hfr_id,
     currentWorkingSince: body.currentWorkingSince,
     currentAreaType: body.currentAreaType,
     probationaryPeriod: body.probationaryPeriod,
@@ -453,6 +467,7 @@ const normalizeEmployeePayload = (body) => {
     probationDeclarationDate: body.probationDeclarationDate || undefined,
     cltCompleted: body.cltCompleted,
     cltCompletedDoc: body.cltCompletedDoc,
+    cltCompletionDate: body.cltCompletionDate || undefined,
     isDoctorNursePharmacist: body.isDoctorNursePharmacist,
     hprId: body.hprId,
     hfrId: body.hfrId,
