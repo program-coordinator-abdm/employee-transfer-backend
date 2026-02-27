@@ -268,6 +268,7 @@ const mapEmployeeDetail = (employee) => {
     officerDeclAgreed: employee.declaration?.officerDeclAgreed ?? false,
     officerDeclName: employee.declaration?.officerDeclName,
     officerDeclDate: employee.declaration?.officerDeclDate,
+    declarationRemarks: employee.declaration?.remarks,
     assignmentHistory: assignments,
     pastServices: employee.pastServices || [],
     pastServiceDocs: (employee.pastServices || []).map(
@@ -712,6 +713,7 @@ const createEmployee = async (payload) => {
         officerDeclAgreed: payload.officerDeclAgreed,
         officerDeclName: payload.officerDeclName || null,
         officerDeclDate: payload.officerDeclDate || null,
+        remarks: payload.declarationRemarks || null,
       },
     });
 
@@ -967,6 +969,7 @@ const updateEmployee = async (id, payload) => {
         officerDeclAgreed: payload.officerDeclAgreed,
         officerDeclName: payload.officerDeclName || null,
         officerDeclDate: payload.officerDeclDate || null,
+        remarks: payload.declarationRemarks || null,
       },
       create: {
         employeeId: id,
@@ -976,6 +979,7 @@ const updateEmployee = async (id, payload) => {
         officerDeclAgreed: payload.officerDeclAgreed,
         officerDeclName: payload.officerDeclName || null,
         officerDeclDate: payload.officerDeclDate || null,
+        remarks: payload.declarationRemarks || null,
       },
     });
 
@@ -1034,6 +1038,7 @@ const createTransfer = async (employeeId, payload, userId) => {
         toPosition: payload.toPosition,
         effectiveFrom: payload.effectiveFrom,
         createdByUserId: userId,
+        remarks: payload.remarks || null,
       },
     });
 
