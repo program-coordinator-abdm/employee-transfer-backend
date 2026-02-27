@@ -58,6 +58,25 @@ const buildSearchWhere = (searchMode, query) => {
   return where;
 };
 
+const buildListSearchWhere = (search) => {
+  if (!search) return {};
+  return {
+    OR: [
+      { empName: { contains: search, mode: "insensitive" } },
+      { empKgid: { contains: search, mode: "insensitive" } },
+    ],
+  };
+};
+
+const combineWhereClauses = (...clauses) => {
+  const activeClauses = clauses.filter(
+    (clause) => clause && Object.keys(clause).length > 0
+  );
+  if (activeClauses.length === 0) return {};
+  if (activeClauses.length === 1) return activeClauses[0];
+  return { AND: activeClauses };
+};
+
 const buildCategoryWhere = (category) => {
   if (!category) return {};
   return {
@@ -270,34 +289,37 @@ const mapEmployeeDetail = (employee) => {
   };
 };
 
-const listEmployees = async ({ category, searchMode, query }) => {
-  const where = {
-    ...buildSearchWhere(searchMode, query),
-    ...buildCategoryWhere(category),
-  };
+const listEmployees = async ({ category, page, pageSize, search }) => {
+  const where = combineWhereClauses(
+    buildListSearchWhere(search),
+    buildCategoryWhere(category)
+  );
 
-  const data = await prisma.employee.findMany({
-    where,
-    orderBy: { empName: "asc" },
-  });
-
-  const total = data.length;
+  const [total, data] = await prisma.$transaction([
+    prisma.employee.count({ where }),
+    prisma.employee.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ]);
 
   return {
     data: data.map(mapEmployeeList),
-    page: 1,
-    limit: total,
+    page,
+    pageSize,
     total,
-    totalPages: total === 0 ? 0 : 1,
+    totalPages: total === 0 ? 0 : Math.ceil(total / pageSize),
   };
 };
 
 const getSuggestions = async ({ category, searchMode, query, limit }) => {
   if (!query) return [];
-  const where = {
-    ...buildSearchWhere(searchMode, query),
-    ...buildCategoryWhere(category),
-  };
+  const where = combineWhereClauses(
+    buildSearchWhere(searchMode, query),
+    buildCategoryWhere(category)
+  );
   const results = await prisma.employee.findMany({
     where,
     select: {
@@ -313,6 +335,91 @@ const getSuggestions = async ({ category, searchMode, query, limit }) => {
     take: limit,
   });
   return results.map((item) => ({ ...item, id: String(item.id) }));
+};
+
+const csvEscape = (value) => {
+  if (value === null || value === undefined) return "";
+  const stringValue = String(value);
+  if (/[",\n]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, "\"\"")}"`;
+  }
+  return stringValue;
+};
+
+const streamEmployeesCsv = async (res, { category, search }) => {
+  const baseWhere = combineWhereClauses(
+    buildListSearchWhere(search),
+    buildCategoryWhere(category)
+  );
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="employees.csv"');
+  res.setHeader("Cache-Control", "no-store");
+  if (typeof res.flushHeaders === "function") {
+    res.flushHeaders();
+  }
+
+  res.write(
+    "id,empKgid,empName,designation,designationGroup,currentPostHeld,currentInstitution,currentDistrict,email,phoneNumber,createdAt\n"
+  );
+
+  const batchSize = 500;
+  let lastId = null;
+
+  while (!res.destroyed) {
+    const batchWhere = combineWhereClauses(
+      baseWhere,
+      lastId !== null ? { id: { gt: lastId } } : {}
+    );
+
+    const batch = await prisma.employee.findMany({
+      where: batchWhere,
+      orderBy: { id: "asc" },
+      take: batchSize,
+      select: {
+        id: true,
+        empKgid: true,
+        empName: true,
+        designation: true,
+        designationGroup: true,
+        currentPostHeld: true,
+        currentInstitution: true,
+        currentDistrict: true,
+        email: true,
+        phoneNumber: true,
+        createdAt: true,
+      },
+    });
+
+    if (batch.length === 0) {
+      break;
+    }
+
+    for (const row of batch) {
+      const csvRow = [
+        row.id,
+        row.empKgid,
+        row.empName,
+        row.designation,
+        row.designationGroup,
+        row.currentPostHeld,
+        row.currentInstitution,
+        row.currentDistrict,
+        row.email,
+        row.phoneNumber,
+        row.createdAt ? row.createdAt.toISOString() : "",
+      ]
+        .map(csvEscape)
+        .join(",");
+      res.write(`${csvRow}\n`);
+    }
+
+    lastId = batch[batch.length - 1].id;
+  }
+
+  if (!res.writableEnded) {
+    res.end();
+  }
 };
 
 const fetchEmployeeWithRelations = async (client, id) =>
@@ -947,6 +1054,7 @@ const createTransfer = async (employeeId, payload, userId) => {
 
 module.exports = {
   listEmployees,
+  streamEmployeesCsv,
   getSuggestions,
   getEmployeeById,
   createEmployee,

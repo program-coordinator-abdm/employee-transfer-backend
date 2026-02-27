@@ -37,8 +37,11 @@ The server runs on `http://localhost:4000`.
   - returns `{ name, sizeKB, uploadedAt, downloadUrl }`
 
 ### Employees
-- `GET /employees?searchMode=name|kgid&query=&page=&limit=&category=`
-  - returns all matching employees in a single response (frontend handles pagination)
+- `GET /employees?page=1&pageSize=50&search=&category=`
+  - server-side pagination (`pageSize` default 50, max 200)
+  - returns `{ data, page, pageSize, total, totalPages }`
+- `GET /employees/export`
+  - streams CSV for all matching employees
 - `GET /employees/suggestions?searchMode=name|kgid&query=&limit=&category=`
 - `GET /employees/:id`
 - `POST /employees` (Data Officer)

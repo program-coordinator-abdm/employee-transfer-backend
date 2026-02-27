@@ -341,8 +341,10 @@ const listSchema = z.object({
   category: z.string().optional(),
   searchMode: z.enum(["name", "kgid"]).optional().default("name"),
   query: z.string().optional().default(""),
+  search: z.string().optional().default(""),
   page: z.coerce.number().int().positive().optional().default(1),
-  limit: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(200).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
 const suggestionsSchema = z.object({
@@ -350,6 +352,11 @@ const suggestionsSchema = z.object({
   searchMode: z.enum(["name", "kgid"]).optional().default("name"),
   query: z.string().optional().default(""),
   limit: z.coerce.number().int().positive().max(20).optional().default(8),
+});
+
+const exportSchema = z.object({
+  category: z.string().optional(),
+  search: z.string().optional().default(""),
 });
 
 const toOptionalString = (value) => {
@@ -500,9 +507,22 @@ const normalizeEmployeePayload = (body) => ({
 });
 
 const listEmployees = asyncHandler(async (req, res) => {
-  const query = listSchema.parse(req.query);
-  const result = await employeeService.listEmployees(query);
+  const parsed = listSchema.parse(req.query);
+  const pageSize = parsed.pageSize ?? parsed.limit ?? 50;
+  const search = parsed.search || parsed.query || "";
+  const result = await employeeService.listEmployees({
+    ...parsed,
+    pageSize,
+    search,
+  });
+  res.set("Cache-Control", "no-store");
   res.json(result);
+});
+
+const exportEmployees = asyncHandler(async (req, res) => {
+  const query = exportSchema.parse(req.query);
+  res.set("Cache-Control", "no-store");
+  await employeeService.streamEmployeesCsv(res, query);
 });
 
 const getSuggestions = asyncHandler(async (req, res) => {
@@ -540,6 +560,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
 
 module.exports = {
   listEmployees,
+  exportEmployees,
   getSuggestions,
   getEmployeeById,
   createEmployee,

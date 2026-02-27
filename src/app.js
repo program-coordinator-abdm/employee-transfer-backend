@@ -8,22 +8,42 @@ const uploadRoutes = require("./routes/uploadRoutes");
 const errorHandler = require("./middlewares/errorHandler");
 const { AppError } = require("./utils/errors");
 const app = express();
+app.set("etag", false);
 
 const defaultOrigins = ["http://localhost:5173", "http://localhost:8080"];
-const allowedOrigins = (process.env.CORS_ORIGIN || "")
+const configuredOrigins = [
+  process.env.CORS_ORIGIN || "",
+  process.env.VERCEL_FRONTEND_URL || "",
+  process.env.CUSTOM_FRONTEND_URL || "",
+]
+  .join(",")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
-const origins = allowedOrigins.length > 0 ? allowedOrigins : defaultOrigins;
+const allowVercelPreviewOrigins =
+  String(process.env.ALLOW_VERCEL_PREVIEW_ORIGINS || "true").toLowerCase() ===
+  "true";
+const origins = new Set(
+  (configuredOrigins.length > 0
+    ? [...defaultOrigins, ...configuredOrigins]
+    : defaultOrigins
+  ).map((origin) => origin.trim())
+);
 
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (origins.includes(origin)) return callback(null, true);
+    if (origins.has(origin)) return callback(null, true);
+    if (
+      allowVercelPreviewOrigins &&
+      /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)
+    ) {
+      return callback(null, true);
+    }
     return callback(null, false);
   },
   credentials: false,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   optionsSuccessStatus: 204,
 };
