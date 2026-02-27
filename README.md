@@ -80,3 +80,31 @@ Optional:
 
 If `AWS_S3_PUBLIC_READ` is false, ensure your bucket policy allows public reads
 for the `uploads/*` prefix.
+
+### Upload smoke test (SSM-friendly)
+Use the script below to validate auth + `/uploads` end-to-end:
+
+```bash
+chmod +x scripts/smoke-test-upload.sh
+```
+
+With existing JWT:
+
+```bash
+scripts/smoke-test-upload.sh \
+  --base-url "http://localhost:4000" \
+  --token "<JWT_TOKEN>" \
+  --file "/tmp/test.pdf"
+```
+
+With login credentials:
+
+```bash
+scripts/smoke-test-upload.sh \
+  --base-url "http://localhost:4000" \
+  --username "dataofficer" \
+  --password "Data@1234" \
+  --file "/tmp/test.pdf"
+```
+
+If your endpoint uses self-signed TLS, add `--insecure`.
