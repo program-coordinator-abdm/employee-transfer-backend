@@ -14,6 +14,7 @@ const pastServiceSchema = z.object({
   fromDate: z.coerce.date(),
   toDate: z.coerce.date(),
   tenure: z.string().optional().default(""),
+  joiningDocument: z.string().optional().default(""),
 });
 
 const educationSchema = z
@@ -149,6 +150,10 @@ const employeeSchema = z
     promotionRejectedDate: z.coerce.date().optional(),
     pgBond: z.coerce.boolean().optional().default(false),
     pgBondDoc: z.string().optional(),
+    pgBondCompletionDate: z.coerce.date().optional(),
+    recruitmentType: z.string().optional(),
+    contractRegularised: z.coerce.boolean().optional().default(false),
+    contractRegularisedDoc: z.string().optional(),
     terminallyIll: z.coerce.boolean().default(false),
     terminallyIllDoc: z.string().optional(),
     pregnantOrChildUnderOne: z.coerce.boolean().default(false),
@@ -275,6 +280,28 @@ const employeeSchema = z
         message: "PG bond document is required",
       });
     }
+    if (
+      data.timeboundApplicable &&
+      data.timeboundCategory === "Doctors" &&
+      !data.recruitmentType
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["recruitmentType"],
+        message: "Recruitment type is required for doctors",
+      });
+    }
+    if (
+      data.recruitmentType === "Contract Regularised" &&
+      data.contractRegularised &&
+      !data.contractRegularisedDoc
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["contractRegularisedDoc"],
+        message: "Regularisation document is required",
+      });
+    }
     if (data.empDeclAgreed) {
       if (!data.empDeclName) {
         ctx.addIssue({
@@ -365,6 +392,19 @@ const normalizeEducationEntries = (body) => {
     );
 };
 
+const normalizePastServices = (body) => {
+  if (!Array.isArray(body.pastServices)) {
+    return body.pastServices;
+  }
+
+  const docs = Array.isArray(body.pastServiceDocs) ? body.pastServiceDocs : [];
+
+  return body.pastServices.map((service = {}, index) => ({
+    ...service,
+    joiningDocument: service.joiningDocument ?? docs[index] ?? "",
+  }));
+};
+
 const normalizeEmployeePayload = (body) => ({
   empKgid: body.empKgid ?? body.kgid,
   empName: body.empName ?? body.name,
@@ -413,6 +453,10 @@ const normalizeEmployeePayload = (body) => ({
   promotionRejectedDate: body.promotionRejectedDate || undefined,
   pgBond: body.pgBond,
   pgBondDoc: body.pgBondDoc,
+  pgBondCompletionDate: body.pgBondCompletionDate || undefined,
+  recruitmentType: body.recruitmentType,
+  contractRegularised: body.contractRegularised,
+  contractRegularisedDoc: body.contractRegularisedDoc,
   terminallyIll: body.terminallyIll,
   terminallyIllDoc: body.terminallyIllDoc,
   pregnantOrChildUnderOne: body.pregnantOrChildUnderOne,
@@ -440,7 +484,7 @@ const normalizeEmployeePayload = (body) => ({
   postAppliedFor: body.postAppliedFor,
   submittedOn: body.submittedOn,
   objections: body.objections,
-  pastServices: body.pastServices,
+  pastServices: normalizePastServices(body),
   education: normalizeEducationEntries(body),
   postgraduateQualifications: body.postgraduateQualifications,
   timeboundPromotions: body.timeboundPromotions,

@@ -90,6 +90,10 @@ model Employee {
   promotionRejectedDate  DateTime?
   pgBond                 Boolean   @default(false)
   pgBondDoc              String?
+  pgBondCompletionDate   DateTime?
+  recruitmentType        String?
+  contractRegularised    Boolean   @default(false)
+  contractRegularisedDoc String?
   terminallyIll          Boolean
   terminallyIllDoc       String?
   pregnantOrChildUnderOne Boolean
@@ -165,6 +169,7 @@ model PastService {
   fromDate       DateTime
   toDate         DateTime
   tenure         String?
+  joiningDocument String?
 
   @@index([employeeId])
 }

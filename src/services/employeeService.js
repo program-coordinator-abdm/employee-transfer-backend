@@ -147,6 +147,10 @@ const mapEmployeeList = (employee) => {
     promotionRejectedDate: employee.promotionRejectedDate,
     pgBond: employee.pgBond ?? false,
     pgBondDoc: employee.pgBondDoc,
+    pgBondCompletionDate: employee.pgBondCompletionDate,
+    recruitmentType: employee.recruitmentType,
+    contractRegularised: employee.contractRegularised ?? false,
+    contractRegularisedDoc: employee.contractRegularisedDoc,
   };
 };
 
@@ -215,6 +219,10 @@ const mapEmployeeDetail = (employee) => {
     promotionRejectedDate: employee.promotionRejectedDate,
     pgBond: employee.pgBond ?? false,
     pgBondDoc: employee.pgBondDoc,
+    pgBondCompletionDate: employee.pgBondCompletionDate,
+    recruitmentType: employee.recruitmentType,
+    contractRegularised: employee.contractRegularised ?? false,
+    contractRegularisedDoc: employee.contractRegularisedDoc,
     terminallyIll: employee.terminallyIll,
     terminallyIllDoc: employee.terminallyIllDoc,
     pregnantOrChildUnderOne: employee.pregnantOrChildUnderOne,
@@ -241,6 +249,9 @@ const mapEmployeeDetail = (employee) => {
     officerDeclDate: employee.declaration?.officerDeclDate,
     assignmentHistory: assignments,
     pastServices: employee.pastServices || [],
+    pastServiceDocs: (employee.pastServices || []).map(
+      (entry) => entry.joiningDocument || ""
+    ),
     education,
     educationDetails: mapEducationDetails(education),
     postgraduateQualifications: employee.postgraduateQualifications || [],
@@ -462,6 +473,10 @@ const createEmployee = async (payload) => {
           promotionRejectedDate: payload.promotionRejectedDate || null,
           pgBond: payload.pgBond,
           pgBondDoc: payload.pgBondDoc || null,
+          pgBondCompletionDate: payload.pgBondCompletionDate || null,
+          recruitmentType: payload.recruitmentType || null,
+          contractRegularised: payload.contractRegularised,
+          contractRegularisedDoc: payload.contractRegularisedDoc || null,
           terminallyIll: payload.terminallyIll,
           terminallyIllDoc: payload.terminallyIllDoc || null,
           pregnantOrChildUnderOne: payload.pregnantOrChildUnderOne,
@@ -685,6 +700,10 @@ const updateEmployee = async (id, payload) => {
         promotionRejectedDate: payload.promotionRejectedDate || null,
         pgBond: payload.pgBond,
         pgBondDoc: payload.pgBondDoc || null,
+        pgBondCompletionDate: payload.pgBondCompletionDate || null,
+        recruitmentType: payload.recruitmentType || null,
+        contractRegularised: payload.contractRegularised,
+        contractRegularisedDoc: payload.contractRegularisedDoc || null,
         terminallyIll: payload.terminallyIll,
         terminallyIllDoc: payload.terminallyIllDoc || null,
         pregnantOrChildUnderOne: payload.pregnantOrChildUnderOne,
