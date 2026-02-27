@@ -288,20 +288,6 @@ model Document {
   @@index([employeeId])
 }
 
-model UploadedDocument {
-  id               Int      @id @default(autoincrement())
-  originalName     String
-  storedName       String
-  mimeType         String
-  sizeBytes        Int
-  data             Bytes
-  uploadedByUserId Int?
-  createdAt        DateTime @default(now())
-
-  @@index([uploadedByUserId])
-  @@index([createdAt])
-}
-
 model ServiceInformation {
   id                     Int      @id @default(autoincrement())
   employeeId             Int      @unique
