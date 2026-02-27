@@ -87,9 +87,15 @@ Optional:
 - `AWS_S3_PUBLIC_READ=true` to set ACL `public-read` on each upload (if bucket allows ACLs)
 - `MAX_UPLOAD_MB` to control file size limit (default 5MB)
 - `ALLOWED_UPLOAD_MIME_TYPES` (comma-separated) to restrict file types
+- `MIN_GZIP_BYTES` minimum file size to attempt gzip compression (default 1024 bytes)
+- `MIN_GZIP_SAVINGS_BYTES` minimum bytes saved required to keep gzipped version (default 256)
 
 If `AWS_S3_PUBLIC_READ` is false, ensure your bucket policy allows public reads
 for the `uploads/*` prefix.
+
+Uploads are pre-compressed before S3 when possible:
+- JPEG/PNG images are resized/compressed to JPEG.
+- Other non-image documents are gzipped only when meaningful size reduction is achieved.
 
 ### Upload smoke test (SSM-friendly)
 Use the script below to validate auth + `/uploads` end-to-end:

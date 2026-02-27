@@ -1,5 +1,7 @@
 const path = require("path");
 const crypto = require("crypto");
+const { gzip } = require("zlib");
+const { promisify } = require("util");
 const sharp = require("sharp");
 const { S3Client } = require("@aws-sdk/client-s3");
 const { Upload } = require("@aws-sdk/lib-storage");
@@ -15,6 +17,7 @@ if (!bucket || !region) {
 }
 
 const client = new S3Client({ region });
+const gzipAsync = promisify(gzip);
 
 const sanitizeFilename = (name) =>
   name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
@@ -38,6 +41,55 @@ const buildPublicUrl = (key) => {
 };
 
 const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
+const ALREADY_COMPRESSED_MIME_TYPES = new Set([
+  "application/zip",
+  "application/gzip",
+  "application/x-gzip",
+  "application/x-rar-compressed",
+  "application/x-7z-compressed",
+  "application/x-bzip2",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+]);
+const minGzipBytes = Number(process.env.MIN_GZIP_BYTES || "1024");
+const minGzipSavingsBytes = Number(process.env.MIN_GZIP_SAVINGS_BYTES || "256");
+
+const shouldAttemptGzipCompression = (mimetype, originalSize) => {
+  if (originalSize < minGzipBytes) return false;
+  if (!mimetype) return true;
+  if (IMAGE_MIME_TYPES.has(mimetype)) return false;
+  if (ALREADY_COMPRESSED_MIME_TYPES.has(mimetype)) return false;
+  if (mimetype.startsWith("video/") || mimetype.startsWith("audio/")) return false;
+  return true;
+};
+
+const maybeCompressDocumentFile = async (file, originalSize) => {
+  if (!shouldAttemptGzipCompression(file.mimetype, originalSize)) {
+    return null;
+  }
+  try {
+    const gzippedBuffer = await gzipAsync(file.buffer, { level: 9 });
+    if (gzippedBuffer.length >= originalSize - minGzipSavingsBytes) {
+      return null;
+    }
+    return {
+      buffer: gzippedBuffer,
+      contentType: file.mimetype || "application/octet-stream",
+      contentEncoding: "gzip",
+      filename: file.originalname,
+      originalSize,
+      processedSize: gzippedBuffer.length,
+      processed: true,
+    };
+  } catch (error) {
+    console.warn("Document compression failed, uploading original file", {
+      filename: file.originalname,
+      message: error.message,
+    });
+    return null;
+  }
+};
 
 const processUploadFile = async (file) => {
   const originalSize = file.size || (file.buffer ? file.buffer.length : 0);
@@ -46,9 +98,14 @@ const processUploadFile = async (file) => {
   }
 
   if (!IMAGE_MIME_TYPES.has(file.mimetype)) {
+    const compressedDocument = await maybeCompressDocumentFile(file, originalSize);
+    if (compressedDocument) {
+      return compressedDocument;
+    }
     return {
       buffer: file.buffer,
       contentType: file.mimetype || "application/octet-stream",
+      contentEncoding: undefined,
       filename: file.originalname,
       originalSize,
       processedSize: originalSize,
@@ -68,6 +125,7 @@ const processUploadFile = async (file) => {
   return {
     buffer: processedBuffer,
     contentType: "image/jpeg",
+    contentEncoding: undefined,
     filename: `${safeBase}.jpg`,
     originalSize,
     processedSize: processedBuffer.length,
@@ -91,6 +149,10 @@ const uploadFileToS3 = async (file) => {
       originalname: file.originalname,
     },
   };
+
+  if (processedFile.contentEncoding) {
+    params.ContentEncoding = processedFile.contentEncoding;
+  }
 
   if (usePublicReadAcl) {
     params.ACL = "public-read";

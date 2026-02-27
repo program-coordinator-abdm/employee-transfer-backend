@@ -89,8 +89,15 @@ model Employee {
   timeboundYears         String?
   timeboundDoc           String?
   timeboundDate          DateTime?
+  timebound6Years        Boolean   @default(false)
+  timebound6YearsDoc     String?
+  timebound13Years       Boolean   @default(false)
+  timebound13YearsDoc    String?
+  timebound20Years       Boolean   @default(false)
+  timebound20YearsDoc    String?
   promotionRejected      Boolean   @default(false)
   promotionRejectedDate  DateTime?
+  promotionRejectedDesignation String?
   pgBond                 Boolean   @default(false)
   pgBondDoc              String?
   pgBondCompletionDate   DateTime?
@@ -98,6 +105,7 @@ model Employee {
   contractRegularised    Boolean   @default(false)
   contractRegularisedDoc String?
   contractRegularisedDate DateTime?
+  contractJoiningDate    DateTime?
   terminallyIll          Boolean
   terminallyIllDoc       String?
   pregnantOrChildUnderOne Boolean
