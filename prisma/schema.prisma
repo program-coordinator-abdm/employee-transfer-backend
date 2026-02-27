@@ -91,10 +91,20 @@ model Employee {
   timeboundDate          DateTime?
   timebound6Years        Boolean   @default(false)
   timebound6YearsDoc     String?
+  timebound6YearsDate    DateTime?
   timebound13Years       Boolean   @default(false)
   timebound13YearsDoc    String?
+  timebound13YearsDate   DateTime?
   timebound20Years       Boolean   @default(false)
   timebound20YearsDoc    String?
+  timebound20YearsDate   DateTime?
+  timebound10Years       Boolean   @default(false)
+  timebound10YearsDoc    String?
+  timebound10YearsDate   DateTime?
+  timebound15Years       Boolean   @default(false)
+  timebound15YearsDoc    String?
+  timebound15YearsDate   DateTime?
+  currentServiceDoc      String?
   promotionRejected      Boolean   @default(false)
   promotionRejectedDate  DateTime?
   promotionRejectedDesignation String?
