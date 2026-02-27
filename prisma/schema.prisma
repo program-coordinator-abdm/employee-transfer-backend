@@ -86,6 +86,10 @@ model Employee {
   timeboundYears         String?
   timeboundDoc           String?
   timeboundDate          DateTime?
+  promotionRejected      Boolean   @default(false)
+  promotionRejectedDate  DateTime?
+  pgBond                 Boolean   @default(false)
+  pgBondDoc              String?
   terminallyIll          Boolean
   terminallyIllDoc       String?
   pregnantOrChildUnderOne Boolean
@@ -282,6 +286,20 @@ model Document {
   downloadUrl String?
 
   @@index([employeeId])
+}
+
+model UploadedDocument {
+  id               Int      @id @default(autoincrement())
+  originalName     String
+  storedName       String
+  mimeType         String
+  sizeBytes        Int
+  data             Bytes
+  uploadedByUserId Int?
+  createdAt        DateTime @default(now())
+
+  @@index([uploadedByUserId])
+  @@index([createdAt])
 }
 
 model ServiceInformation {

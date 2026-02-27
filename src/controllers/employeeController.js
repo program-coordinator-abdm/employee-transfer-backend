@@ -145,6 +145,10 @@ const employeeSchema = z
     timeboundYears: z.string().optional(),
     timeboundDoc: z.string().optional(),
     timeboundDate: z.coerce.date().optional(),
+    promotionRejected: z.coerce.boolean().optional().default(false),
+    promotionRejectedDate: z.coerce.date().optional(),
+    pgBond: z.coerce.boolean().optional().default(false),
+    pgBondDoc: z.string().optional(),
     terminallyIll: z.coerce.boolean().default(false),
     terminallyIllDoc: z.string().optional(),
     pregnantOrChildUnderOne: z.coerce.boolean().default(false),
@@ -256,6 +260,20 @@ const employeeSchema = z
           message: "Timebound years is required",
         });
       }
+    }
+    if (data.promotionRejected && !data.promotionRejectedDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["promotionRejectedDate"],
+        message: "Promotion rejected date is required",
+      });
+    }
+    if (data.pgBond && !data.pgBondDoc) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pgBondDoc"],
+        message: "PG bond document is required",
+      });
     }
     if (data.empDeclAgreed) {
       if (!data.empDeclName) {
@@ -391,6 +409,10 @@ const normalizeEmployeePayload = (body) => ({
   timeboundYears: body.timeboundYears,
   timeboundDoc: body.timeboundDoc,
   timeboundDate: body.timeboundDate || undefined,
+  promotionRejected: body.promotionRejected,
+  promotionRejectedDate: body.promotionRejectedDate || undefined,
+  pgBond: body.pgBond,
+  pgBondDoc: body.pgBondDoc,
   terminallyIll: body.terminallyIll,
   terminallyIllDoc: body.terminallyIllDoc,
   pregnantOrChildUnderOne: body.pregnantOrChildUnderOne,

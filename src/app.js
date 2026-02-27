@@ -1,4 +1,3 @@
-const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
@@ -31,7 +30,6 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 app.use(express.json());
-app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 app.get("/", (_req, res) => {
   res.status(200).json({ ok: true, service: "ETMS API" });
