@@ -33,10 +33,8 @@ The server runs on `http://localhost:4000`.
 ### Uploads
 - `POST /uploads`
   - multipart/form-data with `file`
-  - stores binary in RDS (`UploadedDocument` table)
-  - returns `{ id, name, sizeKB, uploadedAt, downloadUrl }`
-- `GET /uploads/:id/download`
-  - downloads a file from RDS by upload id
+  - uploads file to S3
+  - returns `{ name, sizeKB, uploadedAt, downloadUrl }`
 
 ### Employees
 - `GET /employees?searchMode=name|kgid&query=&page=&limit=&category=`
@@ -58,9 +56,9 @@ The server runs on `http://localhost:4000`.
 
 ### Notes
 - Passwords are stored as plaintext in `password`.
-- Document uploads are stored in RDS and served through `/uploads/:id/download`.
+- Document uploads are stored in S3 and return a URL.
 
-## AWS RDS Notes
+## AWS RDS + S3 Notes
 ### RDS
 1. Set `DATABASE_URL` to your RDS PostgreSQL connection string.
 2. Run:
@@ -68,3 +66,17 @@ The server runs on `http://localhost:4000`.
    npx prisma migrate deploy
    npm run seed
    ```
+
+### S3 Uploads
+Required environment variables:
+- `AWS_REGION`
+- `AWS_S3_BUCKET`
+
+Optional:
+- `PUBLIC_UPLOAD_BASE_URL` (e.g. CloudFront URL)
+- `AWS_S3_PUBLIC_READ=true` to set ACL `public-read` on each upload (if bucket allows ACLs)
+- `MAX_UPLOAD_MB` to control file size limit (default 5MB)
+- `ALLOWED_UPLOAD_MIME_TYPES` (comma-separated) to restrict file types
+
+If `AWS_S3_PUBLIC_READ` is false, ensure your bucket policy allows public reads
+for the `uploads/*` prefix.

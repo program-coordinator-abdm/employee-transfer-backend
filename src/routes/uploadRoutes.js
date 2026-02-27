@@ -43,7 +43,6 @@ const handleUpload = (req, res, next) => {
 };
 
 router.use(authMiddleware);
-router.get("/:id/download", uploadController.downloadFile);
 router.post("/", handleUpload, uploadController.uploadFile);
 
 module.exports = router;
