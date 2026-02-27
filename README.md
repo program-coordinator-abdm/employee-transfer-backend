@@ -12,7 +12,8 @@ Backend code for Employee Transfer application.
 ```bash
 npm install
 cp .env.example .env
-# Set DATABASE_URL to your PostgreSQL (AWS RDS) connection string
+# Fill required env values in .env
+npm run check:env:migrate
 npx prisma migrate deploy
 npm run seed
 npm run dev
@@ -28,7 +29,7 @@ The server runs on `http://localhost:4000`.
 ## API Endpoints
 ### Auth
 - `POST /auth/login`
-  - body: `{ email?, username?, password }`
+  - body: `{ email? | username? | identifier?, password }`
 
 ### Uploads
 - `POST /uploads`
@@ -39,13 +40,14 @@ The server runs on `http://localhost:4000`.
 ### Employees
 - `GET /employees?page=1&pageSize=50&search=&category=`
   - server-side pagination (`pageSize` default 50, max 200)
-  - returns `{ data, page, pageSize, total, totalPages }`
+  - returns `{ data, page, pageSize, limit, total, totalPages }`
 - `GET /employees/export`
   - streams CSV for all matching employees
 - `GET /employees/suggestions?searchMode=name|kgid&query=&limit=&category=`
 - `GET /employees/:id`
 - `POST /employees` (Data Officer)
 - `PUT /employees/:id` (Admin)
+- `DELETE /employees/:id` (Admin)
 - `POST /employees/:id/transfers` (Admin)
   - body: `{ toCity, toPosition, toHospitalName?, effectiveFrom }`
 
@@ -54,7 +56,7 @@ The server runs on `http://localhost:4000`.
 - `GET /exports/employees.pdf`
 
 ### Roles
-- **ADMIN**: can edit and transfer employees
+- **ADMIN**: can edit, delete, and transfer employees
 - **DATA_OFFICER**: can create employees, view data
 
 ### Notes
@@ -66,9 +68,14 @@ The server runs on `http://localhost:4000`.
 1. Set `DATABASE_URL` to your RDS PostgreSQL connection string.
 2. Run:
    ```bash
+   npm run check:env:migrate
    npx prisma migrate deploy
    npm run seed
    ```
+
+Optional env checks:
+- `npm run check:env:migrate` validates migration-time variables.
+- `npm run check:env` validates runtime variables used by the API.
 
 ### S3 Uploads
 Required environment variables:

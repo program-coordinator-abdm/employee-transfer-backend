@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "check:env": "node scripts/check-env.js runtime",
+    "check:env:migrate": "node scripts/check-env.js migrate",
     "postinstall": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy",
+    "prisma:migrate": "npm run check:env:migrate && prisma migrate deploy",
     "prisma:generate": "prisma generate",
     "seed": "prisma db seed"
   },

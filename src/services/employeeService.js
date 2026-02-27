@@ -458,6 +458,16 @@ const getEmployeeById = async (id) => {
   return mapEmployeeDetail(employee);
 };
 
+const deleteEmployee = async (id) => {
+  const deleted = await prisma.employee.deleteMany({
+    where: { id },
+  });
+  if (deleted.count === 0) {
+    throw new AppError("Employee not found", 404);
+  }
+  return { id: String(id) };
+};
+
 const buildAssignmentRecords = (payload) => {
   const records = [];
   toArray(payload.pastServices).forEach((service) => {
@@ -1075,6 +1085,7 @@ module.exports = {
   streamEmployeesCsv,
   getSuggestions,
   getEmployeeById,
+  deleteEmployee,
   createEmployee,
   updateEmployee,
   createTransfer,

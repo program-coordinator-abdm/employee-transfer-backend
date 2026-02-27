@@ -562,6 +562,18 @@ const getEmployeeById = asyncHandler(async (req, res) => {
   res.json(employee);
 });
 
+const deleteEmployee = asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ message: "Invalid employee id" });
+  }
+  await employeeService.deleteEmployee(id);
+  res.status(200).json({
+    message: "Employee deleted successfully",
+    id: String(id),
+  });
+});
+
 const createEmployee = asyncHandler(async (req, res) => {
   const normalized = normalizeEmployeePayload(req.body);
   const payload = employeeSchema.parse(normalized);
@@ -585,6 +597,7 @@ module.exports = {
   exportEmployees,
   getSuggestions,
   getEmployeeById,
+  deleteEmployee,
   createEmployee,
   updateEmployee,
 };
