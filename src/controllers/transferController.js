@@ -8,6 +8,7 @@ const transferSchema = z.object({
   toPosition: z.string().min(1),
   toHospital: z.string().min(1).optional(),
   toHospitalName: z.string().min(1).optional(),
+  remarks: z.string().optional(),
   effectiveFrom: z.coerce.date(),
 });
 
