@@ -2,6 +2,122 @@ const { z } = require("zod");
 const asyncHandler = require("../utils/asyncHandler");
 const employeeService = require("../services/employeeService");
 
+const DIRECT_RECRUITMENT_MODES = ["KPSC", "DRC", "SRC"];
+const UNSCHOOLED_EDUCATION_LABEL = "Unschooled/UnEducated";
+const UNSCHOOLED_EDUCATION_VALUES = new Set([
+  "unschooled/uneducated",
+  "unschooled",
+  "uneducated",
+]);
+const HFR_REQUIRED_INSTITUTION_TYPES = new Set([
+  "SC",
+  "PHC/UPHC",
+  "CHC",
+  "Taluk General Hospital",
+  "Sub Division Hospital",
+  "District Hospital",
+  "District Level Hospitals",
+  "MCH/W&C",
+  "Prisons Hospitals",
+]);
+const INSTITUTION_TYPE_ALIASES = new Map([
+  ["phc", "PHC/UPHC"],
+  ["sub district hospital", "Sub Division Hospital"],
+]);
+
+const toOptionalString = (value) => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const normalizeInstitutionType = (value) => {
+  const normalized = toOptionalString(value);
+  if (!normalized) return undefined;
+  const aliased = INSTITUTION_TYPE_ALIASES.get(normalized.toLowerCase());
+  return aliased || normalized;
+};
+
+const requiresHfrIdForInstitutionType = (institutionType) => {
+  const normalized = normalizeInstitutionType(institutionType);
+  if (!normalized) return false;
+  return HFR_REQUIRED_INSTITUTION_TYPES.has(normalized);
+};
+
+const normalizeEducationLabel = (value) => {
+  const normalized = toOptionalString(value);
+  if (!normalized) return undefined;
+  if (UNSCHOOLED_EDUCATION_VALUES.has(normalized.toLowerCase())) {
+    return UNSCHOOLED_EDUCATION_LABEL;
+  }
+  return normalized;
+};
+
+const normalizeDirectRecruitmentMode = (value) => {
+  const normalized = toOptionalString(value);
+  if (!normalized) return undefined;
+  const upper = normalized.toUpperCase();
+  if (DIRECT_RECRUITMENT_MODES.includes(upper)) {
+    return upper;
+  }
+  return normalized;
+};
+
+const isUnschooledEducationEntry = (entry = {}) => {
+  const candidates = [
+    entry.type,
+    entry.qualification,
+    entry.level,
+    entry.education,
+    entry.educationLevel,
+  ]
+    .map((value) => toOptionalString(value)?.toLowerCase())
+    .filter(Boolean);
+  return candidates.some((value) => UNSCHOOLED_EDUCATION_VALUES.has(value));
+};
+
+const getAddressComponent = (value, keys) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  for (const key of keys) {
+    const candidate = toOptionalString(value[key]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return undefined;
+};
+
+const extractAddressLine = (value) => {
+  if (typeof value === "string") {
+    return toOptionalString(value);
+  }
+  return getAddressComponent(value, [
+    "address",
+    "addressLine1",
+    "line1",
+    "fullAddress",
+    "street",
+    "location",
+  ]);
+};
+
+const extractPinCode = (value) =>
+  getAddressComponent(value, ["pinCode", "pincode", "pin", "postalCode", "zip"]);
+
+const parseFlexibleBoolean = (value) => {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  const normalized = String(value).trim().toLowerCase();
+  if (["true", "yes", "y", "1"].includes(normalized)) return true;
+  if (["false", "no", "n", "0"].includes(normalized)) return false;
+  return undefined;
+};
+
 const pastServiceSchema = z.object({
   postHeld: z.string().min(1),
   postGroup: z.string().min(1),
@@ -115,6 +231,8 @@ const employeeSchema = z
     dateOfJoining: z.coerce.date().optional(),
     dob: z.coerce.date(),
     gender: z.string().min(1),
+    permanentAddress: z.unknown().optional(),
+    currentAddress: z.unknown().optional(),
     address: z.string().min(1),
     pinCode: z.string().min(1),
     email: z.string().email(),
@@ -174,6 +292,7 @@ const employeeSchema = z
     pgBondDoc: z.string().optional(),
     pgBondCompletionDate: z.coerce.date().optional(),
     recruitmentType: z.string().optional(),
+    directRecruitmentMode: z.enum(DIRECT_RECRUITMENT_MODES).optional(),
     contractRegularised: z.coerce.boolean().optional().default(false),
     contractRegularisedDoc: z.string().optional(),
     contractRegularisedDate: z.coerce.date().optional(),
@@ -226,6 +345,45 @@ const employeeSchema = z
         message: "Probationary document is required",
       });
     }
+    if (data.cltCompleted && !data.cltCompletedDoc) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["cltCompletedDoc"],
+        message: "CLT document is required (Completion marks card).",
+      });
+    }
+    if (data.isDoctorNursePharmacist && !toOptionalString(data.hprId)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["hprId"],
+        message: "HPR number is required when HPR is marked as Yes.",
+      });
+    }
+    const normalizedCurrentInstitutionType = normalizeInstitutionType(
+      data.currentInstitutionType
+    );
+    if (
+      requiresHfrIdForInstitutionType(normalizedCurrentInstitutionType) &&
+      !toOptionalString(data.currentHfrId || data.hfrId)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["currentHfrId"],
+        message: "HFR ID is required for the selected institution type.",
+      });
+    }
+    (data.pastServices || []).forEach((service, index) => {
+      if (
+        requiresHfrIdForInstitutionType(service.institutionType) &&
+        !toOptionalString(service.hfrId)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["pastServices", index, "hfrId"],
+          message: "HFR ID is required for the selected institution type.",
+        });
+      }
+    });
     if (data.terminallyIll && !data.terminallyIllDoc) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -327,6 +485,16 @@ const employeeSchema = z
         message: "Regularisation document is required",
       });
     }
+    if (
+      data.recruitmentType === "Direct Recruitment" &&
+      !data.directRecruitmentMode
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["directRecruitmentMode"],
+        message: "Direct recruitment mode is required for Direct Recruitment.",
+      });
+    }
     if (data.empDeclAgreed) {
       if (!data.empDeclName) {
         ctx.addIssue({
@@ -383,40 +551,58 @@ const exportSchema = z.object({
   search: z.string().optional().default(""),
 });
 
-const toOptionalString = (value) => {
-  if (value === undefined || value === null) {
-    return undefined;
-  }
-  const normalized = String(value).trim();
-  return normalized.length > 0 ? normalized : undefined;
-};
-
 const normalizeEducationEntries = (body) => {
   const rawEntries =
     Array.isArray(body.educationDetails) && body.educationDetails.length > 0
       ? body.educationDetails
       : Array.isArray(body.education)
         ? body.education
-        : [];
+        : typeof body.education === "string" ||
+            body.educationLevel ||
+            body.educationDate ||
+            body.educationDocument
+          ? [
+              {
+                level: body.educationLevel ?? body.education,
+                yearOfPassing: body.educationDate,
+                documentProof: body.educationDocument,
+              },
+            ]
+          : [];
 
   return rawEntries
-    .map((entry = {}) => ({
-      type: toOptionalString(entry.type),
-      qualification: toOptionalString(entry.qualification),
-      degree: toOptionalString(entry.degree),
-      institution: toOptionalString(entry.institution),
-      level: toOptionalString(entry.level),
-      institutionName: toOptionalString(entry.institutionName ?? entry.institution),
-      university: toOptionalString(entry.university),
-      year: toOptionalString(entry.year),
-      yearOfPassing: toOptionalString(entry.yearOfPassing ?? entry.year),
-      gradePercentage: toOptionalString(entry.gradePercentage),
-      specialization: toOptionalString(entry.specialization),
-      documentName: toOptionalString(entry.documentName ?? entry.documentProof),
-      documentUrl: toOptionalString(entry.documentUrl),
-      documentSizeKB: entry.documentSizeKB,
-      documentUploadedAt: toOptionalString(entry.documentUploadedAt),
-    }))
+    .map((entry = {}) => {
+      const unschooled = isUnschooledEducationEntry(entry);
+      return {
+        type: unschooled
+          ? UNSCHOOLED_EDUCATION_LABEL
+          : normalizeEducationLabel(entry.type),
+        qualification: unschooled
+          ? UNSCHOOLED_EDUCATION_LABEL
+          : normalizeEducationLabel(entry.qualification),
+        degree: toOptionalString(entry.degree),
+        institution: toOptionalString(entry.institution),
+        level: unschooled
+          ? UNSCHOOLED_EDUCATION_LABEL
+          : normalizeEducationLabel(entry.level),
+        institutionName: toOptionalString(entry.institutionName ?? entry.institution),
+        university: toOptionalString(entry.university),
+        year: unschooled ? undefined : toOptionalString(entry.year),
+        yearOfPassing: unschooled
+          ? undefined
+          : toOptionalString(entry.yearOfPassing ?? entry.year),
+        gradePercentage: toOptionalString(entry.gradePercentage),
+        specialization: toOptionalString(entry.specialization),
+        documentName: unschooled
+          ? undefined
+          : toOptionalString(entry.documentName ?? entry.documentProof),
+        documentUrl: unschooled ? undefined : toOptionalString(entry.documentUrl),
+        documentSizeKB: unschooled ? undefined : entry.documentSizeKB,
+        documentUploadedAt: unschooled
+          ? undefined
+          : toOptionalString(entry.documentUploadedAt),
+      };
+    })
     .filter((entry) =>
       Object.values(entry).some(
         (value) => value !== undefined && value !== null && value !== ""
@@ -431,20 +617,64 @@ const normalizePastServices = (body) => {
 
   const docs = Array.isArray(body.pastServiceDocs) ? body.pastServiceDocs : [];
 
-  return body.pastServices.map((service = {}, index) => ({
-    ...service,
-    institutionType:
+  return body.pastServices.map((service = {}, index) => {
+    const normalizedInstitutionType = normalizeInstitutionType(
       service.institutionType ??
-      service.typeOfInstitution ??
-      service.institution_category ??
-      "",
-    hfrId: service.hfrId ?? service.hfrID ?? service.hfr_id ?? "",
-    joiningDocument: service.joiningDocument ?? docs[index] ?? "",
-  }));
+        service.typeOfInstitution ??
+        service.institution_category
+    );
+    const normalizedHfrId = toOptionalString(
+      service.hfrId ?? service.hfrID ?? service.hfr_id
+    );
+    return {
+      ...service,
+      institutionType: normalizedInstitutionType ?? "",
+      hfrId: normalizedHfrId ?? "",
+      joiningDocument: service.joiningDocument ?? docs[index] ?? "",
+    };
+  });
 };
 
 const normalizeEmployeePayload = (body) => {
   const declarationInput = body.declaration ?? {};
+  const communicationAddressInput = body.communicationAddress ?? {};
+  const currentAddressInput =
+    body.currentAddress ??
+    communicationAddressInput.current ??
+    communicationAddressInput.currentAddress;
+  const permanentAddressInput =
+    body.permanentAddress ??
+    communicationAddressInput.permanent ??
+    communicationAddressInput.permanentAddress;
+  const normalizedCurrentInstitutionType = normalizeInstitutionType(
+    body.currentInstitutionType ?? body.currentInstitutionCategory
+  );
+  const normalizedCurrentHfrId = toOptionalString(
+    body.currentHfrId ?? body.currentHfrID ?? body.current_hfr_id
+  );
+  const normalizedEmployeeHfrId = toOptionalString(
+    body.hfrId ?? body.hfrID ?? body.hfr_id
+  );
+  const normalizedRecruitmentType = toOptionalString(body.recruitmentType);
+  const normalizedDirectRecruitmentMode =
+    normalizedRecruitmentType === "Direct Recruitment"
+      ? normalizeDirectRecruitmentMode(
+          body.directRecruitmentMode ??
+            body.directRecruitmentType ??
+            body.directRecruitmentSubType
+        )
+      : undefined;
+  const rawHprControllerFlag =
+    body.isDoctorNursePharmacist ??
+    body.hasHpr ??
+    body.isHprRegistered ??
+    body.isHPRRegistered;
+  const normalizedHprControllerFlag = parseFlexibleBoolean(rawHprControllerFlag);
+  const fallbackAddress =
+    extractAddressLine(currentAddressInput) ||
+    extractAddressLine(permanentAddressInput);
+  const fallbackPinCode =
+    extractPinCode(currentAddressInput) || extractPinCode(permanentAddressInput);
 
   return {
     empKgid: body.empKgid ?? body.kgid,
@@ -457,8 +687,14 @@ const normalizeEmployeePayload = (body) => {
     dateOfJoining: body.dateOfJoining ?? body.dateOfEntry,
     dob: body.dob ?? body.dateOfBirth,
     gender: body.gender,
-    address: body.address,
-    pinCode: body.pinCode,
+    permanentAddress: permanentAddressInput,
+    currentAddress:
+      currentAddressInput ??
+      (body.address || body.pinCode
+        ? { address: body.address, pinCode: body.pinCode }
+        : undefined),
+    address: body.address ?? fallbackAddress,
+    pinCode: body.pinCode ?? fallbackPinCode,
     email: body.email,
     phoneNumber: body.phoneNumber ?? body.phone,
     telephoneNumber: body.telephoneNumber,
@@ -472,12 +708,15 @@ const normalizeEmployeePayload = (body) => {
     currentPostSubGroup: body.currentPostSubGroup,
     currentFirstPostHeld: body.currentFirstPostHeld,
     currentInstitution: body.currentInstitution ?? body.currentHospital,
-    currentInstitutionType:
-      body.currentInstitutionType ?? body.currentInstitutionCategory,
+    currentInstitutionType: normalizedCurrentInstitutionType,
     currentDistrict: body.currentDistrict,
     currentTaluk: body.currentTaluk,
     currentCityTownVillage: body.currentCityTownVillage ?? body.currentCity,
-    currentHfrId: body.currentHfrId ?? body.currentHfrID ?? body.current_hfr_id,
+    currentHfrId:
+      normalizedCurrentHfrId ??
+      (requiresHfrIdForInstitutionType(normalizedCurrentInstitutionType)
+        ? normalizedEmployeeHfrId
+        : undefined),
     currentWorkingSince: body.currentWorkingSince,
     currentAreaType: body.currentAreaType,
     probationaryPeriod: body.probationaryPeriod,
@@ -486,9 +725,14 @@ const normalizeEmployeePayload = (body) => {
     cltCompleted: body.cltCompleted,
     cltCompletedDoc: body.cltCompletedDoc,
     cltCompletionDate: body.cltCompletionDate || undefined,
-    isDoctorNursePharmacist: body.isDoctorNursePharmacist,
-    hprId: body.hprId,
-    hfrId: body.hfrId,
+    isDoctorNursePharmacist: normalizedHprControllerFlag,
+    hprId:
+      body.hprId ??
+      body.hprID ??
+      body.hpr_id ??
+      body.hprNumber ??
+      body.hprNo,
+    hfrId: normalizedEmployeeHfrId,
     timeboundApplicable: body.timeboundApplicable,
     timeboundCategory: body.timeboundCategory,
     timeboundYears: body.timeboundYears,
@@ -516,7 +760,8 @@ const normalizeEmployeePayload = (body) => {
     pgBond: body.pgBond,
     pgBondDoc: body.pgBondDoc,
     pgBondCompletionDate: body.pgBondCompletionDate || undefined,
-    recruitmentType: body.recruitmentType,
+    recruitmentType: normalizedRecruitmentType,
+    directRecruitmentMode: normalizedDirectRecruitmentMode,
     contractRegularised: body.contractRegularised,
     contractRegularisedDoc: body.contractRegularisedDoc,
     contractRegularisedDate: body.contractRegularisedDate || undefined,

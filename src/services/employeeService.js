@@ -89,11 +89,24 @@ const buildCategoryWhere = (category) => {
   };
 };
 
+const DESIGNATION_READ_ALIASES = new Map([
+  ["supudent", "Superintendent"],
+  ["tb", "Tuberculosis/chest medicine"],
+]);
+
+const normalizeDesignationForRead = (value) => {
+  if (!value) return value;
+  const normalized = String(value).trim();
+  if (!normalized) return value;
+  const mapped = DESIGNATION_READ_ALIASES.get(normalized.toLowerCase());
+  return mapped || value;
+};
+
 const mapAssignment = (entry) => ({
-  role: entry.role,
+  role: normalizeDesignationForRead(entry.role),
   city: entry.city,
   hospital: entry.hospital,
-  position: entry.position,
+  position: normalizeDesignationForRead(entry.position),
   district: entry.district || entry.city,
   startedOn: entry.startedOn.toISOString(),
   endedOn: entry.endedOn ? entry.endedOn.toISOString() : null,
@@ -171,7 +184,7 @@ const mapEmployeeList = (employee) => {
     id: String(employee.id),
     empName: employee.empName,
     empKgid: employee.empKgid,
-    role: employee.designation,
+    role: normalizeDesignationForRead(employee.designation),
     yearsOfWork,
     totalExperienceYears: yearsOfWork,
     dob: employee.dob,
@@ -182,7 +195,7 @@ const mapEmployeeList = (employee) => {
     currentHospital: employee.currentInstitution,
     currentInstitutionType: employee.currentInstitutionType,
     currentHfrId: employee.currentHfrId,
-    currentDesignation: employee.currentDesignation,
+    currentDesignation: normalizeDesignationForRead(employee.currentDesignation),
     email: employee.email,
     phone: employee.phoneNumber,
     postAppliedFor: employee.postAppliedFor,
@@ -220,10 +233,17 @@ const mapEmployeeList = (employee) => {
     pgBondDoc: employee.pgBondDoc,
     pgBondCompletionDate: employee.pgBondCompletionDate,
     recruitmentType: employee.recruitmentType,
+    directRecruitmentMode: employee.directRecruitmentMode,
     contractRegularised: employee.contractRegularised ?? false,
     contractRegularisedDoc: employee.contractRegularisedDoc,
     contractRegularisedDate: employee.contractRegularisedDate,
     contractJoiningDate: employee.contractJoiningDate,
+    permanentAddress: employee.permanentAddress || null,
+    currentAddress:
+      employee.currentAddress || {
+        address: employee.address,
+        pinCode: employee.pinCode,
+      },
     cltCompletionDate: employee.cltCompletionDate,
   };
 };
@@ -237,7 +257,7 @@ const mapEmployeeDetail = (employee) => {
     id: String(employee.id),
     empName: employee.empName,
     empKgid: employee.empKgid,
-    role: employee.designation,
+    role: normalizeDesignationForRead(employee.designation),
     firstPostHeld: employee.firstPostHeld,
     yearsOfWork: employee.yearsOfWork ?? calculateYearsFromDate(employee.dateOfEntry),
     totalExperienceYears,
@@ -245,13 +265,13 @@ const mapEmployeeDetail = (employee) => {
     dateOfJoining: employee.dateOfJoining,
     dateOfEntry: employee.dateOfEntry,
     gender: employee.gender,
-    designation: employee.designation,
+    designation: normalizeDesignationForRead(employee.designation),
     designationGroup: employee.designationGroup,
     designationSubGroup: employee.designationSubGroup,
     currentCity: employee.currentCityTownVillage,
     currentPosition: employee.currentPostHeld,
     currentHospital: employee.currentInstitution,
-    currentDesignation: employee.currentDesignation,
+    currentDesignation: normalizeDesignationForRead(employee.currentDesignation),
     currentPostHeld: employee.currentPostHeld,
     currentPostGroup: employee.currentPostGroup,
     currentPostSubGroup: employee.currentPostSubGroup,
@@ -270,6 +290,12 @@ const mapEmployeeDetail = (employee) => {
     telephoneNumber: employee.telephoneNumber,
     address: employee.address,
     pinCode: employee.pinCode,
+    permanentAddress: employee.permanentAddress || null,
+    currentAddress:
+      employee.currentAddress || {
+        address: employee.address,
+        pinCode: employee.pinCode,
+      },
     officeAddress: employee.officeAddress,
     officePinCode: employee.officePinCode,
     officeEmail: employee.officeEmail,
@@ -315,6 +341,7 @@ const mapEmployeeDetail = (employee) => {
     pgBondDoc: employee.pgBondDoc,
     pgBondCompletionDate: employee.pgBondCompletionDate,
     recruitmentType: employee.recruitmentType,
+    directRecruitmentMode: employee.directRecruitmentMode,
     contractRegularised: employee.contractRegularised ?? false,
     contractRegularisedDoc: employee.contractRegularisedDoc,
     contractRegularisedDate: employee.contractRegularisedDate,
@@ -411,7 +438,12 @@ const getSuggestions = async ({ category, searchMode, query, limit }) => {
     orderBy: { empName: "asc" },
     take: limit,
   });
-  return results.map((item) => ({ ...item, id: String(item.id) }));
+  return results.map((item) => ({
+    ...item,
+    id: String(item.id),
+    designation: normalizeDesignationForRead(item.designation),
+    currentPostHeld: normalizeDesignationForRead(item.currentPostHeld),
+  }));
 };
 
 const csvEscape = (value) => {
@@ -621,6 +653,12 @@ const createEmployee = async (payload) => {
           telephoneNumber: payload.telephoneNumber || null,
           address: payload.address,
           pinCode: payload.pinCode,
+          permanentAddress: payload.permanentAddress || null,
+          currentAddress:
+            payload.currentAddress || {
+              address: payload.address,
+              pinCode: payload.pinCode,
+            },
           officeAddress: payload.officeAddress,
           officePinCode: payload.officePinCode,
           officeEmail: payload.officeEmail,
@@ -666,6 +704,10 @@ const createEmployee = async (payload) => {
           pgBondDoc: payload.pgBondDoc || null,
           pgBondCompletionDate: payload.pgBondCompletionDate || null,
           recruitmentType: payload.recruitmentType || null,
+          directRecruitmentMode:
+            payload.recruitmentType === "Direct Recruitment"
+              ? payload.directRecruitmentMode || null
+              : null,
           contractRegularised: payload.contractRegularised,
           contractRegularisedDoc: payload.contractRegularisedDoc || null,
           contractRegularisedDate: payload.contractRegularisedDate || null,
@@ -877,6 +919,16 @@ const updateEmployee = async (id, payload) => {
         telephoneNumber: payload.telephoneNumber || null,
         address: payload.address,
         pinCode: payload.pinCode,
+        permanentAddress:
+          payload.permanentAddress !== undefined
+            ? payload.permanentAddress
+            : existing.permanentAddress || null,
+        currentAddress:
+          payload.currentAddress ||
+          existing.currentAddress || {
+            address: payload.address,
+            pinCode: payload.pinCode,
+          },
         officeAddress: payload.officeAddress,
         officePinCode: payload.officePinCode,
         officeEmail: payload.officeEmail,
@@ -922,6 +974,10 @@ const updateEmployee = async (id, payload) => {
         pgBondDoc: payload.pgBondDoc || null,
         pgBondCompletionDate: payload.pgBondCompletionDate || null,
         recruitmentType: payload.recruitmentType || null,
+        directRecruitmentMode:
+          payload.recruitmentType === "Direct Recruitment"
+            ? payload.directRecruitmentMode || null
+            : null,
         contractRegularised: payload.contractRegularised,
         contractRegularisedDoc: payload.contractRegularisedDoc || null,
         contractRegularisedDate: payload.contractRegularisedDate || null,
