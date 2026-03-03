@@ -1,4 +1,5 @@
 const asyncHandler = require("../utils/asyncHandler");
+const { AppError } = require("../utils/errors");
 const vacancyService = require("../services/vacancyService");
 
 const createVacancy = asyncHandler(async (req, res) => {
@@ -26,10 +27,21 @@ const listVacancyInstitutions = asyncHandler(async (req, res) => {
 });
 
 const getVacanciesByInstitution = asyncHandler(async (req, res) => {
-  const data = await vacancyService.getVacanciesByInstitution(
-    req.query.institutionKey
-  );
-  res.json(data);
+  try {
+    const data = await vacancyService.getVacanciesByInstitution(
+      req.query.institutionKey
+    );
+    res.json(data);
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    console.error("Vacancy by-institution query failed:", error);
+    res.status(500).json({
+      error: "Database request error",
+      message: "Database request error",
+    });
+  }
 });
 
 const updateVacancy = asyncHandler(async (req, res) => {
