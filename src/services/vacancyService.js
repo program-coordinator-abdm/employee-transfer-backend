@@ -14,38 +14,16 @@ const toOptionalString = (value) => {
 
 const toRequiredInteger = (value) => Number.parseInt(String(value), 10);
 
-const toCityTownVillageValue = (vacancy) =>
-  toOptionalString(
-    vacancy?.cityIsOther ? vacancy?.cityOtherName : vacancy?.cityOrTownOrVillage
-  ) ||
-  toOptionalString(vacancy?.cityOtherName) ||
-  toOptionalString(vacancy?.cityOrTownOrVillage) ||
-  "";
-
-const buildInstitutionKey = ({
-  institutionType,
-  institutionName,
-  district,
-  taluk,
-  cityTownVillage,
-}) =>
+const buildInstitutionKey = (vacancy) =>
   [
-    institutionType,
-    institutionName,
-    district,
-    taluk,
-    cityTownVillage,
-  ].map((value) => encodeURIComponent(toOptionalString(value) || "")).join(INSTITUTION_KEY_SEPARATOR);
-
-const decodeInstitutionKeyPart = (value) => {
-  try {
-    return decodeURIComponent(value || "");
-  } catch (_error) {
-    throw new AppError("institutionKey format is invalid", 400, {
-      field: "institutionKey",
-    });
-  }
-};
+    vacancy.institutionTypeName,
+    vacancy.institutionName,
+    vacancy.district,
+    vacancy.taluk,
+    vacancy.cityOrTownOrVillage,
+  ]
+    .map((value) => toOptionalString(value) || "")
+    .join(INSTITUTION_KEY_SEPARATOR);
 
 const parseInstitutionKey = (institutionKey) => {
   const normalizedKey = toOptionalString(institutionKey);
@@ -55,9 +33,7 @@ const parseInstitutionKey = (institutionKey) => {
     });
   }
 
-  const parts = normalizedKey
-    .split(INSTITUTION_KEY_SEPARATOR)
-    .map((value) => decodeInstitutionKeyPart(value));
+  const parts = normalizedKey.split(INSTITUTION_KEY_SEPARATOR);
 
   if (parts.length !== 5) {
     throw new AppError("institutionKey format is invalid", 400, {
@@ -65,15 +41,21 @@ const parseInstitutionKey = (institutionKey) => {
     });
   }
 
-  const [institutionType, institutionName, district, taluk, cityTownVillage] =
+  const [
+    institutionTypeName,
+    institutionName,
+    district,
+    taluk,
+    cityOrTownOrVillage,
+  ] =
     parts.map((value) => toOptionalString(value) || "");
 
   if (
-    !institutionType ||
+    !institutionTypeName ||
     !institutionName ||
     !district ||
     !taluk ||
-    !cityTownVillage
+    !cityOrTownOrVillage
   ) {
     throw new AppError("institutionKey format is invalid", 400, {
       field: "institutionKey",
@@ -81,32 +63,12 @@ const parseInstitutionKey = (institutionKey) => {
   }
 
   return {
-    institutionType,
+    institutionTypeName,
     institutionName,
     district,
     taluk,
-    cityTownVillage,
-    institutionKey: normalizedKey,
+    cityOrTownOrVillage,
   };
-};
-
-const buildVacancyVisibilityWhere = (user) => {
-  const role = user?.role;
-  if (role === "ADMIN") {
-    return {};
-  }
-
-  if (role === "DATA_OFFICER") {
-    const userId = Number(user?.id);
-    if (!userId || Number.isNaN(userId)) {
-      throw new AppError("Unauthorized", 401);
-    }
-    return {
-      OR: [{ createdByUserId: userId }, { createdByUserId: null }],
-    };
-  }
-
-  throw new AppError("Forbidden", 403);
 };
 
 const parseBoolean = (value, fieldName, defaultValue = false) => {
@@ -325,34 +287,30 @@ const listVacancies = async (filters = {}) =>
     take: MAX_LIST_LIMIT,
   });
 
-const mapVacancyLinesForView = (lines = []) =>
+const mapVacancyLinesForInstitution = (lines = []) =>
   lines.map((line) => ({
-    designation: line.designationName,
-    sanctioned: toRequiredInteger(line.sanctionedPositions),
-    working: toRequiredInteger(line.filled),
+    designationName: line.designationName,
+    sanctionedPositions: toRequiredInteger(line.sanctionedPositions),
+    filled: toRequiredInteger(line.filled),
     vacant: toRequiredInteger(line.vacant),
   }));
 
 const mapInstitutionHeader = (vacancy) => ({
-  institutionType: vacancy.institutionTypeName,
+  institutionTypeName: vacancy.institutionTypeName,
   institutionName: vacancy.institutionName,
   district: vacancy.district,
   taluk: vacancy.taluk,
-  cityTownVillage: toCityTownVillageValue(vacancy),
+  cityOrTownOrVillage: vacancy.cityOrTownOrVillage,
 });
 
-const listVacancyInstitutions = async (user) => {
+const listVacancyInstitutions = async () => {
   const vacancies = await prisma.vacancy.findMany({
-    where: buildVacancyVisibilityWhere(user),
     select: {
-      id: true,
       institutionTypeName: true,
       institutionName: true,
       district: true,
       taluk: true,
       cityOrTownOrVillage: true,
-      cityIsOther: true,
-      cityOtherName: true,
       createdAt: true,
     },
     orderBy: { createdAt: "desc" },
@@ -361,13 +319,17 @@ const listVacancyInstitutions = async (user) => {
   const uniqueInstitutions = new Map();
 
   for (const vacancy of vacancies) {
-    const institution = mapInstitutionHeader(vacancy);
-    const institutionKey = buildInstitutionKey(institution);
+    const institutionKey = buildInstitutionKey(vacancy);
 
     if (!uniqueInstitutions.has(institutionKey)) {
       uniqueInstitutions.set(institutionKey, {
         institutionKey,
-        ...institution,
+        institutionTypeName: vacancy.institutionTypeName,
+        institutionName: vacancy.institutionName,
+        district: vacancy.district,
+        taluk: vacancy.taluk,
+        cityOrTownOrVillage: vacancy.cityOrTownOrVillage,
+        latestCreatedAt: vacancy.createdAt,
       });
     }
   }
@@ -375,25 +337,16 @@ const listVacancyInstitutions = async (user) => {
   return Array.from(uniqueInstitutions.values());
 };
 
-const getVacanciesByInstitution = async (institutionKey, user) => {
+const getVacanciesByInstitution = async (institutionKey) => {
   const parsedKey = parseInstitutionKey(institutionKey);
-  const visibilityWhere = buildVacancyVisibilityWhere(user);
 
   const submissions = await prisma.vacancy.findMany({
     where: {
-      AND: [
-        visibilityWhere,
-        {
-          institutionTypeName: parsedKey.institutionType,
-          institutionName: parsedKey.institutionName,
-          district: parsedKey.district,
-          taluk: parsedKey.taluk,
-          OR: [
-            { cityOrTownOrVillage: parsedKey.cityTownVillage },
-            { cityOtherName: parsedKey.cityTownVillage },
-          ],
-        },
-      ],
+      institutionTypeName: parsedKey.institutionTypeName,
+      institutionName: parsedKey.institutionName,
+      district: parsedKey.district,
+      taluk: parsedKey.taluk,
+      cityOrTownOrVillage: parsedKey.cityOrTownOrVillage,
     },
     include: {
       lines: {
@@ -403,23 +356,18 @@ const getVacanciesByInstitution = async (institutionKey, user) => {
     orderBy: { createdAt: "desc" },
   });
 
-  const filteredSubmissions = submissions.filter((submission) => {
-    const key = buildInstitutionKey(mapInstitutionHeader(submission));
-    return key === parsedKey.institutionKey;
-  });
-
-  if (filteredSubmissions.length === 0) {
-    throw new AppError("No vacancy submissions found for institution", 404, {
-      field: "institutionKey",
-    });
-  }
-
   return {
-    institution: mapInstitutionHeader(filteredSubmissions[0]),
-    submissions: filteredSubmissions.map((submission) => ({
+    institution: {
+      institutionTypeName: parsedKey.institutionTypeName,
+      institutionName: parsedKey.institutionName,
+      district: parsedKey.district,
+      taluk: parsedKey.taluk,
+      cityOrTownOrVillage: parsedKey.cityOrTownOrVillage,
+    },
+    submissions: submissions.map((submission) => ({
       id: submission.id,
       createdAt: submission.createdAt,
-      vacancies: mapVacancyLinesForView(submission.lines),
+      lines: mapVacancyLinesForInstitution(submission.lines),
     })),
   };
 };

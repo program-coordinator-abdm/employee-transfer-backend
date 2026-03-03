@@ -22,15 +22,14 @@ const getVacancyById = asyncHandler(async (req, res) => {
 
 const listVacancyInstitutions = asyncHandler(async (req, res) => {
   const data = await vacancyService.listVacancyInstitutions(req.user);
-  res.json({ data });
+  res.json(data);
 });
 
 const getVacanciesByInstitution = asyncHandler(async (req, res) => {
   const data = await vacancyService.getVacanciesByInstitution(
-    req.query.institutionKey,
-    req.user
+    req.query.institutionKey
   );
-  res.json({ data });
+  res.json(data);
 });
 
 const updateVacancy = asyncHandler(async (req, res) => {
