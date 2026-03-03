@@ -112,6 +112,7 @@ model Employee {
   pgBondDoc              String?
   pgBondCompletionDate   DateTime?
   recruitmentType        String?
+  directRecruitmentMode  String?
   contractRegularised    Boolean   @default(false)
   contractRegularisedDoc String?
   contractRegularisedDate DateTime?
@@ -134,6 +135,8 @@ model Employee {
   spouseCityTownVillage  String?
   ngoBenefits            Boolean   @default(false)
   ngoBenefitsDoc         String?
+  permanentAddress       Json?
+  currentAddress         Json?
   currentFirstPostHeld   String?
   currentAreaType        String?
   createdAt              DateTime  @default(now())
@@ -353,4 +356,35 @@ model Transfer {
 
   @@index([employeeId])
   @@index([createdByUserId])
+}
+
+model Vacancy {
+  id                  String        @id @default(uuid())
+  institutionTypeName String
+  institutionName     String
+  district            String
+  taluk               String
+  cityOrTownOrVillage String
+  cityIsOther         Boolean       @default(false)
+  cityOtherName       String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  lines               VacancyLine[]
+
+  @@index([district])
+  @@index([taluk])
+  @@index([institutionName])
+  @@index([createdAt])
+}
+
+model VacancyLine {
+  id                  String  @id @default(uuid())
+  vacancyId           String
+  vacancy             Vacancy @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  designationName     String
+  sanctionedPositions Int
+  filled              Int
+  vacant              Int
+
+  @@index([vacancyId])
 }

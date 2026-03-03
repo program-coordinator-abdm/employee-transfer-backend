@@ -2,27 +2,29 @@ const jwt = require("jsonwebtoken");
 const prisma = require("./prisma");
 const { AppError } = require("../utils/errors");
 
+const toOptionalString = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : undefined;
+};
+
 const login = async ({ email, username, identifier, password }) => {
-  const filters = [];
-  if (email) {
-    filters.push({ email: email.toLowerCase() });
-  }
-  if (username) {
-    filters.push({ username });
-  }
-  if (!email && !username && identifier) {
-    if (identifier.includes("@")) {
-      filters.push({ email: identifier.toLowerCase() });
-    } else {
-      filters.push({ username: identifier });
-    }
-  }
-  if (filters.length === 0) {
-    throw new AppError("Email or username is required", 400);
+  const identifierCandidates = [identifier, username, email]
+    .map(toOptionalString)
+    .filter(Boolean);
+
+  if (identifierCandidates.length === 0) {
+    throw new AppError("Identifier is required", 400, {
+      message: "Identifier is required",
+    });
   }
 
-  const where =
-    filters.length === 1 ? filters[0] : { OR: filters };
+  const where = {
+    OR: identifierCandidates.flatMap((value) => [
+      { username: { equals: value, mode: "insensitive" } },
+      { email: { equals: value, mode: "insensitive" } },
+    ]),
+  };
 
   const user = await prisma.user.findFirst({ where });
 
@@ -30,14 +32,18 @@ const login = async ({ email, username, identifier, password }) => {
     console.warn("Login failed: user not found", {
       identifier: email || username || identifier,
     });
-    throw new AppError("Invalid credentials", 401);
+    throw new AppError("Invalid username/email", 401, {
+      message: "Invalid username/email",
+    });
   }
 
   if (password !== user.password) {
     console.warn("Login failed: invalid password", {
       identifier: email || username || identifier,
     });
-    throw new AppError("Invalid credentials", 401);
+    throw new AppError("Invalid password", 401, {
+      message: "Invalid password",
+    });
   }
 
   const secret = process.env.JWT_SECRET;
