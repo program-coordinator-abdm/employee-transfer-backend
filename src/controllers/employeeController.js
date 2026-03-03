@@ -118,6 +118,48 @@ const parseFlexibleBoolean = (value) => {
   return undefined;
 };
 
+const DD_MM_YYYY_REGEX = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+
+const parseFlexibleDate = (value) => {
+  if (value === "" || value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    const ddmmyyyyMatch = DD_MM_YYYY_REGEX.exec(trimmed);
+    if (ddmmyyyyMatch) {
+      const day = Number(ddmmyyyyMatch[1]);
+      const month = Number(ddmmyyyyMatch[2]);
+      const year = Number(ddmmyyyyMatch[3]);
+
+      const parsed = new Date(year, month - 1, day);
+      const isValid =
+        parsed.getFullYear() === year &&
+        parsed.getMonth() === month - 1 &&
+        parsed.getDate() === day;
+
+      return isValid ? parsed : new Date(Number.NaN);
+    }
+
+    return new Date(trimmed);
+  }
+
+  return value;
+};
+
+const requiredDateSchema = () => z.preprocess(parseFlexibleDate, z.date());
+const optionalDateSchema = () =>
+  z.preprocess(parseFlexibleDate, z.date().optional());
+
 const pastServiceSchema = z.object({
   postHeld: z.string().min(1),
   postGroup: z.string().min(1),
@@ -129,8 +171,8 @@ const pastServiceSchema = z.object({
   district: z.string().min(1),
   taluk: z.string().optional().default(""),
   cityTownVillage: z.string().optional().default(""),
-  fromDate: z.coerce.date(),
-  toDate: z.coerce.date(),
+  fromDate: requiredDateSchema(),
+  toDate: requiredDateSchema(),
   tenure: z.string().optional().default(""),
   joiningDocument: z.string().optional().default(""),
 });
@@ -168,21 +210,21 @@ const timeboundSchema = z.object({
   label: z.string().min(1),
   status: z.string().min(1),
   order: z.string().optional(),
-  date: z.coerce.date().optional(),
+  date: optionalDateSchema(),
 });
 
 const adminRoleSchema = z.object({
   role: z.string().min(1),
-  fromDate: z.coerce.date().optional(),
-  toDate: z.coerce.date().optional(),
+  fromDate: optionalDateSchema(),
+  toDate: optionalDateSchema(),
   details: z.string().optional(),
 });
 
 const additionalChargeSchema = z.object({
   designation: z.string().min(1),
   place: z.string().optional(),
-  fromDate: z.coerce.date().optional(),
-  toDate: z.coerce.date().optional(),
+  fromDate: optionalDateSchema(),
+  toDate: optionalDateSchema(),
 });
 
 const achievementSchema = z.object({
@@ -209,7 +251,7 @@ const serviceInformationSchema = z.object({
 const appointmentDetailsSchema = z.object({
   slNoInOrder: z.string().optional(),
   orderNoAndDate: z.string().optional(),
-  dateOfInitialAppointment: z.coerce.date().optional(),
+  dateOfInitialAppointment: optionalDateSchema(),
 });
 
 const documentSchema = z.object({
@@ -227,9 +269,9 @@ const employeeSchema = z
     designationGroup: z.string().min(1),
     designationSubGroup: z.string().min(1),
     firstPostHeld: z.string().optional(),
-    dateOfEntry: z.coerce.date(),
-    dateOfJoining: z.coerce.date().optional(),
-    dob: z.coerce.date(),
+    dateOfEntry: requiredDateSchema(),
+    dateOfJoining: optionalDateSchema(),
+    dob: requiredDateSchema(),
     gender: z.string().min(1),
     permanentAddress: z.unknown().optional(),
     currentAddress: z.unknown().optional(),
@@ -253,14 +295,14 @@ const employeeSchema = z
     currentTaluk: z.string().min(1),
     currentCityTownVillage: z.string().min(1),
     currentHfrId: z.string().optional(),
-    currentWorkingSince: z.coerce.date(),
+    currentWorkingSince: requiredDateSchema(),
     currentAreaType: z.string().optional(),
     probationaryPeriod: z.coerce.boolean().default(false),
     probationaryPeriodDoc: z.string().optional(),
-    probationDeclarationDate: z.coerce.date().optional(),
+    probationDeclarationDate: optionalDateSchema(),
     cltCompleted: z.coerce.boolean().optional().default(false),
     cltCompletedDoc: z.string().optional(),
-    cltCompletionDate: z.coerce.date().optional(),
+    cltCompletionDate: optionalDateSchema(),
     isDoctorNursePharmacist: z.coerce.boolean().optional().default(false),
     hprId: z.string().optional(),
     hfrId: z.string().optional(),
@@ -268,35 +310,35 @@ const employeeSchema = z
     timeboundCategory: z.string().optional(),
     timeboundYears: z.string().optional(),
     timeboundDoc: z.string().optional(),
-    timeboundDate: z.coerce.date().optional(),
+    timeboundDate: optionalDateSchema(),
     timebound6Years: z.coerce.boolean().optional().default(false),
     timebound6YearsDoc: z.string().optional(),
-    timebound6YearsDate: z.coerce.date().optional(),
+    timebound6YearsDate: optionalDateSchema(),
     timebound13Years: z.coerce.boolean().optional().default(false),
     timebound13YearsDoc: z.string().optional(),
-    timebound13YearsDate: z.coerce.date().optional(),
+    timebound13YearsDate: optionalDateSchema(),
     timebound20Years: z.coerce.boolean().optional().default(false),
     timebound20YearsDoc: z.string().optional(),
-    timebound20YearsDate: z.coerce.date().optional(),
+    timebound20YearsDate: optionalDateSchema(),
     timebound10Years: z.coerce.boolean().optional().default(false),
     timebound10YearsDoc: z.string().optional(),
-    timebound10YearsDate: z.coerce.date().optional(),
+    timebound10YearsDate: optionalDateSchema(),
     timebound15Years: z.coerce.boolean().optional().default(false),
     timebound15YearsDoc: z.string().optional(),
-    timebound15YearsDate: z.coerce.date().optional(),
+    timebound15YearsDate: optionalDateSchema(),
     currentServiceDoc: z.string().optional(),
     promotionRejected: z.coerce.boolean().optional().default(false),
-    promotionRejectedDate: z.coerce.date().optional(),
+    promotionRejectedDate: optionalDateSchema(),
     promotionRejectedDesignation: z.string().optional(),
     pgBond: z.coerce.boolean().optional().default(false),
     pgBondDoc: z.string().optional(),
-    pgBondCompletionDate: z.coerce.date().optional(),
+    pgBondCompletionDate: optionalDateSchema(),
     recruitmentType: z.string().optional(),
     directRecruitmentMode: z.enum(DIRECT_RECRUITMENT_MODES).optional(),
     contractRegularised: z.coerce.boolean().optional().default(false),
     contractRegularisedDoc: z.string().optional(),
-    contractRegularisedDate: z.coerce.date().optional(),
-    contractJoiningDate: z.coerce.date().optional(),
+    contractRegularisedDate: optionalDateSchema(),
+    contractJoiningDate: optionalDateSchema(),
     terminallyIll: z.coerce.boolean().default(false),
     terminallyIllDoc: z.string().optional(),
     pregnantOrChildUnderOne: z.coerce.boolean().default(false),
@@ -317,13 +359,13 @@ const employeeSchema = z
     ngoBenefitsDoc: z.string().optional(),
     empDeclAgreed: z.coerce.boolean(),
     empDeclName: z.string().optional(),
-    empDeclDate: z.coerce.date().optional(),
+    empDeclDate: optionalDateSchema(),
     officerDeclAgreed: z.coerce.boolean(),
     officerDeclName: z.string().optional(),
-    officerDeclDate: z.coerce.date().optional(),
+    officerDeclDate: optionalDateSchema(),
     declarationRemarks: z.string().optional(),
     postAppliedFor: z.string().optional(),
-    submittedOn: z.coerce.date().optional(),
+    submittedOn: optionalDateSchema(),
     objections: z.string().optional(),
     pastServices: z.array(pastServiceSchema).optional(),
     education: z.array(educationSchema).optional(),
