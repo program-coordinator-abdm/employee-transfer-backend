@@ -159,6 +159,38 @@ const parseFlexibleDate = (value) => {
 const requiredDateSchema = () => z.preprocess(parseFlexibleDate, z.date());
 const optionalDateSchema = () =>
   z.preprocess(parseFlexibleDate, z.date().optional());
+const TIMEBOUND_MILESTONE_FIELDS = [
+  {
+    flag: "timebound6Years",
+    date: "timebound6YearsDate",
+    doc: "timebound6YearsDoc",
+    label: "6-year timebound",
+  },
+  {
+    flag: "timebound10Years",
+    date: "timebound10YearsDate",
+    doc: "timebound10YearsDoc",
+    label: "10-year timebound",
+  },
+  {
+    flag: "timebound13Years",
+    date: "timebound13YearsDate",
+    doc: "timebound13YearsDoc",
+    label: "13-year timebound",
+  },
+  {
+    flag: "timebound15Years",
+    date: "timebound15YearsDate",
+    doc: "timebound15YearsDoc",
+    label: "15-year timebound",
+  },
+  {
+    flag: "timebound20Years",
+    date: "timebound20YearsDate",
+    doc: "timebound20YearsDoc",
+    label: "20-year timebound",
+  },
+];
 
 const pastServiceSchema = z.object({
   postHeld: z.string().min(1),
@@ -490,6 +522,40 @@ const employeeSchema = z
           message: "Timebound years is required",
         });
       }
+
+      const hasAnyMilestone = TIMEBOUND_MILESTONE_FIELDS.some(
+        ({ flag }) => Boolean(data[flag])
+      );
+      if (!hasAnyMilestone) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["timeboundApplicable"],
+          message:
+            "At least one timebound milestone (6/10/13/15/20 years) must be selected when timebound is applicable.",
+        });
+      }
+
+      TIMEBOUND_MILESTONE_FIELDS.forEach(({ flag, date, doc, label }) => {
+        if (!data[flag]) {
+          return;
+        }
+
+        if (!data[date]) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [date],
+            message: `${label} date is required.`,
+          });
+        }
+
+        if (!toOptionalString(data[doc])) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [doc],
+            message: `${label} document is required.`,
+          });
+        }
+      });
     }
     if (data.promotionRejected && !data.promotionRejectedDate) {
       ctx.addIssue({
