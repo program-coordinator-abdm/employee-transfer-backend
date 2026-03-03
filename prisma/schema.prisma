@@ -36,6 +36,7 @@ model User {
   profilePictureUrl String?
   createdAt         DateTime  @default(now())
   transfersCreated  Transfer[] @relation("TransfersCreated")
+  vacanciesCreated  Vacancy[]  @relation("VacanciesCreated")
 }
 
 model Employee {
@@ -367,6 +368,8 @@ model Vacancy {
   cityOrTownOrVillage String
   cityIsOther         Boolean       @default(false)
   cityOtherName       String?
+  createdByUserId     Int?
+  createdByUser       User?         @relation("VacanciesCreated", fields: [createdByUserId], references: [id], onDelete: SetNull)
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
   lines               VacancyLine[]
@@ -374,6 +377,7 @@ model Vacancy {
   @@index([district])
   @@index([taluk])
   @@index([institutionName])
+  @@index([createdByUserId])
   @@index([createdAt])
 }
 

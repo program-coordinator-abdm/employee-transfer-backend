@@ -69,6 +69,7 @@ app.use("/categories", categoryRoutes);
 app.use("/employees", employeeRoutes);
 app.use("/exports", exportRoutes);
 app.use("/uploads", uploadRoutes);
+app.use("/api/vacancies", vacancyRoutes);
 app.use("/vacancies", vacancyRoutes);
 
 app.use((_req, _res, next) => {

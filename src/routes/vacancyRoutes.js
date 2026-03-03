@@ -1,5 +1,6 @@
 const express = require("express");
 const authMiddleware = require("../middlewares/auth");
+const authorizeRoles = require("../middlewares/authorize");
 const vacancyController = require("../controllers/vacancyController");
 
 const router = express.Router();
@@ -9,6 +10,16 @@ router.use(authMiddleware);
 
 router.post("/", vacancyController.createVacancy);
 router.get("/", vacancyController.listVacancies);
+router.get(
+  "/institutions",
+  authorizeRoles("ADMIN", "DATA_OFFICER"),
+  vacancyController.listVacancyInstitutions
+);
+router.get(
+  "/by-institution",
+  authorizeRoles("ADMIN", "DATA_OFFICER"),
+  vacancyController.getVacanciesByInstitution
+);
 router.get("/:id", vacancyController.getVacancyById);
 router.put("/:id", vacancyController.updateVacancy);
 router.delete("/:id", vacancyController.deleteVacancy);
