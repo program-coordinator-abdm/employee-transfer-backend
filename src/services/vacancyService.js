@@ -26,14 +26,31 @@ const buildInstitutionKey = (vacancy) =>
     .join(INSTITUTION_KEY_SEPARATOR);
 
 const parseInstitutionKey = (institutionKey) => {
-  const normalizedKey = toOptionalString(institutionKey);
+  if (institutionKey === undefined || institutionKey === null) {
+    throw new AppError("institutionKey is required", 400, {
+      field: "institutionKey",
+    });
+  }
+
+  let decodedKey;
+  try {
+    decodedKey = decodeURIComponent(String(institutionKey));
+  } catch (_error) {
+    throw new AppError("institutionKey format is invalid", 400, {
+      field: "institutionKey",
+    });
+  }
+
+  const normalizedKey = toOptionalString(decodedKey);
   if (!normalizedKey) {
     throw new AppError("institutionKey is required", 400, {
       field: "institutionKey",
     });
   }
 
-  const parts = normalizedKey.split(INSTITUTION_KEY_SEPARATOR);
+  const parts = normalizedKey
+    .split(INSTITUTION_KEY_SEPARATOR)
+    .map((value) => String(value).trim());
 
   if (parts.length !== 5) {
     throw new AppError("institutionKey format is invalid", 400, {
