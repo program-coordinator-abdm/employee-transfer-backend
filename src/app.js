@@ -5,6 +5,7 @@ const employeeRoutes = require("./routes/employeeRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const exportRoutes = require("./routes/exportRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
+const vacancyRoutes = require("./routes/vacancyRoutes");
 const errorHandler = require("./middlewares/errorHandler");
 const { AppError } = require("./utils/errors");
 const app = express();
@@ -68,6 +69,7 @@ app.use("/categories", categoryRoutes);
 app.use("/employees", employeeRoutes);
 app.use("/exports", exportRoutes);
 app.use("/uploads", uploadRoutes);
+app.use("/vacancies", vacancyRoutes);
 
 app.use((_req, _res, next) => {
   next(new AppError("Not found", 404));
