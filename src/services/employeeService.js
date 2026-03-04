@@ -167,6 +167,150 @@ const buildDuplicateEntryError = (fields) => {
   });
 };
 
+const toNullableString = (value) => {
+  if (value === undefined || value === null) return null;
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : null;
+};
+
+const toNullableDate = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const toNullableNumber = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const REQUIRED_CREATE_FIELDS = [
+  "empKgid",
+  "empName",
+  "designation",
+  "designationGroup",
+  "designationSubGroup",
+  "dateOfEntry",
+  "dob",
+  "gender",
+  "address",
+  "pinCode",
+  "email",
+  "phoneNumber",
+  "officeAddress",
+  "officePinCode",
+  "officeEmail",
+  "officePhoneNumber",
+  "currentPostHeld",
+  "currentPostGroup",
+  "currentPostSubGroup",
+  "currentInstitution",
+  "currentDistrict",
+  "currentTaluk",
+  "currentCityTownVillage",
+  "currentWorkingSince",
+];
+
+const validateRequiredCreateFields = (payload, requestId) => {
+  const missing = REQUIRED_CREATE_FIELDS.filter((field) => {
+    const value = payload[field];
+    if (value instanceof Date) return Number.isNaN(value.getTime());
+    if (typeof value === "string") return value.trim().length === 0;
+    return value === undefined || value === null;
+  });
+  if (missing.length > 0) {
+    throw new AppError("Validation error", 400, {
+      message: `Missing required fields: ${missing.join(", ")}`,
+      fields: missing,
+      ...(requestId ? { requestId } : {}),
+    });
+  }
+};
+
+const logCreateEmployeeDbError = (error, requestId) => {
+  console.error("[employees.create] Database error", {
+    requestId: requestId || null,
+    name: error?.name,
+    message: error?.message,
+    code: error?.code,
+    meta: error?.meta || null,
+  });
+};
+
+const mapPrismaCreateEmployeeError = (error, requestId) => {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    const baseDetails = {
+      code: error.code,
+      meta: error.meta || null,
+      prismaMessage: error.message,
+      ...(requestId ? { requestId } : {}),
+    };
+
+    if (error.code === "P2002") {
+      const fields = extractUniqueFields(error);
+      if (fields.includes("empKgid")) {
+        return new AppError("Duplicate KGID", 400, baseDetails);
+      }
+      if (fields.includes("email")) {
+        return new AppError("Duplicate email", 400, baseDetails);
+      }
+      return new AppError("Duplicate entry", 400, {
+        ...baseDetails,
+        message:
+          fields.length > 0
+            ? `Duplicate value for: ${fields.join(", ")}`
+            : "Duplicate value for unique field",
+      });
+    }
+    if (error.code === "P2003") {
+      return new AppError("Invalid foreign key reference", 400, baseDetails);
+    }
+    if (error.code === "P2000") {
+      return new AppError("One or more values are too long", 400, baseDetails);
+    }
+    if (error.code === "P2006") {
+      return new AppError("Invalid value provided for a field", 400, baseDetails);
+    }
+    if (error.code === "P2011") {
+      return new AppError("Null constraint violation", 400, baseDetails);
+    }
+    if (error.code === "P2012") {
+      return new AppError("Missing required field value", 400, baseDetails);
+    }
+    if (error.code === "P2014") {
+      return new AppError("Relation constraint violation", 400, baseDetails);
+    }
+    if (error.code === "P2022") {
+      return new AppError("Database schema is out of date", 400, {
+        ...baseDetails,
+        message: "Please run latest migrations on the database",
+      });
+    }
+    if (error.code === "P2025") {
+      return new AppError("Related record not found", 400, baseDetails);
+    }
+
+    return new AppError("Database request failed", 400, baseDetails);
+  }
+
+  if (error instanceof Prisma.PrismaClientValidationError) {
+    return new AppError("Invalid request payload", 400, {
+      prismaMessage: error.message,
+      ...(requestId ? { requestId } : {}),
+    });
+  }
+
+  return null;
+};
+
 // Duplicate guard section: KGID is always validated as unique (case-insensitive).
 const validateEmployeeUniqueness = async (
   tx,
@@ -654,259 +798,305 @@ const buildAssignmentRecords = (payload) => {
   return records;
 };
 
-const createEmployee = async (payload) => {
-  return prisma.$transaction(async (tx) => {
-    const empName = payload.empName.trim().toUpperCase();
-    const dateOfEntry = payload.dateOfEntry;
-    const dateOfJoining = payload.dateOfJoining || payload.dateOfEntry;
-    const yearsOfWork = calculateYearsFromDate(dateOfEntry);
-    const pastServices = toArray(payload.pastServices);
-    const education = toArray(payload.education);
-    const postgraduateQualifications = toArray(payload.postgraduateQualifications);
-    const timeboundPromotions = toArray(payload.timeboundPromotions);
-    const administrativeRoles = toArray(payload.administrativeRoles);
-    const additionalCharges = toArray(payload.additionalCharges);
-    const achievements = toArray(payload.achievements);
-    const documents = toArray(payload.documents);
+const toNullableJsonObject = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value;
+};
 
-    await validateEmployeeUniqueness(tx, {
-      empKgid: payload.empKgid,
-      email: payload.email,
-    });
+const buildEmployeeCreateData = ({
+  payload,
+  empName,
+  dateOfEntry,
+  dateOfJoining,
+  yearsOfWork,
+}) => ({
+  empName,
+  empKgid: payload.empKgid,
+  designation: payload.designation,
+  designationGroup: payload.designationGroup,
+  designationSubGroup: payload.designationSubGroup,
+  firstPostHeld: toNullableString(payload.firstPostHeld),
+  dateOfEntry,
+  dateOfJoining,
+  gender: payload.gender,
+  dob: payload.dob,
+  yearsOfWork,
+  currentPostHeld: payload.currentPostHeld,
+  currentPostGroup: payload.currentPostGroup,
+  currentPostSubGroup: payload.currentPostSubGroup,
+  currentFirstPostHeld: toNullableString(payload.currentFirstPostHeld),
+  currentInstitution: payload.currentInstitution,
+  currentInstitutionType: toNullableString(payload.currentInstitutionType),
+  currentDistrict: payload.currentDistrict,
+  currentTaluk: payload.currentTaluk,
+  currentCityTownVillage: payload.currentCityTownVillage,
+  currentHfrId: toNullableString(payload.currentHfrId),
+  currentAreaType: toNullableString(payload.currentAreaType),
+  currentWorkingSince: payload.currentWorkingSince,
+  currentDesignation: payload.currentPostHeld,
+  email: payload.email,
+  phoneNumber: payload.phoneNumber,
+  telephoneNumber: toNullableString(payload.telephoneNumber),
+  address: payload.address,
+  pinCode: payload.pinCode,
+  permanentAddress: toNullableJsonObject(payload.permanentAddress),
+  currentAddress: toNullableJsonObject(payload.currentAddress) || {
+    address: payload.address,
+    pinCode: payload.pinCode,
+  },
+  officeAddress: payload.officeAddress,
+  officePinCode: payload.officePinCode,
+  officeEmail: payload.officeEmail,
+  officePhoneNumber: payload.officePhoneNumber,
+  officeTelephoneNumber: toNullableString(payload.officeTelephoneNumber),
+  postAppliedFor: toNullableString(payload.postAppliedFor),
+  submittedOn: toNullableDate(payload.submittedOn) || new Date(),
+  objections: toNullableString(payload.objections),
+  probationaryPeriod: Boolean(payload.probationaryPeriod),
+  probationaryPeriodDoc: toNullableString(payload.probationaryPeriodDoc),
+  probationDeclarationDate: toNullableDate(payload.probationDeclarationDate),
+  cltCompleted: Boolean(payload.cltCompleted),
+  cltCompletedDoc: toNullableString(payload.cltCompletedDoc),
+  cltCompletionDate: toNullableDate(payload.cltCompletionDate),
+  isDoctorNursePharmacist: Boolean(payload.isDoctorNursePharmacist),
+  hprId: toNullableString(payload.hprId),
+  hfrId: toNullableString(payload.hfrId),
+  timeboundApplicable: Boolean(payload.timeboundApplicable),
+  timeboundCategory: toNullableString(payload.timeboundCategory),
+  timeboundYears: toNullableString(payload.timeboundYears),
+  timeboundDoc: toNullableString(payload.timeboundDoc),
+  timeboundDate: toNullableDate(payload.timeboundDate),
+  timebound6Years: Boolean(payload.timebound6Years),
+  timebound6YearsDoc: toNullableString(payload.timebound6YearsDoc),
+  timebound6YearsDate: toNullableDate(payload.timebound6YearsDate),
+  timebound13Years: Boolean(payload.timebound13Years),
+  timebound13YearsDoc: toNullableString(payload.timebound13YearsDoc),
+  timebound13YearsDate: toNullableDate(payload.timebound13YearsDate),
+  timebound20Years: Boolean(payload.timebound20Years),
+  timebound20YearsDoc: toNullableString(payload.timebound20YearsDoc),
+  timebound20YearsDate: toNullableDate(payload.timebound20YearsDate),
+  timebound10Years: Boolean(payload.timebound10Years),
+  timebound10YearsDoc: toNullableString(payload.timebound10YearsDoc),
+  timebound10YearsDate: toNullableDate(payload.timebound10YearsDate),
+  timebound15Years: Boolean(payload.timebound15Years),
+  timebound15YearsDoc: toNullableString(payload.timebound15YearsDoc),
+  timebound15YearsDate: toNullableDate(payload.timebound15YearsDate),
+  timebound25Years: Boolean(payload.timebound25Years),
+  timebound25YearsDoc: toNullableString(payload.timebound25YearsDoc),
+  timebound25YearsDate: toNullableDate(payload.timebound25YearsDate),
+  timebound30Years: Boolean(payload.timebound30Years),
+  timebound30YearsDoc: toNullableString(payload.timebound30YearsDoc),
+  timebound30YearsDate: toNullableDate(payload.timebound30YearsDate),
+  currentServiceDoc: toNullableString(payload.currentServiceDoc),
+  promotionRejected: Boolean(payload.promotionRejected),
+  promotionRejectedDate: toNullableDate(payload.promotionRejectedDate),
+  promotionRejectedDesignation: toNullableString(payload.promotionRejectedDesignation),
+  pgBond: Boolean(payload.pgBond),
+  pgBondDoc: toNullableString(payload.pgBondDoc),
+  pgBondCompletionDate: toNullableDate(payload.pgBondCompletionDate),
+  recruitmentType: toNullableString(payload.recruitmentType),
+  directRecruitmentMode:
+    payload.recruitmentType === "Direct Recruitment"
+      ? toNullableString(payload.directRecruitmentMode)
+      : null,
+  contractRegularised: Boolean(payload.contractRegularised),
+  contractRegularisedDoc: toNullableString(payload.contractRegularisedDoc),
+  contractRegularisedDate: toNullableDate(payload.contractRegularisedDate),
+  contractJoiningDate: toNullableDate(payload.contractJoiningDate),
+  terminallyIll: Boolean(payload.terminallyIll),
+  terminallyIllDoc: toNullableString(payload.terminallyIllDoc),
+  pregnantOrChildUnderOne: Boolean(payload.pregnantOrChildUnderOne),
+  pregnantOrChildUnderOneDoc: toNullableString(payload.pregnantOrChildUnderOneDoc),
+  retiringWithinTwoYears: Boolean(payload.retiringWithinTwoYears),
+  retiringWithinTwoYearsDoc: toNullableString(payload.retiringWithinTwoYearsDoc),
+  childSpouseDisability: Boolean(payload.childSpouseDisability),
+  childSpouseDisabilityDoc: toNullableString(payload.childSpouseDisabilityDoc),
+  divorceeWidowWithChild: Boolean(payload.divorceeWidowWithChild),
+  divorceeWidowWithChildDoc: toNullableString(payload.divorceeWidowWithChildDoc),
+  spouseGovtServant: Boolean(payload.spouseGovtServant),
+  spouseGovtServantDoc: toNullableString(payload.spouseGovtServantDoc),
+  spouseDesignation: toNullableString(payload.spouseDesignation),
+  spouseDistrict: toNullableString(payload.spouseDistrict),
+  spouseTaluk: toNullableString(payload.spouseTaluk),
+  spouseCityTownVillage: toNullableString(payload.spouseCityTownVillage),
+  ngoBenefits: Boolean(payload.ngoBenefits),
+  ngoBenefitsDoc: toNullableString(payload.ngoBenefitsDoc),
+});
 
-    let employee;
-    try {
-      employee = await tx.employee.create({
-        data: {
+const createEmployee = async (payload, options = {}) => {
+  const requestId = toNullableString(options.requestId);
+  validateRequiredCreateFields(payload, requestId);
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const empName = payload.empName.trim().toUpperCase();
+      const dateOfEntry = payload.dateOfEntry;
+      const dateOfJoining = payload.dateOfJoining || payload.dateOfEntry;
+      const yearsOfWork = calculateYearsFromDate(dateOfEntry);
+      const pastServices = toArray(payload.pastServices);
+      const education = toArray(payload.education);
+      const postgraduateQualifications = toArray(
+        payload.postgraduateQualifications
+      );
+      const timeboundPromotions = toArray(payload.timeboundPromotions);
+      const administrativeRoles = toArray(payload.administrativeRoles);
+      const additionalCharges = toArray(payload.additionalCharges);
+      const achievements = toArray(payload.achievements);
+      const documents = toArray(payload.documents);
+
+      await validateEmployeeUniqueness(tx, {
+        empKgid: payload.empKgid,
+        email: payload.email,
+      });
+
+      const employee = await tx.employee.create({
+        data: buildEmployeeCreateData({
+          payload,
           empName,
-          empKgid: payload.empKgid,
-          designation: payload.designation,
-          designationGroup: payload.designationGroup,
-          designationSubGroup: payload.designationSubGroup,
-          firstPostHeld: payload.firstPostHeld || null,
           dateOfEntry,
           dateOfJoining,
-          gender: payload.gender,
-          dob: payload.dob,
           yearsOfWork,
-          currentPostHeld: payload.currentPostHeld,
-          currentPostGroup: payload.currentPostGroup,
-          currentPostSubGroup: payload.currentPostSubGroup,
-          currentFirstPostHeld: payload.currentFirstPostHeld || null,
-          currentInstitution: payload.currentInstitution,
-          currentInstitutionType: payload.currentInstitutionType || null,
-          currentDistrict: payload.currentDistrict,
-          currentTaluk: payload.currentTaluk,
-          currentCityTownVillage: payload.currentCityTownVillage,
-          currentHfrId: payload.currentHfrId || null,
-          currentAreaType: payload.currentAreaType || null,
-          currentWorkingSince: payload.currentWorkingSince,
-          currentDesignation: payload.currentPostHeld,
-          email: payload.email,
-          phoneNumber: payload.phoneNumber,
-          telephoneNumber: payload.telephoneNumber || null,
-          address: payload.address,
-          pinCode: payload.pinCode,
-          permanentAddress: payload.permanentAddress || null,
-          currentAddress:
-            payload.currentAddress || {
-              address: payload.address,
-              pinCode: payload.pinCode,
-            },
-          officeAddress: payload.officeAddress,
-          officePinCode: payload.officePinCode,
-          officeEmail: payload.officeEmail,
-          officePhoneNumber: payload.officePhoneNumber,
-          officeTelephoneNumber: payload.officeTelephoneNumber || null,
-          postAppliedFor: payload.postAppliedFor || null,
-          submittedOn: payload.submittedOn || new Date(),
-          objections: payload.objections || null,
-          probationaryPeriod: payload.probationaryPeriod,
-          probationaryPeriodDoc: payload.probationaryPeriodDoc || null,
-          probationDeclarationDate: payload.probationDeclarationDate || null,
-          cltCompleted: payload.cltCompleted,
-          cltCompletedDoc: payload.cltCompletedDoc || null,
-          cltCompletionDate: payload.cltCompletionDate || null,
-          isDoctorNursePharmacist: payload.isDoctorNursePharmacist,
-          hprId: payload.hprId || null,
-          hfrId: payload.hfrId || null,
-          timeboundApplicable: payload.timeboundApplicable,
-          timeboundCategory: payload.timeboundCategory || null,
-          timeboundYears: payload.timeboundYears || null,
-          timeboundDoc: payload.timeboundDoc || null,
-          timeboundDate: payload.timeboundDate || null,
-          timebound6Years: payload.timebound6Years,
-          timebound6YearsDoc: payload.timebound6YearsDoc || null,
-          timebound6YearsDate: payload.timebound6YearsDate || null,
-          timebound13Years: payload.timebound13Years,
-          timebound13YearsDoc: payload.timebound13YearsDoc || null,
-          timebound13YearsDate: payload.timebound13YearsDate || null,
-          timebound20Years: payload.timebound20Years,
-          timebound20YearsDoc: payload.timebound20YearsDoc || null,
-          timebound20YearsDate: payload.timebound20YearsDate || null,
-          timebound10Years: payload.timebound10Years,
-          timebound10YearsDoc: payload.timebound10YearsDoc || null,
-          timebound10YearsDate: payload.timebound10YearsDate || null,
-          timebound15Years: payload.timebound15Years,
-          timebound15YearsDoc: payload.timebound15YearsDoc || null,
-          timebound15YearsDate: payload.timebound15YearsDate || null,
-          timebound25Years: payload.timebound25Years,
-          timebound25YearsDoc: payload.timebound25YearsDoc || null,
-          timebound25YearsDate: payload.timebound25YearsDate || null,
-          timebound30Years: payload.timebound30Years,
-          timebound30YearsDoc: payload.timebound30YearsDoc || null,
-          timebound30YearsDate: payload.timebound30YearsDate || null,
-          currentServiceDoc: payload.currentServiceDoc || null,
-          promotionRejected: payload.promotionRejected,
-          promotionRejectedDate: payload.promotionRejectedDate || null,
-          promotionRejectedDesignation: payload.promotionRejectedDesignation || null,
-          pgBond: payload.pgBond,
-          pgBondDoc: payload.pgBondDoc || null,
-          pgBondCompletionDate: payload.pgBondCompletionDate || null,
-          recruitmentType: payload.recruitmentType || null,
-          directRecruitmentMode:
-            payload.recruitmentType === "Direct Recruitment"
-              ? payload.directRecruitmentMode || null
-              : null,
-          contractRegularised: payload.contractRegularised,
-          contractRegularisedDoc: payload.contractRegularisedDoc || null,
-          contractRegularisedDate: payload.contractRegularisedDate || null,
-          contractJoiningDate: payload.contractJoiningDate || null,
-          terminallyIll: payload.terminallyIll,
-          terminallyIllDoc: payload.terminallyIllDoc || null,
-          pregnantOrChildUnderOne: payload.pregnantOrChildUnderOne,
-          pregnantOrChildUnderOneDoc: payload.pregnantOrChildUnderOneDoc || null,
-          retiringWithinTwoYears: payload.retiringWithinTwoYears,
-          retiringWithinTwoYearsDoc: payload.retiringWithinTwoYearsDoc || null,
-          childSpouseDisability: payload.childSpouseDisability,
-          childSpouseDisabilityDoc: payload.childSpouseDisabilityDoc || null,
-          divorceeWidowWithChild: payload.divorceeWidowWithChild,
-          divorceeWidowWithChildDoc: payload.divorceeWidowWithChildDoc || null,
-          spouseGovtServant: payload.spouseGovtServant,
-          spouseGovtServantDoc: payload.spouseGovtServantDoc || null,
-          spouseDesignation: payload.spouseDesignation || null,
-          spouseDistrict: payload.spouseDistrict || null,
-          spouseTaluk: payload.spouseTaluk || null,
-          spouseCityTownVillage: payload.spouseCityTownVillage || null,
-          ngoBenefits: payload.ngoBenefits,
-          ngoBenefitsDoc: payload.ngoBenefitsDoc || null,
+        }),
+      });
+
+      const assignmentRecords = buildAssignmentRecords(payload).map((record) => ({
+        ...record,
+        employeeId: employee.id,
+      }));
+      if (assignmentRecords.length > 0) {
+        await tx.assignmentHistory.createMany({ data: assignmentRecords });
+      }
+
+      if (pastServices.length > 0) {
+        await tx.pastService.createMany({
+          data: pastServices.map((service) => ({
+            ...service,
+            employeeId: employee.id,
+          })),
+        });
+      }
+
+      if (education.length > 0) {
+        await tx.education.createMany({
+          data: education.map((entry) => ({ ...entry, employeeId: employee.id })),
+        });
+      }
+
+      if (postgraduateQualifications.length > 0) {
+        await tx.postgraduateQualification.createMany({
+          data: postgraduateQualifications.map((entry) => ({
+            ...entry,
+            employeeId: employee.id,
+          })),
+        });
+      }
+
+      if (timeboundPromotions.length > 0) {
+        await tx.timeboundPromotion.createMany({
+          data: timeboundPromotions.map((entry) => ({
+            ...entry,
+            employeeId: employee.id,
+          })),
+        });
+      }
+
+      if (administrativeRoles.length > 0) {
+        await tx.administrativeRole.createMany({
+          data: administrativeRoles.map((entry) => ({
+            ...entry,
+            employeeId: employee.id,
+          })),
+        });
+      }
+
+      if (additionalCharges.length > 0) {
+        await tx.additionalCharge.createMany({
+          data: additionalCharges.map((entry) => ({
+            ...entry,
+            employeeId: employee.id,
+          })),
+        });
+      }
+
+      if (achievements.length > 0) {
+        await tx.achievement.createMany({
+          data: achievements.map((entry) => ({ ...entry, employeeId: employee.id })),
+        });
+      }
+
+      if (documents.length > 0) {
+        await tx.document.createMany({
+          data: documents.map((entry) => ({
+            name: entry.name,
+            sizeKB: toNullableNumber(entry.sizeKB),
+            uploadedAt: toNullableDate(entry.uploadedAt),
+            downloadUrl: toNullableString(entry.downloadUrl),
+            employeeId: employee.id,
+          })),
+        });
+      }
+
+      if (payload.disciplinaryRecord) {
+        await tx.disciplinaryRecord.create({
+          data: { ...payload.disciplinaryRecord, employeeId: employee.id },
+        });
+      }
+
+      if (payload.serviceInformation) {
+        await tx.serviceInformation.create({
+          data: { ...payload.serviceInformation, employeeId: employee.id },
+        });
+      }
+
+      if (payload.appointmentDetails) {
+        await tx.appointmentDetails.create({
+          data: { ...payload.appointmentDetails, employeeId: employee.id },
+        });
+      }
+
+      await tx.declaration.create({
+        data: {
+          employeeId: employee.id,
+          empDeclAgreed: payload.empDeclAgreed,
+          empDeclName: toNullableString(payload.empDeclName),
+          empDeclDate: toNullableDate(payload.empDeclDate),
+          officerDeclAgreed: payload.officerDeclAgreed,
+          officerDeclName: toNullableString(payload.officerDeclName),
+          officerDeclDate: toNullableDate(payload.officerDeclDate),
+          remarks: toNullableString(payload.declarationRemarks),
         },
       });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2002"
-      ) {
-        throw buildDuplicateEntryError(extractUniqueFields(error));
+
+      const detailed = await fetchEmployeeWithRelations(tx, employee.id);
+      if (!detailed) {
+        throw new AppError("Employee not found", 404, {
+          ...(requestId ? { requestId } : {}),
+        });
+      }
+      return mapEmployeeDetail(detailed);
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      if (requestId && !error.details?.requestId) {
+        error.details = {
+          ...(error.details || {}),
+          requestId,
+        };
       }
       throw error;
     }
-
-    const assignmentRecords = buildAssignmentRecords(payload).map((record) => ({
-      ...record,
-      employeeId: employee.id,
-    }));
-    if (assignmentRecords.length > 0) {
-      await tx.assignmentHistory.createMany({ data: assignmentRecords });
+    logCreateEmployeeDbError(error, requestId);
+    const mapped = mapPrismaCreateEmployeeError(error, requestId);
+    if (mapped) {
+      throw mapped;
     }
-
-    if (pastServices.length > 0) {
-      await tx.pastService.createMany({
-        data: pastServices.map((service) => ({
-          ...service,
-          employeeId: employee.id,
-        })),
-      });
-    }
-
-    if (education.length > 0) {
-      await tx.education.createMany({
-        data: education.map((entry) => ({ ...entry, employeeId: employee.id })),
-      });
-    }
-
-    if (postgraduateQualifications.length > 0) {
-      await tx.postgraduateQualification.createMany({
-        data: postgraduateQualifications.map((entry) => ({
-          ...entry,
-          employeeId: employee.id,
-        })),
-      });
-    }
-
-    if (timeboundPromotions.length > 0) {
-      await tx.timeboundPromotion.createMany({
-        data: timeboundPromotions.map((entry) => ({ ...entry, employeeId: employee.id })),
-      });
-    }
-
-    if (administrativeRoles.length > 0) {
-      await tx.administrativeRole.createMany({
-        data: administrativeRoles.map((entry) => ({ ...entry, employeeId: employee.id })),
-      });
-    }
-
-    if (additionalCharges.length > 0) {
-      await tx.additionalCharge.createMany({
-        data: additionalCharges.map((entry) => ({ ...entry, employeeId: employee.id })),
-      });
-    }
-
-    if (achievements.length > 0) {
-      await tx.achievement.createMany({
-        data: achievements.map((entry) => ({ ...entry, employeeId: employee.id })),
-      });
-    }
-
-    if (documents.length > 0) {
-      await tx.document.createMany({
-        data: documents.map((entry) => ({
-          name: entry.name,
-          sizeKB: entry.sizeKB ?? null,
-          uploadedAt: entry.uploadedAt ? new Date(entry.uploadedAt) : null,
-          downloadUrl: entry.downloadUrl ?? null,
-          employeeId: employee.id,
-        })),
-      });
-    }
-
-    if (payload.disciplinaryRecord) {
-      await tx.disciplinaryRecord.create({
-        data: { ...payload.disciplinaryRecord, employeeId: employee.id },
-      });
-    }
-
-    if (payload.serviceInformation) {
-      await tx.serviceInformation.create({
-        data: { ...payload.serviceInformation, employeeId: employee.id },
-      });
-    }
-
-    if (payload.appointmentDetails) {
-      await tx.appointmentDetails.create({
-        data: { ...payload.appointmentDetails, employeeId: employee.id },
-      });
-    }
-
-    await tx.declaration.create({
-      data: {
-        employeeId: employee.id,
-        empDeclAgreed: payload.empDeclAgreed,
-        empDeclName: payload.empDeclName || null,
-        empDeclDate: payload.empDeclDate || null,
-        officerDeclAgreed: payload.officerDeclAgreed,
-        officerDeclName: payload.officerDeclName || null,
-        officerDeclDate: payload.officerDeclDate || null,
-        remarks: payload.declarationRemarks || null,
-      },
+    throw new AppError("Failed to create employee", 500, {
+      message: "Unexpected server error while creating employee",
+      ...(requestId ? { requestId } : {}),
     });
-
-    const detailed = await fetchEmployeeWithRelations(tx, employee.id);
-    if (!detailed) {
-      throw new AppError("Employee not found", 404);
-    }
-    return mapEmployeeDetail(detailed);
-  });
+  }
 };
 
 const updateEmployee = async (id, payload) => {

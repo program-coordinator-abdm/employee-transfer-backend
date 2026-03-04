@@ -33,6 +33,15 @@ const toOptionalString = (value) => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
+const getApiGatewayRequestId = (req) =>
+  toOptionalString(
+    req.headers["apigw-requestid"] ||
+      req.headers["x-apigw-requestid"] ||
+      req.headers["x-request-id"] ||
+      req.headers["x-amzn-requestid"] ||
+      req.headers["x-amzn-trace-id"]
+  );
+
 const normalizeInstitutionType = (value) => {
   const normalized = toOptionalString(value);
   if (!normalized) return undefined;
@@ -157,8 +166,15 @@ const parseFlexibleDate = (value) => {
 };
 
 const requiredDateSchema = () => z.preprocess(parseFlexibleDate, z.date());
+const parseOptionalFlexibleDate = (value) => {
+  const parsed = parseFlexibleDate(value);
+  if (parsed instanceof Date && Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+  return parsed;
+};
 const optionalDateSchema = () =>
-  z.preprocess(parseFlexibleDate, z.date().optional());
+  z.preprocess(parseOptionalFlexibleDate, z.date().optional());
 const TIMEBOUND_MILESTONE_FIELDS = [
   {
     flag: "timebound6Years",
@@ -954,6 +970,12 @@ const normalizeEmployeePayload = (body) => {
   };
 };
 
+const formatValidationIssues = (issues = []) =>
+  issues.map((item) => ({
+    path: item.path?.join("."),
+    message: item.message,
+  }));
+
 const listEmployees = asyncHandler(async (req, res) => {
   const parsed = parseListQuery(req.query);
   const pageSize = parsed.pageSize ?? parsed.limit ?? 50;
@@ -1001,10 +1023,35 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 });
 
 const createEmployee = asyncHandler(async (req, res) => {
+  const requestId = getApiGatewayRequestId(req);
   const normalized = normalizeEmployeePayload(req.body);
-  const payload = employeeSchema.parse(normalized);
-  const employee = await employeeService.createEmployee(payload);
-  res.status(201).json(employee);
+  const parsed = employeeSchema.safeParse(normalized);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Validation error",
+      issues: formatValidationIssues(parsed.error.issues),
+      ...(requestId ? { requestId } : {}),
+    });
+  }
+  try {
+    const employee = await employeeService.createEmployee(parsed.data, {
+      requestId,
+    });
+    res.status(201).json(employee);
+  } catch (error) {
+    if (
+      requestId &&
+      error &&
+      typeof error === "object" &&
+      !error.details?.requestId
+    ) {
+      error.details = {
+        ...(error.details || {}),
+        requestId,
+      };
+    }
+    throw error;
+  }
 });
 
 const updateEmployee = asyncHandler(async (req, res) => {
