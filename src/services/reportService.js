@@ -49,6 +49,7 @@ const getDistrictEntryCounts = async (entity) => {
 
   return {
     entity,
+    data: counts,
     counts,
     total: summary._count._all,
     lastUpdated: summary._max.updatedAt
