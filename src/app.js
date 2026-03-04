@@ -6,6 +6,7 @@ const categoryRoutes = require("./routes/categoryRoutes");
 const exportRoutes = require("./routes/exportRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const vacancyRoutes = require("./routes/vacancyRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 const errorHandler = require("./middlewares/errorHandler");
 const { AppError } = require("./utils/errors");
 const app = express();
@@ -71,6 +72,7 @@ app.use("/exports", exportRoutes);
 app.use("/uploads", uploadRoutes);
 app.use("/api/vacancies", vacancyRoutes);
 app.use("/vacancies", vacancyRoutes);
+app.use("/reports", reportRoutes);
 
 app.use((_req, _res, next) => {
   next(new AppError("Not found", 404));
