@@ -190,6 +190,18 @@ const TIMEBOUND_MILESTONE_FIELDS = [
     doc: "timebound20YearsDoc",
     label: "20-year timebound",
   },
+  {
+    flag: "timebound25Years",
+    date: "timebound25YearsDate",
+    doc: "timebound25YearsDoc",
+    label: "25-year timebound",
+  },
+  {
+    flag: "timebound30Years",
+    date: "timebound30YearsDate",
+    doc: "timebound30YearsDoc",
+    label: "30-year timebound",
+  },
 ];
 
 const pastServiceSchema = z.object({
@@ -358,6 +370,12 @@ const employeeSchema = z
     timebound15Years: z.coerce.boolean().optional().default(false),
     timebound15YearsDoc: z.string().optional(),
     timebound15YearsDate: optionalDateSchema(),
+    timebound25Years: z.coerce.boolean().optional().default(false),
+    timebound25YearsDoc: z.string().optional(),
+    timebound25YearsDate: optionalDateSchema(),
+    timebound30Years: z.coerce.boolean().optional().default(false),
+    timebound30YearsDoc: z.string().optional(),
+    timebound30YearsDate: optionalDateSchema(),
     currentServiceDoc: z.string().optional(),
     promotionRejected: z.coerce.boolean().optional().default(false),
     promotionRejectedDate: optionalDateSchema(),
@@ -507,56 +525,27 @@ const employeeSchema = z
         message: "NGO benefits document is required",
       });
     }
-    if (data.timeboundApplicable) {
-      if (!data.timeboundCategory) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["timeboundCategory"],
-          message: "Timebound category is required",
-        });
+    TIMEBOUND_MILESTONE_FIELDS.forEach(({ flag, date, doc, label }) => {
+      if (!data[flag]) {
+        return;
       }
-      if (!data.timeboundYears) {
+
+      if (!data[date]) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["timeboundYears"],
-          message: "Timebound years is required",
+          path: [date],
+          message: `${label} date is required.`,
         });
       }
 
-      const hasAnyMilestone = TIMEBOUND_MILESTONE_FIELDS.some(
-        ({ flag }) => Boolean(data[flag])
-      );
-      if (!hasAnyMilestone) {
+      if (!toOptionalString(data[doc])) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["timeboundApplicable"],
-          message:
-            "At least one timebound milestone (6/10/13/15/20 years) must be selected when timebound is applicable.",
+          path: [doc],
+          message: `${label} document is required.`,
         });
       }
-
-      TIMEBOUND_MILESTONE_FIELDS.forEach(({ flag, date, doc, label }) => {
-        if (!data[flag]) {
-          return;
-        }
-
-        if (!data[date]) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [date],
-            message: `${label} date is required.`,
-          });
-        }
-
-        if (!toOptionalString(data[doc])) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [doc],
-            message: `${label} document is required.`,
-          });
-        }
-      });
-    }
+    });
     if (data.promotionRejected && !data.promotionRejectedDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -861,6 +850,12 @@ const normalizeEmployeePayload = (body) => {
     timebound15Years: body.timebound15Years,
     timebound15YearsDoc: body.timebound15YearsDoc,
     timebound15YearsDate: body.timebound15YearsDate || undefined,
+    timebound25Years: body.timebound25Years,
+    timebound25YearsDoc: body.timebound25YearsDoc,
+    timebound25YearsDate: body.timebound25YearsDate || undefined,
+    timebound30Years: body.timebound30Years,
+    timebound30YearsDoc: body.timebound30YearsDoc,
+    timebound30YearsDate: body.timebound30YearsDate || undefined,
     currentServiceDoc: body.currentServiceDoc,
     promotionRejected: body.promotionRejected,
     promotionRejectedDate: body.promotionRejectedDate || undefined,
