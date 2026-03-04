@@ -33,6 +33,21 @@ const toOptionalString = (value) => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
+const ALPHANUMERIC_ID_REGEX = /^[a-zA-Z0-9]+$/;
+const optionalAlphanumericIdSchema = (label, defaultValue) => {
+  const schema = z.preprocess(
+    (value) => toOptionalString(value),
+    z
+      .string()
+      .regex(ALPHANUMERIC_ID_REGEX, `${label} must be alphanumeric`)
+      .optional()
+  );
+  if (defaultValue !== undefined) {
+    return schema.default(defaultValue);
+  }
+  return schema;
+};
+
 const getApiGatewayRequestId = (req) =>
   toOptionalString(
     req.headers["apigw-requestid"] ||
@@ -226,7 +241,7 @@ const pastServiceSchema = z.object({
   postSubGroup: z.string().min(1),
   firstPostHeld: z.string().optional().default(""),
   institutionType: z.string().optional().default(""),
-  hfrId: z.string().optional().default(""),
+  hfrId: optionalAlphanumericIdSchema("HFR ID", ""),
   institution: z.string().min(1),
   district: z.string().min(1),
   taluk: z.string().optional().default(""),
@@ -354,7 +369,7 @@ const employeeSchema = z
     currentDistrict: z.string().min(1),
     currentTaluk: z.string().min(1),
     currentCityTownVillage: z.string().min(1),
-    currentHfrId: z.string().optional(),
+    currentHfrId: optionalAlphanumericIdSchema("Current HFR ID"),
     currentWorkingSince: requiredDateSchema(),
     currentAreaType: z.string().optional(),
     probationaryPeriod: z.coerce.boolean().default(false),
@@ -364,8 +379,8 @@ const employeeSchema = z
     cltCompletedDoc: z.string().optional(),
     cltCompletionDate: optionalDateSchema(),
     isDoctorNursePharmacist: z.coerce.boolean().optional().default(false),
-    hprId: z.string().optional(),
-    hfrId: z.string().optional(),
+    hprId: optionalAlphanumericIdSchema("HPR ID"),
+    hfrId: optionalAlphanumericIdSchema("HFR ID"),
     timeboundApplicable: z.coerce.boolean().optional().default(false),
     timeboundCategory: z.string().optional(),
     timeboundYears: z.string().optional(),
@@ -881,12 +896,13 @@ const normalizeEmployeePayload = (body) => {
     cltCompletedDoc: body.cltCompletedDoc,
     cltCompletionDate: body.cltCompletionDate || undefined,
     isDoctorNursePharmacist: normalizedHprControllerFlag,
-    hprId:
+    hprId: toOptionalString(
       body.hprId ??
-      body.hprID ??
-      body.hpr_id ??
-      body.hprNumber ??
-      body.hprNo,
+        body.hprID ??
+        body.hpr_id ??
+        body.hprNumber ??
+        body.hprNo
+    ),
     hfrId: normalizedEmployeeHfrId,
     timeboundApplicable: body.timeboundApplicable,
     timeboundCategory: body.timeboundCategory,
