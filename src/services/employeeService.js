@@ -71,9 +71,6 @@ const buildSearchWhere = (searchMode, query) => {
       where.OR = [
         { designation: { contains: query, mode: "insensitive" } },
         { currentPostHeld: { contains: query, mode: "insensitive" } },
-        { currentDesignation: { contains: query, mode: "insensitive" } },
-        { designationGroup: { contains: query, mode: "insensitive" } },
-        { designationSubGroup: { contains: query, mode: "insensitive" } },
       ];
     } else {
       where.empName = { contains: query, mode: "insensitive" };
@@ -90,9 +87,6 @@ const buildListSearchWhere = (search) => {
       { empKgid: { contains: search, mode: "insensitive" } },
       { designation: { contains: search, mode: "insensitive" } },
       { currentPostHeld: { contains: search, mode: "insensitive" } },
-      { currentDesignation: { contains: search, mode: "insensitive" } },
-      { designationGroup: { contains: search, mode: "insensitive" } },
-      { designationSubGroup: { contains: search, mode: "insensitive" } },
     ],
   };
 };
@@ -111,7 +105,6 @@ const buildCategoryWhere = (category) => {
   return {
     OR: [
       { designationGroup: { equals: category, mode: "insensitive" } },
-      { designationSubGroup: { equals: category, mode: "insensitive" } },
       { designation: { equals: category, mode: "insensitive" } },
       { currentPostHeld: { equals: category, mode: "insensitive" } },
     ],
@@ -221,6 +214,7 @@ const mapEmployeeList = (employee) => {
     dateOfEntry: employee.dateOfEntry,
     currentCity: employee.currentCityTownVillage,
     currentPosition: employee.currentPostHeld,
+    currentPostGroup: employee.currentPostGroup,
     currentHospital: employee.currentInstitution,
     currentInstitutionType: employee.currentInstitutionType,
     currentHfrId: employee.currentHfrId,
@@ -433,6 +427,24 @@ const mapEmployeeDetail = (employee) => {
   };
 };
 
+const LIST_EMPLOYEE_SELECT = {
+  id: true,
+  empName: true,
+  empKgid: true,
+  designation: true,
+  yearsOfWork: true,
+  dob: true,
+  dateOfJoining: true,
+  dateOfEntry: true,
+  currentCityTownVillage: true,
+  currentPostHeld: true,
+  currentPostGroup: true,
+  currentInstitution: true,
+  email: true,
+  phoneNumber: true,
+  designationGroup: true,
+};
+
 const listEmployees = async ({ category, page, pageSize, search }) => {
   const where = combineWhereClauses(
     buildListSearchWhere(search),
@@ -443,6 +455,7 @@ const listEmployees = async ({ category, page, pageSize, search }) => {
     prisma.employee.count({ where }),
     prisma.employee.findMany({
       where,
+      select: LIST_EMPLOYEE_SELECT,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
