@@ -626,26 +626,68 @@ const employeeSchema = z
     }
   });
 
-const listSchema = z.object({
-  category: z.string().optional(),
-  searchMode: z.enum(["name", "kgid"]).optional().default("name"),
-  query: z.string().optional().default(""),
-  search: z.string().optional().default(""),
-  page: z.coerce.number().int().positive().optional().default(1),
-  pageSize: z.coerce.number().int().min(1).max(200).optional(),
-  limit: z.coerce.number().int().min(1).max(200).optional(),
-});
-
-const suggestionsSchema = z.object({
-  category: z.string().optional(),
-  searchMode: z.enum(["name", "kgid"]).optional().default("name"),
-  query: z.string().optional().default(""),
-  limit: z.coerce.number().int().positive().max(20).optional().default(8),
-});
-
 const exportSchema = z.object({
   category: z.string().optional(),
   search: z.string().optional().default(""),
+});
+
+const normalizeSearchMode = (value) => {
+  const normalized = toOptionalString(value)?.toLowerCase();
+  if (normalized === "kgid") return "kgid";
+  if (
+    ["designation", "role", "post", "position", "currentpost"].includes(
+      normalized
+    )
+  ) {
+    return "designation";
+  }
+  return "name";
+};
+
+const parseBoundedInteger = (value, { min, max, defaultValue }) => {
+  if (value === undefined || value === null || value === "") {
+    return defaultValue;
+  }
+  const parsed = Number.parseInt(String(value), 10);
+  if (Number.isNaN(parsed)) {
+    return defaultValue;
+  }
+  if (parsed < min) return min;
+  if (parsed > max) return max;
+  return parsed;
+};
+
+const parseListQuery = (query = {}) => ({
+  category: toOptionalString(query.category),
+  searchMode: normalizeSearchMode(query.searchMode),
+  query: toOptionalString(query.query) ?? "",
+  search: toOptionalString(query.search) ?? "",
+  page: parseBoundedInteger(query.page, {
+    min: 1,
+    max: 1_000_000,
+    defaultValue: 1,
+  }),
+  pageSize: parseBoundedInteger(query.pageSize, {
+    min: 1,
+    max: 200,
+    defaultValue: undefined,
+  }),
+  limit: parseBoundedInteger(query.limit, {
+    min: 1,
+    max: 200,
+    defaultValue: undefined,
+  }),
+});
+
+const parseSuggestionsQuery = (query = {}) => ({
+  category: toOptionalString(query.category),
+  searchMode: normalizeSearchMode(query.searchMode),
+  query: toOptionalString(query.query) ?? "",
+  limit: parseBoundedInteger(query.limit, {
+    min: 1,
+    max: 20,
+    defaultValue: 8,
+  }),
 });
 
 const normalizeEducationEntries = (body) => {
@@ -913,7 +955,7 @@ const normalizeEmployeePayload = (body) => {
 };
 
 const listEmployees = asyncHandler(async (req, res) => {
-  const parsed = listSchema.parse(req.query);
+  const parsed = parseListQuery(req.query);
   const pageSize = parsed.pageSize ?? parsed.limit ?? 50;
   const search = parsed.search || parsed.query || "";
   const result = await employeeService.listEmployees({
@@ -932,7 +974,7 @@ const exportEmployees = asyncHandler(async (req, res) => {
 });
 
 const getSuggestions = asyncHandler(async (req, res) => {
-  const query = suggestionsSchema.parse(req.query);
+  const query = parseSuggestionsQuery(req.query);
   const result = await employeeService.getSuggestions(query);
   res.json(result);
 });

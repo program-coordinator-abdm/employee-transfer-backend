@@ -43,13 +43,37 @@ const calculateTotalExperienceYears = (assignments) => {
   return Math.max(0, Math.floor(totalMonths / 12));
 };
 
+const normalizeSearchMode = (value) => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "kgid") return "kgid";
+  if (
+    ["designation", "role", "post", "position", "currentpost"].includes(
+      normalized
+    )
+  ) {
+    return "designation";
+  }
+  return "name";
+};
+
 const buildSearchWhere = (searchMode, query) => {
   const where = {};
   if (query) {
-    if (searchMode === "kgid") {
+    const normalizedSearchMode = normalizeSearchMode(searchMode);
+    if (normalizedSearchMode === "kgid") {
       where.OR = [
         { empKgid: { startsWith: query, mode: "insensitive" } },
         { empKgid: { contains: query, mode: "insensitive" } },
+      ];
+    } else if (normalizedSearchMode === "designation") {
+      where.OR = [
+        { designation: { contains: query, mode: "insensitive" } },
+        { currentPostHeld: { contains: query, mode: "insensitive" } },
+        { currentDesignation: { contains: query, mode: "insensitive" } },
+        { designationGroup: { contains: query, mode: "insensitive" } },
+        { designationSubGroup: { contains: query, mode: "insensitive" } },
       ];
     } else {
       where.empName = { contains: query, mode: "insensitive" };
@@ -64,6 +88,11 @@ const buildListSearchWhere = (search) => {
     OR: [
       { empName: { contains: search, mode: "insensitive" } },
       { empKgid: { contains: search, mode: "insensitive" } },
+      { designation: { contains: search, mode: "insensitive" } },
+      { currentPostHeld: { contains: search, mode: "insensitive" } },
+      { currentDesignation: { contains: search, mode: "insensitive" } },
+      { designationGroup: { contains: search, mode: "insensitive" } },
+      { designationSubGroup: { contains: search, mode: "insensitive" } },
     ],
   };
 };
