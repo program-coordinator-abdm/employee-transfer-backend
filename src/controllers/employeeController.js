@@ -33,20 +33,8 @@ const toOptionalString = (value) => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
-const ALPHANUMERIC_ID_REGEX = /^[a-zA-Z0-9]+$/;
-const optionalAlphanumericIdSchema = (label, defaultValue) => {
-  const schema = z.preprocess(
-    (value) => toOptionalString(value),
-    z
-      .string()
-      .regex(ALPHANUMERIC_ID_REGEX, `${label} must be alphanumeric`)
-      .optional()
-  );
-  if (defaultValue !== undefined) {
-    return schema.default(defaultValue);
-  }
-  return schema;
-};
+const permissiveIdSchema = () =>
+  z.preprocess((value) => (value == null ? "NA" : String(value)), z.string());
 
 const getApiGatewayRequestId = (req) =>
   toOptionalString(
@@ -241,7 +229,7 @@ const pastServiceSchema = z.object({
   postSubGroup: z.string().min(1),
   firstPostHeld: z.string().optional().default(""),
   institutionType: z.string().optional().default(""),
-  hfrId: optionalAlphanumericIdSchema("HFR ID", ""),
+  hfrId: permissiveIdSchema(),
   institution: z.string().min(1),
   district: z.string().min(1),
   taluk: z.string().optional().default(""),
@@ -369,7 +357,7 @@ const employeeSchema = z
     currentDistrict: z.string().min(1),
     currentTaluk: z.string().min(1),
     currentCityTownVillage: z.string().min(1),
-    currentHfrId: optionalAlphanumericIdSchema("Current HFR ID"),
+    currentHfrId: permissiveIdSchema().optional(),
     currentWorkingSince: requiredDateSchema(),
     currentAreaType: z.string().optional(),
     probationaryPeriod: z.coerce.boolean().default(false),
@@ -379,8 +367,8 @@ const employeeSchema = z
     cltCompletedDoc: z.string().optional(),
     cltCompletionDate: optionalDateSchema(),
     isDoctorNursePharmacist: z.coerce.boolean().optional().default(false),
-    hprId: optionalAlphanumericIdSchema("HPR ID"),
-    hfrId: optionalAlphanumericIdSchema("HFR ID"),
+    hprId: permissiveIdSchema(),
+    hfrId: permissiveIdSchema(),
     timeboundApplicable: z.coerce.boolean().optional().default(false),
     timeboundCategory: z.string().optional(),
     timeboundYears: z.string().optional(),
