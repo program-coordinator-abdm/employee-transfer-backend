@@ -2,7 +2,7 @@ const { z } = require("zod");
 const asyncHandler = require("../utils/asyncHandler");
 const employeeService = require("../services/employeeService");
 
-const DIRECT_RECRUITMENT_MODES = ["KPSC", "DRC", "SRC"];
+const DIRECT_RECRUITMENT_MODES = ["KPSC", "DRC", "SRC", "OTHER"];
 const UNSCHOOLED_EDUCATION_LABEL = "Unschooled/UnEducated";
 const UNSCHOOLED_EDUCATION_VALUES = new Set([
   "unschooled/uneducated",
@@ -59,6 +59,9 @@ const normalizeDirectRecruitmentMode = (value) => {
   const normalized = toOptionalString(value);
   if (!normalized) return undefined;
   const upper = normalized.toUpperCase();
+  if (upper === "OTHERS") {
+    return "OTHER";
+  }
   if (DIRECT_RECRUITMENT_MODES.includes(upper)) {
     return upper;
   }
@@ -383,8 +386,14 @@ const employeeSchema = z
     pgBond: z.coerce.boolean().optional().default(false),
     pgBondDoc: z.string().optional(),
     pgBondCompletionDate: optionalDateSchema(),
+    educationLevel: z.string().optional(),
+    mdSpecialization: z.string().optional(),
+    departmentalExamCompleted: z.coerce.boolean().optional().default(false),
+    departmentalExamInputName: z.string().optional(),
+    departmentalExamDocument: z.string().optional(),
     recruitmentType: z.string().optional(),
     directRecruitmentMode: z.enum(DIRECT_RECRUITMENT_MODES).optional(),
+    directRecruitmentOther: z.string().optional(),
     contractRegularised: z.coerce.boolean().optional().default(false),
     contractRegularisedDoc: z.string().optional(),
     contractRegularisedDate: optionalDateSchema(),
@@ -863,8 +872,15 @@ const normalizeEmployeePayload = (body) => {
     pgBond: body.pgBond,
     pgBondDoc: body.pgBondDoc,
     pgBondCompletionDate: body.pgBondCompletionDate || undefined,
+    educationLevel: body.educationLevel,
+    mdSpecialization: body.mdSpecialization ?? body.mdSpeciality,
+    departmentalExamCompleted: body.departmentalExamCompleted,
+    departmentalExamInputName:
+      body.departmentalExamInputName ?? body.departmentalExamName,
+    departmentalExamDocument: body.departmentalExamDocument,
     recruitmentType: normalizedRecruitmentType,
     directRecruitmentMode: normalizedDirectRecruitmentMode,
+    directRecruitmentOther: body.directRecruitmentOther,
     contractRegularised: body.contractRegularised,
     contractRegularisedDoc: body.contractRegularisedDoc,
     contractRegularisedDate: body.contractRegularisedDate || undefined,

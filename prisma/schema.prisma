@@ -120,6 +120,12 @@ model Employee {
   pgBondCompletionDate   DateTime?
   recruitmentType        String?
   directRecruitmentMode  String?
+  directRecruitmentOther String?
+  educationLevel         String?
+  mdSpecialization       String?
+  departmentalExamCompleted Boolean @default(false)
+  departmentalExamInputName String?
+  departmentalExamDocument String?
   contractRegularised    Boolean   @default(false)
   contractRegularisedDoc String?
   contractRegularisedDate DateTime?

@@ -92,6 +92,11 @@ const buildCategoryWhere = (category) => {
 const DESIGNATION_READ_ALIASES = new Map([
   ["supudent", "Superintendent"],
   ["tb", "Tuberculosis/chest medicine"],
+  ["dtc principal", "DTC Principal"],
+  ["hfwtc principal", "HFWTC Principal"],
+  ["rmo", "RMO"],
+  ["medical superintendent", "Medical Superintendent"],
+  ["opd surgeon", "OPD Surgeon"],
 ]);
 
 const normalizeDesignationForRead = (value) => {
@@ -238,8 +243,14 @@ const mapEmployeeList = (employee) => {
     pgBond: employee.pgBond ?? false,
     pgBondDoc: employee.pgBondDoc,
     pgBondCompletionDate: employee.pgBondCompletionDate,
+    educationLevel: employee.educationLevel,
+    mdSpecialization: employee.mdSpecialization,
+    departmentalExamCompleted: employee.departmentalExamCompleted ?? false,
+    departmentalExamInputName: employee.departmentalExamInputName,
+    departmentalExamDocument: employee.departmentalExamDocument,
     recruitmentType: employee.recruitmentType,
     directRecruitmentMode: employee.directRecruitmentMode,
+    directRecruitmentOther: employee.directRecruitmentOther,
     contractRegularised: employee.contractRegularised ?? false,
     contractRegularisedDoc: employee.contractRegularisedDoc,
     contractRegularisedDate: employee.contractRegularisedDate,
@@ -352,8 +363,14 @@ const mapEmployeeDetail = (employee) => {
     pgBond: employee.pgBond ?? false,
     pgBondDoc: employee.pgBondDoc,
     pgBondCompletionDate: employee.pgBondCompletionDate,
+    educationLevel: employee.educationLevel,
+    mdSpecialization: employee.mdSpecialization,
+    departmentalExamCompleted: employee.departmentalExamCompleted ?? false,
+    departmentalExamInputName: employee.departmentalExamInputName,
+    departmentalExamDocument: employee.departmentalExamDocument,
     recruitmentType: employee.recruitmentType,
     directRecruitmentMode: employee.directRecruitmentMode,
+    directRecruitmentOther: employee.directRecruitmentOther,
     contractRegularised: employee.contractRegularised ?? false,
     contractRegularisedDoc: employee.contractRegularisedDoc,
     contractRegularisedDate: employee.contractRegularisedDate,
@@ -721,10 +738,19 @@ const createEmployee = async (payload) => {
           pgBond: payload.pgBond,
           pgBondDoc: payload.pgBondDoc || null,
           pgBondCompletionDate: payload.pgBondCompletionDate || null,
+          educationLevel: payload.educationLevel || null,
+          mdSpecialization: payload.mdSpecialization || null,
+          departmentalExamCompleted: payload.departmentalExamCompleted,
+          departmentalExamInputName: payload.departmentalExamInputName || null,
+          departmentalExamDocument: payload.departmentalExamDocument || null,
           recruitmentType: payload.recruitmentType || null,
           directRecruitmentMode:
             payload.recruitmentType === "Direct Recruitment"
               ? payload.directRecruitmentMode || null
+              : null,
+          directRecruitmentOther:
+            payload.recruitmentType === "Direct Recruitment"
+              ? payload.directRecruitmentOther || null
               : null,
           contractRegularised: payload.contractRegularised,
           contractRegularisedDoc: payload.contractRegularisedDoc || null,
@@ -997,10 +1023,19 @@ const updateEmployee = async (id, payload) => {
         pgBond: payload.pgBond,
         pgBondDoc: payload.pgBondDoc || null,
         pgBondCompletionDate: payload.pgBondCompletionDate || null,
+        educationLevel: payload.educationLevel || null,
+        mdSpecialization: payload.mdSpecialization || null,
+        departmentalExamCompleted: payload.departmentalExamCompleted,
+        departmentalExamInputName: payload.departmentalExamInputName || null,
+        departmentalExamDocument: payload.departmentalExamDocument || null,
         recruitmentType: payload.recruitmentType || null,
         directRecruitmentMode:
           payload.recruitmentType === "Direct Recruitment"
             ? payload.directRecruitmentMode || null
+            : null,
+        directRecruitmentOther:
+          payload.recruitmentType === "Direct Recruitment"
+            ? payload.directRecruitmentOther || null
             : null,
         contractRegularised: payload.contractRegularised,
         contractRegularisedDoc: payload.contractRegularisedDoc || null,
