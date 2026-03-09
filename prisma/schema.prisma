@@ -26,6 +26,31 @@ enum AchievementType {
   special
 }
 
+enum TransferGender {
+  MALE
+  FEMALE
+}
+
+enum TransferGroup {
+  A
+  B
+  C
+  D
+}
+
+enum TransferZone {
+  GBA
+  A
+  B
+  C
+}
+
+enum TransferStatus {
+  DRAFT
+  PREVIEWED
+  SUBMITTED
+}
+
 model User {
   id                Int       @id @default(autoincrement())
   username          String    @unique
@@ -37,6 +62,8 @@ model User {
   createdAt         DateTime  @default(now())
   transfersCreated  Transfer[] @relation("TransfersCreated")
   vacanciesCreated  Vacancy[]  @relation("VacanciesCreated")
+  transferApplicationsCreated TransferApplication[] @relation("TransferApplicationCreatedBy")
+  transferApplicationsUpdated TransferApplication[] @relation("TransferApplicationUpdatedBy")
 }
 
 model Employee {
@@ -369,6 +396,75 @@ model Transfer {
 
   @@index([employeeId])
   @@index([createdByUserId])
+}
+
+model TransferApplication {
+  id                            Int              @id @default(autoincrement())
+  applicationNumber             String?          @unique
+  kgidNumber                    String
+  employeeName                  String
+  gender                        TransferGender
+  dateOfBirth                   DateTime
+  communicationAddress          String
+  pinCode                       String
+  email                         String
+  mobileNumber                  String
+  residenceNumber               String?
+  groupSelection                TransferGroup
+  role                          String
+  designation                   String
+  specialization                String?
+  dateOfEntryIntoService        DateTime
+  probationDeclared             Boolean
+  terminallyIll                 Boolean          @default(false)
+  terminallyIllDocUrl           String?
+  physicallyChallenged          Boolean          @default(false)
+  physicallyChallengedDocUrl    String?
+  widow                         Boolean          @default(false)
+  widowDocUrl                   String?
+  spouseInGovtService           Boolean          @default(false)
+  spouseGovtServiceDocUrl       String?
+  employeeDeclarationAccepted   Boolean          @default(false)
+  employeeSignatureName         String?
+  employeeDeclarationDate       DateTime?
+  headOfficeDeclarationAccepted Boolean          @default(false)
+  headOfficeSignatureName       String?
+  headOfficeDeclarationDate     DateTime?
+  dhoDeclarationAccepted        Boolean          @default(false)
+  dhoSignatureName              String?
+  dhoDeclarationDate            DateTime?
+  status                        TransferStatus   @default(DRAFT)
+  submittedAt                   DateTime?
+  createdByUserId               Int?
+  updatedByUserId               Int?
+  createdByUser                 User?            @relation("TransferApplicationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser                 User?            @relation("TransferApplicationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  createdAt                     DateTime         @default(now())
+  updatedAt                     DateTime         @updatedAt
+  serviceDetails                TransferServiceDetail[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([createdByUserId])
+}
+
+model TransferServiceDetail {
+  id                    Int                 @id @default(autoincrement())
+  transferApplicationId Int
+  transferApplication   TransferApplication @relation(fields: [transferApplicationId], references: [id], onDelete: Cascade)
+  postHeld              String
+  postHeldSpeciality    String?
+  institutionName       String
+  district              String
+  taluka                String
+  cityTownVillage       String
+  zone                  TransferZone
+  workingSince          DateTime
+  orderIndex            Int?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@index([transferApplicationId])
 }
 
 model Vacancy {
