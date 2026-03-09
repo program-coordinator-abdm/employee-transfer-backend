@@ -105,7 +105,7 @@ const documentTypeSchema = z.object({
 
 const createTransferApplication = asyncHandler(async (req, res) => {
   const payload = transferApplicationSchema.parse(req.body);
-  const data = await transfersService.createTransferApplication(payload, req.user?.id);
+  const data = await transfersService.createTransferApplication(payload, req.user);
   res.status(201).json({ data });
 });
 
@@ -123,13 +123,13 @@ const getTransferApplicationById = asyncHandler(async (req, res) => {
 const updateTransferApplication = asyncHandler(async (req, res) => {
   const id = idSchema.parse(req.params.id);
   const payload = transferApplicationSchema.parse(req.body);
-  const data = await transfersService.updateTransferApplication(id, payload, req.user?.id);
+  const data = await transfersService.updateTransferApplication(id, payload, req.user);
   res.json({ data });
 });
 
 const submitTransferApplication = asyncHandler(async (req, res) => {
   const id = idSchema.parse(req.params.id);
-  const data = await transfersService.submitTransferApplication(id, req.user?.id);
+  const data = await transfersService.submitTransferApplication(id, req.user);
   res.json({ data });
 });
 
@@ -143,9 +143,14 @@ const uploadTransferDocument = asyncHandler(async (req, res) => {
     id,
     parsed.documentType,
     req.file,
-    req.user?.id
+    req.user
   );
   res.status(201).json(data);
+});
+
+const getDistrictWiseTransferStats = asyncHandler(async (_req, res) => {
+  const data = await transfersService.getDistrictWiseTransferStats();
+  res.json(data);
 });
 
 module.exports = {
@@ -155,4 +160,5 @@ module.exports = {
   updateTransferApplication,
   submitTransferApplication,
   uploadTransferDocument,
+  getDistrictWiseTransferStats,
 };

@@ -48,6 +48,10 @@ router.use(authorizeRoles("ADMIN"));
 
 router.post("/", transfersController.createTransferApplication);
 router.get("/", transfersController.listTransferApplications);
+router.get(
+  "/stats/district-wise",
+  transfersController.getDistrictWiseTransferStats
+);
 router.get("/:id", transfersController.getTransferApplicationById);
 router.put("/:id", transfersController.updateTransferApplication);
 router.post("/:id/submit", transfersController.submitTransferApplication);

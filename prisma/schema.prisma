@@ -436,7 +436,9 @@ model TransferApplication {
   status                        TransferStatus   @default(DRAFT)
   submittedAt                   DateTime?
   createdByUserId               Int?
+  createdByUsername             String?
   updatedByUserId               Int?
+  updatedByUsername             String?
   createdByUser                 User?            @relation("TransferApplicationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   updatedByUser                 User?            @relation("TransferApplicationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
   createdAt                     DateTime         @default(now())
