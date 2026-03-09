@@ -424,6 +424,8 @@ model TransferApplication {
   widowDocUrl                   String?
   spouseInGovtService           Boolean          @default(false)
   spouseGovtServiceDocUrl       String?
+  ngoBenefits                   Boolean          @default(false)
+  ngoBenefitsDoc                String?
   employeeDeclarationAccepted   Boolean          @default(false)
   employeeSignatureName         String?
   employeeDeclarationDate       DateTime?

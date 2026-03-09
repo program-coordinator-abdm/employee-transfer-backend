@@ -64,7 +64,44 @@ const mapTransferServiceDetail = (entry) => ({
   updatedAt: entry.updatedAt,
 });
 
-const mapTransferApplication = (entry) => ({
+const compareServiceDetailOrderForResponse = (left, right) => {
+  const leftHasOrder =
+    left.orderIndex !== undefined && left.orderIndex !== null;
+  const rightHasOrder =
+    right.orderIndex !== undefined && right.orderIndex !== null;
+
+  if (leftHasOrder && rightHasOrder && left.orderIndex !== right.orderIndex) {
+    return left.orderIndex - right.orderIndex;
+  }
+  if (leftHasOrder !== rightHasOrder) {
+    return leftHasOrder ? -1 : 1;
+  }
+
+  const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
+  const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0;
+  if (leftTime !== rightTime) {
+    return leftTime - rightTime;
+  }
+
+  return left.id - right.id;
+};
+
+const splitCurrentAndPastServiceDetails = (serviceDetails = []) => {
+  const ordered = [...serviceDetails].sort(compareServiceDetailOrderForResponse);
+  return {
+    currentServiceDetails: ordered.length > 0 ? [ordered[0]] : [],
+    pastServiceDetails: ordered.length > 1 ? ordered.slice(1) : [],
+  };
+};
+
+const mapTransferApplication = (entry) => {
+  const mappedServiceDetails = (entry.serviceDetails || []).map(
+    mapTransferServiceDetail
+  );
+  const splitServiceDetails =
+    splitCurrentAndPastServiceDetails(mappedServiceDetails);
+
+  return {
   id: entry.id,
   applicationNumber: entry.applicationNumber,
   kgidNumber: entry.kgidNumber,
@@ -90,15 +127,8 @@ const mapTransferApplication = (entry) => ({
   widowDocUrl: entry.widowDocUrl,
   spouseInGovtService: entry.spouseInGovtService,
   spouseGovtServiceDocUrl: entry.spouseGovtServiceDocUrl,
-  employeeDeclarationAccepted: entry.employeeDeclarationAccepted,
-  employeeSignatureName: entry.employeeSignatureName,
-  employeeDeclarationDate: entry.employeeDeclarationDate,
-  headOfficeDeclarationAccepted: entry.headOfficeDeclarationAccepted,
-  headOfficeSignatureName: entry.headOfficeSignatureName,
-  headOfficeDeclarationDate: entry.headOfficeDeclarationDate,
-  dhoDeclarationAccepted: entry.dhoDeclarationAccepted,
-  dhoSignatureName: entry.dhoSignatureName,
-  dhoDeclarationDate: entry.dhoDeclarationDate,
+  ngoBenefits: entry.ngoBenefits ?? false,
+  ngoBenefitsDoc: entry.ngoBenefitsDoc,
   status: entry.status,
   submittedAt: entry.submittedAt,
   createdByUserId: entry.createdByUserId,
@@ -107,14 +137,18 @@ const mapTransferApplication = (entry) => ({
   updatedByUsername: entry.updatedByUsername,
   createdAt: entry.createdAt,
   updatedAt: entry.updatedAt,
-  serviceDetails: (entry.serviceDetails || []).map(mapTransferServiceDetail),
+  serviceDetails: mappedServiceDetails,
+  currentServiceDetails: splitServiceDetails.currentServiceDetails,
+  pastServiceDetails: splitServiceDetails.pastServiceDetails,
   documentUrls: {
     terminallyIllDocUrl: entry.terminallyIllDocUrl,
     physicallyChallengedDocUrl: entry.physicallyChallengedDocUrl,
     widowDocUrl: entry.widowDocUrl,
     spouseGovtServiceDocUrl: entry.spouseGovtServiceDocUrl,
+    ngoBenefitsDoc: entry.ngoBenefitsDoc,
   },
-});
+  };
+};
 
 const buildTransferApplicationData = (payload) => ({
     applicationNumber: payload.applicationNumber || null,
@@ -141,15 +175,8 @@ const buildTransferApplicationData = (payload) => ({
     widowDocUrl: payload.widowDocUrl || null,
     spouseInGovtService: payload.spouseInGovtService,
     spouseGovtServiceDocUrl: payload.spouseGovtServiceDocUrl || null,
-    employeeDeclarationAccepted: payload.employeeDeclarationAccepted,
-    employeeSignatureName: payload.employeeSignatureName || null,
-    employeeDeclarationDate: payload.employeeDeclarationDate || null,
-    headOfficeDeclarationAccepted: payload.headOfficeDeclarationAccepted,
-    headOfficeSignatureName: payload.headOfficeSignatureName || null,
-    headOfficeDeclarationDate: payload.headOfficeDeclarationDate || null,
-    dhoDeclarationAccepted: payload.dhoDeclarationAccepted,
-    dhoSignatureName: payload.dhoSignatureName || null,
-    dhoDeclarationDate: payload.dhoDeclarationDate || null,
+    ngoBenefits: Boolean(payload.ngoBenefits),
+    ngoBenefitsDoc: payload.ngoBenefitsDoc || null,
 });
 
 const buildServiceDetailsData = (transferApplicationId, details = []) =>
@@ -202,61 +229,10 @@ const validateFinalSubmission = (application) => {
       message: "Spouse government service document is required for final submission",
     });
   }
-
-  if (!application.employeeDeclarationAccepted) {
+  if (application.ngoBenefits && !toOptionalString(application.ngoBenefitsDoc)) {
     issues.push({
-      path: "employeeDeclarationAccepted",
-      message: "Employee declaration must be accepted for final submission",
-    });
-  }
-  if (!toOptionalString(application.employeeSignatureName)) {
-    issues.push({
-      path: "employeeSignatureName",
-      message: "Employee signature name is required for final submission",
-    });
-  }
-  if (!application.employeeDeclarationDate) {
-    issues.push({
-      path: "employeeDeclarationDate",
-      message: "Employee declaration date is required for final submission",
-    });
-  }
-
-  if (!application.headOfficeDeclarationAccepted) {
-    issues.push({
-      path: "headOfficeDeclarationAccepted",
-      message: "Head office declaration must be accepted for final submission",
-    });
-  }
-  if (!toOptionalString(application.headOfficeSignatureName)) {
-    issues.push({
-      path: "headOfficeSignatureName",
-      message: "Head office signature name is required for final submission",
-    });
-  }
-  if (!application.headOfficeDeclarationDate) {
-    issues.push({
-      path: "headOfficeDeclarationDate",
-      message: "Head office declaration date is required for final submission",
-    });
-  }
-
-  if (!application.dhoDeclarationAccepted) {
-    issues.push({
-      path: "dhoDeclarationAccepted",
-      message: "DHO declaration must be accepted for final submission",
-    });
-  }
-  if (!toOptionalString(application.dhoSignatureName)) {
-    issues.push({
-      path: "dhoSignatureName",
-      message: "DHO signature name is required for final submission",
-    });
-  }
-  if (!application.dhoDeclarationDate) {
-    issues.push({
-      path: "dhoDeclarationDate",
-      message: "DHO declaration date is required for final submission",
+      path: "ngoBenefitsDoc",
+      message: "Elected members document is required for final submission",
     });
   }
 

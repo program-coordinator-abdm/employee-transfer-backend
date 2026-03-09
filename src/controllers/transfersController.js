@@ -39,6 +39,25 @@ const optionalDateSchema = () =>
     z.coerce.date().optional()
   );
 
+const toArrayOrEmpty = (value) => (Array.isArray(value) ? value : []);
+
+const normalizeTransferPayload = (body = {}) => {
+  if (Array.isArray(body.serviceDetails)) {
+    return body;
+  }
+
+  const currentServiceDetails = toArrayOrEmpty(body.currentServiceDetails);
+  const pastServiceDetails = toArrayOrEmpty(body.pastServiceDetails);
+  if (currentServiceDetails.length === 0 && pastServiceDetails.length === 0) {
+    return body;
+  }
+
+  return {
+    ...body,
+    serviceDetails: [...currentServiceDetails, ...pastServiceDetails],
+  };
+};
+
 const transferServiceDetailSchema = z.object({
   postHeld: toRequiredStringSchema("postHeld"),
   postHeldSpeciality: z.preprocess((value) => toOptionalString(value), z.string().optional()),
@@ -85,15 +104,8 @@ const transferApplicationSchema = z.object({
     (value) => toOptionalString(value),
     z.string().optional()
   ),
-  employeeDeclarationAccepted: z.coerce.boolean().optional().default(false),
-  employeeSignatureName: z.preprocess((value) => toOptionalString(value), z.string().optional()),
-  employeeDeclarationDate: optionalDateSchema(),
-  headOfficeDeclarationAccepted: z.coerce.boolean().optional().default(false),
-  headOfficeSignatureName: z.preprocess((value) => toOptionalString(value), z.string().optional()),
-  headOfficeDeclarationDate: optionalDateSchema(),
-  dhoDeclarationAccepted: z.coerce.boolean().optional().default(false),
-  dhoSignatureName: z.preprocess((value) => toOptionalString(value), z.string().optional()),
-  dhoDeclarationDate: optionalDateSchema(),
+  ngoBenefits: z.coerce.boolean().optional().default(false),
+  ngoBenefitsDoc: z.preprocess((value) => toOptionalString(value), z.string().optional()),
   serviceDetails: z.array(transferServiceDetailSchema).min(1),
 });
 
@@ -104,7 +116,7 @@ const documentTypeSchema = z.object({
 });
 
 const createTransferApplication = asyncHandler(async (req, res) => {
-  const payload = transferApplicationSchema.parse(req.body);
+  const payload = transferApplicationSchema.parse(normalizeTransferPayload(req.body));
   const data = await transfersService.createTransferApplication(payload, req.user);
   res.status(201).json({ data });
 });
@@ -122,7 +134,7 @@ const getTransferApplicationById = asyncHandler(async (req, res) => {
 
 const updateTransferApplication = asyncHandler(async (req, res) => {
   const id = idSchema.parse(req.params.id);
-  const payload = transferApplicationSchema.parse(req.body);
+  const payload = transferApplicationSchema.parse(normalizeTransferPayload(req.body));
   const data = await transfersService.updateTransferApplication(id, payload, req.user);
   res.json({ data });
 });
