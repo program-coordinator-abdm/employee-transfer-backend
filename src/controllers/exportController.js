@@ -23,15 +23,15 @@ const exportPdf = asyncHandler(async (_req, res) => {
   const doc = new PDFDocument({ size: "A4", margin: 40 });
   doc.pipe(res);
 
-  doc.fontSize(14).text("Employee Transfer Report", { align: "center" });
+  doc.fontSize(14).text("Transfer & Promotion Report", { align: "center" });
   doc.moveDown(1.5);
 
   const columns = [
-    { key: "empName", label: "Employee Name", width: 150 },
-    { key: "empKgid", label: "Emp ID/KGID", width: 90 },
-    { key: "fromCity", label: "From Location", width: 95 },
-    { key: "toCity", label: "To Location", width: 95 },
-    { key: "effectiveFrom", label: "Effective From", width: 85 },
+    { key: "empName", label: "Employee", width: 150 },
+    { key: "empKgid", label: "KGID", width: 90 },
+    { key: "fromCity", label: "From City", width: 95 },
+    { key: "toCity", label: "To City", width: 95 },
+    { key: "effectiveFrom", label: "Date", width: 85 },
   ];
 
   const startX = doc.page.margins.left;

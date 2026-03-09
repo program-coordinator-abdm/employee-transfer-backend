@@ -33,6 +33,18 @@ const toOptionalString = (value) => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
+const permissiveIdSchema = () =>
+  z.preprocess((value) => (value == null ? "NA" : String(value)), z.string());
+
+const getApiGatewayRequestId = (req) =>
+  toOptionalString(
+    req.headers["apigw-requestid"] ||
+      req.headers["x-apigw-requestid"] ||
+      req.headers["x-request-id"] ||
+      req.headers["x-amzn-requestid"] ||
+      req.headers["x-amzn-trace-id"]
+  );
+
 const normalizeInstitutionType = (value) => {
   const normalized = toOptionalString(value);
   if (!normalized) return undefined;
@@ -160,8 +172,15 @@ const parseFlexibleDate = (value) => {
 };
 
 const requiredDateSchema = () => z.preprocess(parseFlexibleDate, z.date());
+const parseOptionalFlexibleDate = (value) => {
+  const parsed = parseFlexibleDate(value);
+  if (parsed instanceof Date && Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+  return parsed;
+};
 const optionalDateSchema = () =>
-  z.preprocess(parseFlexibleDate, z.date().optional());
+  z.preprocess(parseOptionalFlexibleDate, z.date().optional());
 const TIMEBOUND_MILESTONE_FIELDS = [
   {
     flag: "timebound6Years",
@@ -213,7 +232,7 @@ const pastServiceSchema = z.object({
   postSubGroup: z.string().min(1),
   firstPostHeld: z.string().optional().default(""),
   institutionType: z.string().optional().default(""),
-  hfrId: z.string().optional().default(""),
+  hfrId: permissiveIdSchema(),
   institution: z.string().min(1),
   district: z.string().min(1),
   taluk: z.string().optional().default(""),
@@ -341,7 +360,7 @@ const employeeSchema = z
     currentDistrict: z.string().min(1),
     currentTaluk: z.string().min(1),
     currentCityTownVillage: z.string().min(1),
-    currentHfrId: z.string().optional(),
+    currentHfrId: permissiveIdSchema().optional(),
     currentWorkingSince: requiredDateSchema(),
     currentAreaType: z.string().optional(),
     probationaryPeriod: z.coerce.boolean().default(false),
@@ -351,8 +370,8 @@ const employeeSchema = z
     cltCompletedDoc: z.string().optional(),
     cltCompletionDate: optionalDateSchema(),
     isDoctorNursePharmacist: z.coerce.boolean().optional().default(false),
-    hprId: z.string().optional(),
-    hfrId: z.string().optional(),
+    hprId: permissiveIdSchema(),
+    hfrId: permissiveIdSchema(),
     timeboundApplicable: z.coerce.boolean().optional().default(false),
     timeboundCategory: z.string().optional(),
     timeboundYears: z.string().optional(),
@@ -635,26 +654,68 @@ const employeeSchema = z
     }
   });
 
-const listSchema = z.object({
-  category: z.string().optional(),
-  searchMode: z.enum(["name", "kgid"]).optional().default("name"),
-  query: z.string().optional().default(""),
-  search: z.string().optional().default(""),
-  page: z.coerce.number().int().positive().optional().default(1),
-  pageSize: z.coerce.number().int().min(1).max(200).optional(),
-  limit: z.coerce.number().int().min(1).max(200).optional(),
-});
-
-const suggestionsSchema = z.object({
-  category: z.string().optional(),
-  searchMode: z.enum(["name", "kgid"]).optional().default("name"),
-  query: z.string().optional().default(""),
-  limit: z.coerce.number().int().positive().max(20).optional().default(8),
-});
-
 const exportSchema = z.object({
   category: z.string().optional(),
   search: z.string().optional().default(""),
+});
+
+const normalizeSearchMode = (value) => {
+  const normalized = toOptionalString(value)?.toLowerCase();
+  if (normalized === "kgid") return "kgid";
+  if (
+    ["designation", "role", "post", "position", "currentpost"].includes(
+      normalized
+    )
+  ) {
+    return "designation";
+  }
+  return "name";
+};
+
+const parseBoundedInteger = (value, { min, max, defaultValue }) => {
+  if (value === undefined || value === null || value === "") {
+    return defaultValue;
+  }
+  const parsed = Number.parseInt(String(value), 10);
+  if (Number.isNaN(parsed)) {
+    return defaultValue;
+  }
+  if (parsed < min) return min;
+  if (parsed > max) return max;
+  return parsed;
+};
+
+const parseListQuery = (query = {}) => ({
+  category: toOptionalString(query.category),
+  searchMode: normalizeSearchMode(query.searchMode),
+  query: toOptionalString(query.query) ?? "",
+  search: toOptionalString(query.search) ?? "",
+  page: parseBoundedInteger(query.page, {
+    min: 1,
+    max: 1_000_000,
+    defaultValue: 1,
+  }),
+  pageSize: parseBoundedInteger(query.pageSize, {
+    min: 1,
+    max: 200,
+    defaultValue: undefined,
+  }),
+  limit: parseBoundedInteger(query.limit, {
+    min: 1,
+    max: 200,
+    defaultValue: undefined,
+  }),
+});
+
+const parseSuggestionsQuery = (query = {}) => ({
+  category: toOptionalString(query.category),
+  searchMode: normalizeSearchMode(query.searchMode),
+  query: toOptionalString(query.query) ?? "",
+  limit: parseBoundedInteger(query.limit, {
+    min: 1,
+    max: 20,
+    defaultValue: 8,
+  }),
 });
 
 const normalizeEducationEntries = (body) => {
@@ -832,12 +893,13 @@ const normalizeEmployeePayload = (body) => {
     cltCompletedDoc: body.cltCompletedDoc,
     cltCompletionDate: body.cltCompletionDate || undefined,
     isDoctorNursePharmacist: normalizedHprControllerFlag,
-    hprId:
+    hprId: toOptionalString(
       body.hprId ??
-      body.hprID ??
-      body.hpr_id ??
-      body.hprNumber ??
-      body.hprNo,
+        body.hprID ??
+        body.hpr_id ??
+        body.hprNumber ??
+        body.hprNo
+    ),
     hfrId: normalizedEmployeeHfrId,
     timeboundApplicable: body.timeboundApplicable,
     timeboundCategory: body.timeboundCategory,
@@ -928,8 +990,14 @@ const normalizeEmployeePayload = (body) => {
   };
 };
 
+const formatValidationIssues = (issues = []) =>
+  issues.map((item) => ({
+    path: item.path?.join("."),
+    message: item.message,
+  }));
+
 const listEmployees = asyncHandler(async (req, res) => {
-  const parsed = listSchema.parse(req.query);
+  const parsed = parseListQuery(req.query);
   const pageSize = parsed.pageSize ?? parsed.limit ?? 50;
   const search = parsed.search || parsed.query || "";
   const result = await employeeService.listEmployees({
@@ -948,7 +1016,7 @@ const exportEmployees = asyncHandler(async (req, res) => {
 });
 
 const getSuggestions = asyncHandler(async (req, res) => {
-  const query = suggestionsSchema.parse(req.query);
+  const query = parseSuggestionsQuery(req.query);
   const result = await employeeService.getSuggestions(query);
   res.json(result);
 });
@@ -975,10 +1043,35 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 });
 
 const createEmployee = asyncHandler(async (req, res) => {
+  const requestId = getApiGatewayRequestId(req);
   const normalized = normalizeEmployeePayload(req.body);
-  const payload = employeeSchema.parse(normalized);
-  const employee = await employeeService.createEmployee(payload);
-  res.status(201).json(employee);
+  const parsed = employeeSchema.safeParse(normalized);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Validation error",
+      issues: formatValidationIssues(parsed.error.issues),
+      ...(requestId ? { requestId } : {}),
+    });
+  }
+  try {
+    const employee = await employeeService.createEmployee(parsed.data, {
+      requestId,
+    });
+    res.status(201).json(employee);
+  } catch (error) {
+    if (
+      requestId &&
+      error &&
+      typeof error === "object" &&
+      !error.details?.requestId
+    ) {
+      error.details = {
+        ...(error.details || {}),
+        requestId,
+      };
+    }
+    throw error;
+  }
 });
 
 const updateEmployee = asyncHandler(async (req, res) => {
