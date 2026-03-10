@@ -8,39 +8,40 @@ const toOptionalString = (value) => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
-const login = async ({ email, username, identifier, password }) => {
-  const identifierCandidates = [identifier, username, email]
-    .map(toOptionalString)
-    .filter(Boolean);
+const login = async ({ username, password }) => {
+  const normalizedUsername = toOptionalString(username);
+  const enteredPassword = password === undefined || password === null ? "" : String(password);
 
-  if (identifierCandidates.length === 0) {
-    throw new AppError("Identifier is required", 400, {
-      message: "Identifier is required",
-    });
-  }
+  console.info("Auth login debug", {
+    usernameReceived: normalizedUsername || "",
+  });
 
-  const where = {
-    OR: identifierCandidates.flatMap((value) => [
-      { username: { equals: value, mode: "insensitive" } },
-      { email: { equals: value, mode: "insensitive" } },
-    ]),
-  };
+  const user = normalizedUsername
+    ? await prisma.user.findFirst({
+        where: { username: { equals: normalizedUsername, mode: "insensitive" } },
+      })
+    : null;
 
-  const user = await prisma.user.findFirst({ where });
+  console.info("Auth login debug", {
+    userFound: Boolean(user),
+  });
 
   if (!user) {
-    console.warn("Login failed: user not found", {
-      identifier: email || username || identifier,
-    });
-    throw new AppError("Invalid username/email", 401, {
-      message: "Invalid username/email",
+    throw new AppError("Invalid username", 401, {
+      message: "Invalid username",
     });
   }
 
-  if (password !== user.password) {
-    console.warn("Login failed: invalid password", {
-      identifier: email || username || identifier,
-    });
+  const storedPassword = user.password === undefined || user.password === null ? "" : String(user.password);
+  const comparisonResult = enteredPassword === storedPassword;
+
+  console.info("Auth login debug", {
+    storedPasswordLength: storedPassword.length,
+    enteredPasswordLength: enteredPassword.length,
+    comparisonResult,
+  });
+
+  if (!comparisonResult) {
     throw new AppError("Invalid password", 401, {
       message: "Invalid password",
     });

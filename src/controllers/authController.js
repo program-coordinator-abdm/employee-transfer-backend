@@ -4,14 +4,14 @@ const authService = require("../services/authService");
 
 const loginSchema = z
   .object({
-    email: z.string().min(1).optional(),
-    username: z.string().min(1).optional(),
-    identifier: z.string().min(1).optional(),
-    password: z.string().min(6),
-  })
-  .refine((data) => data.email || data.username || data.identifier, {
-    message: "Username or email is required",
-    path: ["identifier"],
+    username: z.preprocess(
+      (value) => (value === undefined || value === null ? "" : String(value).trim()),
+      z.string().min(1, "Username is required")
+    ),
+    password: z.preprocess(
+      (value) => (value === undefined || value === null ? "" : String(value)),
+      z.string().min(1, "Password is required")
+    ),
   });
 
 const login = asyncHandler(async (req, res) => {
