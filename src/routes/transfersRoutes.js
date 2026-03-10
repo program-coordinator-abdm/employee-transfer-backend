@@ -52,6 +52,7 @@ router.get(
   "/stats/district-wise",
   transfersController.getDistrictWiseTransferStats
 );
+router.post("/upload", handleUpload, transfersController.uploadTransferDocumentLegacy);
 router.get("/:id", transfersController.getTransferApplicationById);
 router.put("/:id", transfersController.updateTransferApplication);
 router.post("/:id/submit", transfersController.submitTransferApplication);

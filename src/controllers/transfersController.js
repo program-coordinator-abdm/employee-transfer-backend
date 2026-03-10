@@ -2,6 +2,7 @@ const { z } = require("zod");
 const asyncHandler = require("../utils/asyncHandler");
 const { AppError } = require("../utils/errors");
 const transfersService = require("../services/transfersService");
+const { uploadFileToS3 } = require("../services/s3Uploader");
 
 const TRANSFER_GENDER_VALUES = ["MALE", "FEMALE"];
 const TRANSFER_GROUP_VALUES = ["A", "B", "C", "D"];
@@ -40,21 +41,70 @@ const optionalDateSchema = () =>
   );
 
 const toArrayOrEmpty = (value) => (Array.isArray(value) ? value : []);
+const toProbationDeclared = (value) => {
+  if (typeof value === "boolean") return value;
+  const normalized = toOptionalString(value)?.toLowerCase();
+  if (["yes", "true", "1", "y"].includes(normalized || "")) return true;
+  if (["no", "false", "0", "n"].includes(normalized || "")) return false;
+  return false;
+};
+
+const normalizeServiceDetailEntry = (entry = {}, index = 0) => ({
+  postHeld: entry.postHeld,
+  postHeldSpeciality:
+    entry.postHeldSpeciality ?? entry.speciality ?? entry.specialization,
+  institutionName: entry.institutionName ?? entry.instituteName,
+  district: entry.district,
+  taluka: entry.taluka || "NA",
+  cityTownVillage:
+    entry.cityTownVillage ??
+    entry.cityVillageTown ??
+    entry.cityOrTownOrVillage ??
+    "NA",
+  zone: toOptionalString(entry.zone)?.toUpperCase() || "GBA",
+  workingSince: entry.workingSince,
+  orderIndex:
+    entry.orderIndex !== undefined && entry.orderIndex !== null
+      ? entry.orderIndex
+      : index + 1,
+});
 
 const normalizeTransferPayload = (body = {}) => {
-  if (Array.isArray(body.serviceDetails)) {
-    return body;
-  }
+  const hasServiceDetails = Array.isArray(body.serviceDetails);
+  const hasWorkDetails = Array.isArray(body.workDetails);
+  const hasCurrentServiceDetails = Array.isArray(body.currentServiceDetails);
+  const hasPastServiceDetails = Array.isArray(body.pastServiceDetails);
 
-  const currentServiceDetails = toArrayOrEmpty(body.currentServiceDetails);
-  const pastServiceDetails = toArrayOrEmpty(body.pastServiceDetails);
-  if (currentServiceDetails.length === 0 && pastServiceDetails.length === 0) {
-    return body;
+  let serviceDetails = [];
+  if (hasServiceDetails) {
+    serviceDetails = body.serviceDetails.map(normalizeServiceDetailEntry);
+  } else if (hasWorkDetails) {
+    serviceDetails = body.workDetails.map(normalizeServiceDetailEntry);
+  } else if (hasCurrentServiceDetails || hasPastServiceDetails) {
+    serviceDetails = [
+      ...toArrayOrEmpty(body.currentServiceDetails),
+      ...toArrayOrEmpty(body.pastServiceDetails),
+    ].map(normalizeServiceDetailEntry);
   }
 
   return {
     ...body,
-    serviceDetails: [...currentServiceDetails, ...pastServiceDetails],
+    employeeName: body.employeeName ?? body.name,
+    communicationAddress: body.communicationAddress ?? body.address,
+    email: body.email ?? body.mailId,
+    groupSelection: body.groupSelection ?? body.group,
+    probationDeclared:
+      body.probationDeclared !== undefined
+        ? body.probationDeclared
+        : toProbationDeclared(body.probationaryPeriodDeclared),
+    role: toOptionalString(body.role) || body.designation,
+    terminallyIllDocUrl: body.terminallyIllDocUrl ?? body.terminallyIllDoc,
+    physicallyChallengedDocUrl:
+      body.physicallyChallengedDocUrl ?? body.physicallyChallengedDoc,
+    widowDocUrl: body.widowDocUrl ?? body.widowDoc,
+    spouseGovtServiceDocUrl:
+      body.spouseGovtServiceDocUrl ?? body.spouseInGovtServiceDoc,
+    serviceDetails,
   };
 };
 
@@ -115,34 +165,99 @@ const documentTypeSchema = z.object({
   documentType: toEnumSchema(TRANSFER_DOCUMENT_TYPES),
 });
 
+const toTitleCaseGender = (value) => {
+  const normalized = toOptionalString(value)?.toUpperCase();
+  if (normalized === "MALE") return "Male";
+  if (normalized === "FEMALE") return "Female";
+  return value;
+};
+
+const toFrontendTransferRecord = (record = {}) => {
+  const statusRaw = String(record.status || "").toUpperCase();
+  const workDetails = Array.isArray(record.serviceDetails)
+    ? record.serviceDetails.map((entry) => ({
+        postHeld: entry.postHeld || "",
+        speciality: entry.postHeldSpeciality || "",
+        instituteName: entry.institutionName || "",
+        district: entry.district || "",
+        taluka: entry.taluka || "",
+        cityVillageTown: entry.cityTownVillage || "",
+        zone: entry.zone || "",
+        workingSince: entry.workingSince || "",
+      }))
+    : [];
+
+  return {
+    ...record,
+    id: String(record.id),
+    name: record.employeeName,
+    group: record.groupSelection,
+    status: statusRaw.toLowerCase(),
+    statusRaw,
+    formData: {
+      kgidNumber: record.kgidNumber || "",
+      name: record.employeeName || "",
+      gender: toTitleCaseGender(record.gender),
+      dateOfBirth: record.dateOfBirth || "",
+      address: record.communicationAddress || "",
+      pinCode: record.pinCode || "",
+      mailId: record.email || "",
+      mobileNumber: record.mobileNumber || "",
+      residenceNumber: record.residenceNumber || "",
+      group: record.groupSelection || "",
+      role: record.role || "",
+      designation: record.designation || "",
+      specialization: record.specialization || "",
+      dateOfEntryIntoService: record.dateOfEntryIntoService || "",
+      probationaryPeriodDeclared: record.probationDeclared ? "Yes" : "No",
+      workDetails,
+      terminallyIll: Boolean(record.terminallyIll),
+      terminallyIllDoc: record.terminallyIllDocUrl || "",
+      physicallyChallenged: Boolean(record.physicallyChallenged),
+      physicallyChallengedDoc: record.physicallyChallengedDocUrl || "",
+      widow: Boolean(record.widow),
+      widowDoc: record.widowDocUrl || "",
+      spouseInGovtService: Boolean(record.spouseInGovtService),
+      spouseInGovtServiceDoc: record.spouseGovtServiceDocUrl || "",
+      ngoBenefits: Boolean(record.ngoBenefits),
+      ngoBenefitsDoc: record.ngoBenefitsDoc || "",
+    },
+  };
+};
+
 const createTransferApplication = asyncHandler(async (req, res) => {
   const payload = transferApplicationSchema.parse(normalizeTransferPayload(req.body));
   const data = await transfersService.createTransferApplication(payload, req.user);
-  res.status(201).json({ data });
+  const formatted = toFrontendTransferRecord(data);
+  res.status(201).json({ data: formatted, ...formatted });
 });
 
 const listTransferApplications = asyncHandler(async (_req, res) => {
   const data = await transfersService.listTransferApplications();
-  res.json({ data });
+  const formatted = data.map(toFrontendTransferRecord);
+  res.json({ data: formatted, total: formatted.length });
 });
 
 const getTransferApplicationById = asyncHandler(async (req, res) => {
   const id = idSchema.parse(req.params.id);
   const data = await transfersService.getTransferApplicationById(id);
-  res.json({ data });
+  const formatted = toFrontendTransferRecord(data);
+  res.json({ data: formatted, ...formatted });
 });
 
 const updateTransferApplication = asyncHandler(async (req, res) => {
   const id = idSchema.parse(req.params.id);
   const payload = transferApplicationSchema.parse(normalizeTransferPayload(req.body));
   const data = await transfersService.updateTransferApplication(id, payload, req.user);
-  res.json({ data });
+  const formatted = toFrontendTransferRecord(data);
+  res.json({ data: formatted, ...formatted });
 });
 
 const submitTransferApplication = asyncHandler(async (req, res) => {
   const id = idSchema.parse(req.params.id);
   const data = await transfersService.submitTransferApplication(id, req.user);
-  res.json({ data });
+  const formatted = toFrontendTransferRecord(data);
+  res.json({ data: formatted, ...formatted });
 });
 
 const uploadTransferDocument = asyncHandler(async (req, res) => {
@@ -160,6 +275,18 @@ const uploadTransferDocument = asyncHandler(async (req, res) => {
   res.status(201).json(data);
 });
 
+const uploadTransferDocumentLegacy = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new AppError("File is required", 400);
+  }
+  const result = await uploadFileToS3(req.file);
+  res.status(201).json({
+    url: result.url,
+    fileName: result.filename || req.file.originalname,
+    key: result.key,
+  });
+});
+
 const getDistrictWiseTransferStats = asyncHandler(async (_req, res) => {
   const data = await transfersService.getDistrictWiseTransferStats();
   res.json(data);
@@ -172,5 +299,6 @@ module.exports = {
   updateTransferApplication,
   submitTransferApplication,
   uploadTransferDocument,
+  uploadTransferDocumentLegacy,
   getDistrictWiseTransferStats,
 };
