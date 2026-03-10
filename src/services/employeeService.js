@@ -606,6 +606,18 @@ const LIST_EMPLOYEE_SELECT = {
   designationGroup: true,
 };
 
+const toOptionalString = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const toInsensitiveEqualsFilter = (value) => {
+  const normalized = toOptionalString(value);
+  if (!normalized) return undefined;
+  return { equals: normalized, mode: "insensitive" };
+};
+
 const listEmployees = async ({ category, page, pageSize, search }) => {
   const where = combineWhereClauses(
     buildListSearchWhere(search),
@@ -631,6 +643,93 @@ const listEmployees = async ({ category, page, pageSize, search }) => {
     total,
     totalPages: total === 0 ? 0 : Math.ceil(total / pageSize),
   };
+};
+
+const listEmployeesByFilters = async (filters = {}) => {
+  const where = {};
+
+  const districtFilter = toInsensitiveEqualsFilter(filters.district);
+  if (districtFilter) {
+    where.currentDistrict = districtFilter;
+  }
+
+  const talukFilter = toInsensitiveEqualsFilter(filters.taluk);
+  if (talukFilter) {
+    where.currentTaluk = talukFilter;
+  }
+
+  const designationGroupFilter = toInsensitiveEqualsFilter(
+    filters.designationGroup
+  );
+  if (designationGroupFilter) {
+    where.designationGroup = designationGroupFilter;
+  }
+
+  const designationSubGroupFilter = toInsensitiveEqualsFilter(
+    filters.designationSubGroup
+  );
+  if (designationSubGroupFilter) {
+    where.designationSubGroup = designationSubGroupFilter;
+  }
+
+  const designationFilter = toInsensitiveEqualsFilter(filters.designation);
+  if (designationFilter) {
+    where.designation = designationFilter;
+  }
+
+  const institutionTypeFilter = toInsensitiveEqualsFilter(
+    filters.institutionType
+  );
+  if (institutionTypeFilter) {
+    where.currentInstitutionType = institutionTypeFilter;
+  }
+
+  const currentPostGroupFilter = toInsensitiveEqualsFilter(
+    filters.currentPostGroup
+  );
+  if (currentPostGroupFilter) {
+    where.currentPostGroup = currentPostGroupFilter;
+  }
+
+  const currentPostSubGroupFilter = toInsensitiveEqualsFilter(
+    filters.currentPostSubGroup
+  );
+  if (currentPostSubGroupFilter) {
+    where.currentPostSubGroup = currentPostSubGroupFilter;
+  }
+
+  const currentDistrictFilter = toInsensitiveEqualsFilter(
+    filters.currentDistrict
+  );
+  if (currentDistrictFilter) {
+    where.currentDistrict = currentDistrictFilter;
+  }
+
+  const rows = await prisma.employee.findMany({
+    where,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: {
+      id: true,
+      empName: true,
+      empKgid: true,
+      designation: true,
+      designationGroup: true,
+      currentInstitution: true,
+      currentDistrict: true,
+      currentTaluk: true,
+    },
+  });
+
+  return rows.map((row) => ({
+    id: String(row.id),
+    empName: row.empName,
+    empKgid: row.empKgid,
+    designation: row.designation,
+    designationGroup: row.designationGroup,
+    currentInstitution: row.currentInstitution,
+    currentDistrict: row.currentDistrict,
+    currentTaluk: row.currentTaluk || null,
+  }));
 };
 
 const getSuggestions = async ({ category, searchMode, query, limit }) => {
@@ -1515,6 +1614,7 @@ const createTransfer = async (employeeId, payload, userId) => {
 
 module.exports = {
   listEmployees,
+  listEmployeesByFilters,
   streamEmployeesCsv,
   getSuggestions,
   getEmployeeById,

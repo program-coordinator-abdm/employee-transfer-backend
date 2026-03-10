@@ -718,6 +718,18 @@ const parseSuggestionsQuery = (query = {}) => ({
   }),
 });
 
+const parseEmployeeFilterQuery = (query = {}) => ({
+  district: toOptionalString(query.district),
+  taluk: toOptionalString(query.taluk),
+  designationGroup: toOptionalString(query.designationGroup),
+  designationSubGroup: toOptionalString(query.designationSubGroup),
+  designation: toOptionalString(query.designation),
+  institutionType: toOptionalString(query.institutionType),
+  currentPostGroup: toOptionalString(query.currentPostGroup),
+  currentPostSubGroup: toOptionalString(query.currentPostSubGroup),
+  currentDistrict: toOptionalString(query.currentDistrict),
+});
+
 const normalizeEducationEntries = (body) => {
   const rawEntries =
     Array.isArray(body.educationDetails) && body.educationDetails.length > 0
@@ -1021,6 +1033,13 @@ const getSuggestions = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
+const filterEmployees = asyncHandler(async (req, res) => {
+  const filters = parseEmployeeFilterQuery(req.query);
+  const result = await employeeService.listEmployeesByFilters(filters);
+  res.set("Cache-Control", "no-store");
+  res.json(result);
+});
+
 const getEmployeeById = asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) {
@@ -1087,6 +1106,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
 
 module.exports = {
   listEmployees,
+  filterEmployees,
   exportEmployees,
   getSuggestions,
   getEmployeeById,
