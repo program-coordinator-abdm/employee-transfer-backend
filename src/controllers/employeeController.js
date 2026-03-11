@@ -1093,7 +1093,12 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 
 const createEmployee = asyncHandler(async (req, res) => {
   const requestId = getApiGatewayRequestId(req);
+  console.info("[employees.submit] request.isDraft", {
+    requestId: requestId || null,
+    isDraft: req.body?.isDraft,
+  });
   const normalized = normalizeEmployeePayload(req.body);
+  normalized.submittedOn = normalized.submittedOn || new Date();
   const parsed = employeeSchema.safeParse(normalized);
   if (!parsed.success) {
     return res.status(400).json({
@@ -1128,7 +1133,14 @@ const updateEmployee = asyncHandler(async (req, res) => {
   if (Number.isNaN(id)) {
     return res.status(400).json({ message: "Invalid employee id" });
   }
+  const requestId = getApiGatewayRequestId(req);
+  console.info("[employees.submit] request.isDraft", {
+    requestId: requestId || null,
+    employeeId: id,
+    isDraft: req.body?.isDraft,
+  });
   const normalized = normalizeEmployeePayload(req.body);
+  normalized.submittedOn = normalized.submittedOn || new Date();
   const payload = employeeSchema.parse(normalized);
   const employee = await employeeService.updateEmployee(id, payload);
   res.json(employee);
