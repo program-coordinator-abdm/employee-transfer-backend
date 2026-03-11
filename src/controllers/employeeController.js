@@ -33,6 +33,25 @@ const toOptionalString = (value) => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
+const normalizeUploadedDocumentReference = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+  if (typeof value === "string" || typeof value === "number") {
+    return toOptionalString(value);
+  }
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return (
+      toOptionalString(value.downloadUrl) ||
+      toOptionalString(value.url) ||
+      toOptionalString(value.key) ||
+      toOptionalString(value.fileUrl) ||
+      undefined
+    );
+  }
+  return undefined;
+};
+
 const permissiveIdSchema = () =>
   z.preprocess((value) => (value == null ? "NA" : String(value)), z.string());
 
@@ -364,7 +383,10 @@ const employeeSchema = z
     currentWorkingSince: requiredDateSchema(),
     currentAreaType: z.string().optional(),
     probationaryPeriod: z.coerce.boolean().default(false),
-    probationaryPeriodDoc: z.string().optional(),
+    probationaryPeriodDoc: z.preprocess(
+      normalizeUploadedDocumentReference,
+      z.string().optional()
+    ),
     probationDeclarationDate: optionalDateSchema(),
     cltCompleted: z.coerce.boolean().optional().default(false),
     cltCompletedDoc: z.string().optional(),
@@ -458,11 +480,15 @@ const employeeSchema = z
     documents: z.array(documentSchema).optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.probationaryPeriod && !data.probationaryPeriodDoc) {
+    if (
+      data.probationaryPeriod &&
+      !toOptionalString(data.probationaryPeriodDoc)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["probationaryPeriodDoc"],
-        message: "Probationary document is required",
+        message:
+          "probationaryPeriodDoc is required when probationaryPeriod is YES (send upload downloadUrl/url string).",
       });
     }
     if (data.cltCompleted && !data.cltCompletedDoc) {
@@ -899,7 +925,11 @@ const normalizeEmployeePayload = (body) => {
     currentWorkingSince: body.currentWorkingSince,
     currentAreaType: body.currentAreaType,
     probationaryPeriod: body.probationaryPeriod,
-    probationaryPeriodDoc: body.probationaryPeriodDoc,
+    probationaryPeriodDoc: normalizeUploadedDocumentReference(
+      body.probationaryPeriodDoc ??
+        body.probationaryPeriodDocument ??
+        body.probationDocument
+    ),
     probationDeclarationDate: body.probationDeclarationDate || undefined,
     cltCompleted: body.cltCompleted,
     cltCompletedDoc: body.cltCompletedDoc,
