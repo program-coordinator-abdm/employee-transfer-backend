@@ -43,6 +43,15 @@ const calculateTotalExperienceYears = (assignments) => {
   return Math.max(0, Math.floor(totalMonths / 12));
 };
 
+const toIsoStringOrNull = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
+
 const normalizeSearchMode = (value) => {
   const normalized = String(value || "")
     .trim()
@@ -129,17 +138,21 @@ const normalizeDesignationForRead = (value) => {
   return mapped || value;
 };
 
-const mapAssignment = (entry) => ({
-  role: normalizeDesignationForRead(entry.role),
-  city: entry.city,
-  hospital: entry.hospital,
-  position: normalizeDesignationForRead(entry.position),
-  district: entry.district || entry.city,
-  startedOn: entry.startedOn.toISOString(),
-  endedOn: entry.endedOn ? entry.endedOn.toISOString() : null,
-  period: entry.period || formatPeriod(entry.startedOn, entry.endedOn),
-  type: entry.type,
-});
+const mapAssignment = (entry) => {
+  const startedOn = toIsoStringOrNull(entry.startedOn);
+  const endedOn = toIsoStringOrNull(entry.endedOn);
+  return {
+    role: normalizeDesignationForRead(entry.role),
+    city: entry.city,
+    hospital: entry.hospital,
+    position: normalizeDesignationForRead(entry.position),
+    district: entry.district || entry.city,
+    startedOn,
+    endedOn,
+    period: entry.period || formatPeriod(entry.startedOn, entry.endedOn),
+    type: entry.type,
+  };
+};
 
 const mapEducationDetails = (entries = []) =>
   entries.map((entry) => ({
@@ -845,32 +858,87 @@ const streamEmployeesCsv = async (res, { category, search }) => {
   }
 };
 
-const fetchEmployeeWithRelations = async (client, id) =>
-  client.employee.findUnique({
-    where: { id },
-    include: {
-      assignmentHistory: { orderBy: { startedOn: "asc" } },
-      pastServices: true,
-      educations: true,
-      postgraduateQualifications: true,
-      timeboundPromotions: true,
-      administrativeRoles: true,
-      additionalCharges: true,
-      achievements: true,
-      disciplinaryRecord: true,
-      declaration: true,
-      serviceInformation: true,
-      appointmentDetails: true,
-      documents: true,
-    },
+const fetchEmployeeWithRelations = async (client, id, options = {}) => {
+  const requestId = toOptionalString(options.requestId);
+  const queryStartedAt = Date.now();
+  console.info("[employees.getById] DB query start", {
+    employeeId: id,
+    requestId: requestId || null,
   });
-
-const getEmployeeById = async (id) => {
-  const employee = await fetchEmployeeWithRelations(prisma, id);
-  if (!employee) {
-    throw new AppError("Employee not found", 404);
+  try {
+    const employee = await client.employee.findUnique({
+      where: { id },
+      include: {
+        assignmentHistory: { orderBy: { startedOn: "asc" } },
+        pastServices: true,
+        educations: true,
+        postgraduateQualifications: true,
+        timeboundPromotions: true,
+        administrativeRoles: true,
+        additionalCharges: true,
+        achievements: true,
+        disciplinaryRecord: true,
+        declaration: true,
+        serviceInformation: true,
+        appointmentDetails: true,
+        documents: true,
+      },
+    });
+    console.info("[employees.getById] DB query end", {
+      employeeId: id,
+      requestId: requestId || null,
+      durationMs: Date.now() - queryStartedAt,
+      found: Boolean(employee),
+    });
+    return employee;
+  } catch (error) {
+    console.error("[employees.getById] DB query failed", {
+      employeeId: id,
+      requestId: requestId || null,
+      durationMs: Date.now() - queryStartedAt,
+      name: error?.name,
+      code: error?.code,
+      message: error?.message,
+      stack: error?.stack,
+    });
+    throw error;
   }
-  return mapEmployeeDetail(employee);
+};
+
+const getEmployeeById = async (id, options = {}) => {
+  const requestId = toOptionalString(options.requestId);
+  console.info("[employees.getById] Service start", {
+    employeeId: id,
+    requestId: requestId || null,
+  });
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new AppError("Invalid employee id", 400, {
+      ...(requestId ? { requestId } : {}),
+    });
+  }
+  const employee = await fetchEmployeeWithRelations(prisma, id, { requestId });
+  if (!employee) {
+    console.info("[employees.getById] Service result not found", {
+      employeeId: id,
+      requestId: requestId || null,
+    });
+    throw new AppError("Employee not found", 404, {
+      ...(requestId ? { requestId } : {}),
+    });
+  }
+  const mapped = mapEmployeeDetail(employee);
+  console.info("[employees.getById] Service success", {
+    employeeId: id,
+    requestId: requestId || null,
+    assignmentHistoryCount: Array.isArray(mapped.assignmentHistory)
+      ? mapped.assignmentHistory.length
+      : 0,
+    pastServicesCount: Array.isArray(mapped.pastServices)
+      ? mapped.pastServices.length
+      : 0,
+    educationCount: Array.isArray(mapped.education) ? mapped.education.length : 0,
+  });
+  return mapped;
 };
 
 const deleteEmployee = async (id) => {

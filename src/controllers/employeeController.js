@@ -1073,19 +1073,33 @@ const filterEmployees = asyncHandler(async (req, res) => {
 
 const getEmployeeById = asyncHandler(async (req, res) => {
   const requestId = getApiGatewayRequestId(req);
-  const id = Number(req.params.id);
-  if (Number.isNaN(id)) {
+  console.info("[employees.getById] Route entry", {
+    method: req.method,
+    path: req.originalUrl,
+    paramsId: req.params?.id,
+    requestId: requestId || null,
+  });
+  const id = Number.parseInt(String(req.params.id), 10);
+  if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({
       message: "Invalid employee id",
       ...(requestId ? { requestId } : {}),
     });
   }
-  console.info("[employees.getById] Request received", {
+  console.info("[employees.getById] Parsed employee id", {
     employeeId: id,
     requestId: requestId || null,
   });
   try {
-    const employee = await employeeService.getEmployeeById(id);
+    console.info("[employees.getById] Calling service", {
+      employeeId: id,
+      requestId: requestId || null,
+    });
+    const employee = await employeeService.getEmployeeById(id, { requestId });
+    console.info("[employees.getById] Service returned employee", {
+      employeeId: id,
+      requestId: requestId || null,
+    });
     return res.status(200).json(employee);
   } catch (error) {
     if (error instanceof AppError && error.status === 404) {
@@ -1102,7 +1116,10 @@ const getEmployeeById = asyncHandler(async (req, res) => {
     console.error("[employees.getById] Failed to fetch employee", {
       employeeId: id,
       requestId: requestId || null,
+      name: error?.name,
       message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
     });
     throw error;
   }
