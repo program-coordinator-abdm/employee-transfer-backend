@@ -1,6 +1,7 @@
 const { z } = require("zod");
 const asyncHandler = require("../utils/asyncHandler");
 const employeeService = require("../services/employeeService");
+const { AppError } = require("../utils/errors");
 
 const DIRECT_RECRUITMENT_MODES = ["KPSC", "DRC", "SRC", "OTHER"];
 const UNSCHOOLED_EDUCATION_LABEL = "Unschooled/UnEducated";
@@ -1071,12 +1072,40 @@ const filterEmployees = asyncHandler(async (req, res) => {
 });
 
 const getEmployeeById = asyncHandler(async (req, res) => {
+  const requestId = getApiGatewayRequestId(req);
   const id = Number(req.params.id);
   if (Number.isNaN(id)) {
-    return res.status(400).json({ message: "Invalid employee id" });
+    return res.status(400).json({
+      message: "Invalid employee id",
+      ...(requestId ? { requestId } : {}),
+    });
   }
-  const employee = await employeeService.getEmployeeById(id);
-  res.json(employee);
+  console.info("[employees.getById] Request received", {
+    employeeId: id,
+    requestId: requestId || null,
+  });
+  try {
+    const employee = await employeeService.getEmployeeById(id);
+    return res.status(200).json(employee);
+  } catch (error) {
+    if (error instanceof AppError && error.status === 404) {
+      console.warn("[employees.getById] Employee not found", {
+        employeeId: id,
+        requestId: requestId || null,
+      });
+      return res.status(404).json({
+        error: "Employee not found",
+        id: String(id),
+        ...(requestId ? { requestId } : {}),
+      });
+    }
+    console.error("[employees.getById] Failed to fetch employee", {
+      employeeId: id,
+      requestId: requestId || null,
+      message: error?.message,
+    });
+    throw error;
+  }
 });
 
 const deleteEmployee = asyncHandler(async (req, res) => {
