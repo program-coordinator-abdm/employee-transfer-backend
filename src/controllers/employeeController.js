@@ -1170,7 +1170,24 @@ const createEmployee = asyncHandler(async (req, res) => {
         requestId,
       };
     }
-    throw error;
+    if (error instanceof AppError) {
+      if (error.status >= 500) {
+        return res.status(500).json({
+          error: "Unable to submit the form. Please try again.",
+          ...(requestId ? { requestId } : {}),
+        });
+      }
+      throw error;
+    }
+    console.error("[employees.submit] Unexpected create error", {
+      requestId: requestId || null,
+      message: error?.message,
+      stack: error?.stack,
+    });
+    return res.status(500).json({
+      error: "Unable to submit the form. Please try again.",
+      ...(requestId ? { requestId } : {}),
+    });
   }
 });
 
@@ -1187,9 +1204,34 @@ const updateEmployee = asyncHandler(async (req, res) => {
   });
   const normalized = normalizeEmployeePayload(req.body);
   normalized.submittedOn = normalized.submittedOn || new Date();
-  const payload = employeeSchema.parse(normalized);
-  const employee = await employeeService.updateEmployee(id, payload);
-  res.json(employee);
+  try {
+    const payload = employeeSchema.parse(normalized);
+    const employee = await employeeService.updateEmployee(id, payload);
+    res.json(employee);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw error;
+    }
+    if (error instanceof AppError) {
+      if (error.status >= 500) {
+        return res.status(500).json({
+          error: "Unable to submit the form. Please try again.",
+          ...(requestId ? { requestId } : {}),
+        });
+      }
+      throw error;
+    }
+    console.error("[employees.submit] Unexpected update error", {
+      requestId: requestId || null,
+      employeeId: id,
+      message: error?.message,
+      stack: error?.stack,
+    });
+    return res.status(500).json({
+      error: "Unable to submit the form. Please try again.",
+      ...(requestId ? { requestId } : {}),
+    });
+  }
 });
 
 module.exports = {

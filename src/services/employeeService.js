@@ -277,9 +277,6 @@ const mapPrismaCreateEmployeeError = (error, requestId) => {
       if (fields.includes("empKgid")) {
         return new AppError("Duplicate KGID", 400, baseDetails);
       }
-      if (fields.includes("email")) {
-        return new AppError("Duplicate email", 400, baseDetails);
-      }
       return new AppError("Duplicate entry", 400, {
         ...baseDetails,
         message:
@@ -332,19 +329,15 @@ const mapPrismaCreateEmployeeError = (error, requestId) => {
 // Duplicate guard section: KGID is always validated as unique (case-insensitive).
 const validateEmployeeUniqueness = async (
   tx,
-  { empKgid, email, excludeEmployeeId = null }
+  { empKgid, excludeEmployeeId = null }
 ) => {
   const duplicate = await tx.employee.findFirst({
     where: {
-      OR: [
-        { empKgid: { equals: empKgid, mode: "insensitive" } },
-        { email: { equals: email, mode: "insensitive" } },
-      ],
+      empKgid: { equals: empKgid, mode: "insensitive" },
       ...(excludeEmployeeId ? { NOT: { id: excludeEmployeeId } } : {}),
     },
     select: {
       empKgid: true,
-      email: true,
     },
   });
 
@@ -355,9 +348,6 @@ const validateEmployeeUniqueness = async (
     normalizeForCompare(duplicate.empKgid) === normalizeForCompare(empKgid)
   ) {
     duplicateFields.push("empKgid");
-  }
-  if (normalizeForCompare(duplicate.email) === normalizeForCompare(email)) {
-    duplicateFields.push("email");
   }
   throw buildDuplicateEntryError(duplicateFields);
 };
@@ -1141,7 +1131,6 @@ const createEmployee = async (payload, options = {}) => {
 
       await validateEmployeeUniqueness(tx, {
         empKgid: payload.empKgid,
-        email: payload.email,
       });
 
       const employee = await tx.employee.create({
@@ -1326,7 +1315,6 @@ const updateEmployee = async (id, payload) => {
 
     await validateEmployeeUniqueness(tx, {
       empKgid: payload.empKgid,
-      email: payload.email,
       excludeEmployeeId: id,
     });
 
