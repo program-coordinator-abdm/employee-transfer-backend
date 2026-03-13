@@ -18,6 +18,7 @@ const defaultOrigins = [
   "http://localhost:8080",
   "https://www.hfwgeneralpost.com",
   "https://hfwgeneralpost.com",
+  "https://employee-transfer-frontend.vercel.app",
 ];
 const configuredOrigins = [
   process.env.CORS_ORIGIN || "",
@@ -52,11 +53,17 @@ const corsOptions = {
   },
   credentials: false,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-  optionsSuccessStatus: 204,
+  allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+  optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  return next();
+});
 app.use(express.json());
 
 app.get("/", (_req, res) => {

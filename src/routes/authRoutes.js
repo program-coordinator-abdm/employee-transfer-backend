@@ -4,7 +4,7 @@ const authController = require("../controllers/authController");
 const router = express.Router();
 
 router.options("/login", (_req, res) => {
-  res.sendStatus(204);
+  res.sendStatus(200);
 });
 router.post("/login", authController.login);
 
