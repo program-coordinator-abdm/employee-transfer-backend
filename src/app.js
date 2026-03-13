@@ -13,7 +13,12 @@ const { AppError } = require("./utils/errors");
 const app = express();
 app.set("etag", false);
 
-const defaultOrigins = ["http://localhost:5173", "http://localhost:8080"];
+const defaultOrigins = [
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "https://www.hfwgeneralpost.com",
+  "https://hfwgeneralpost.com",
+];
 const configuredOrigins = [
   process.env.CORS_ORIGIN || "",
   process.env.VERCEL_FRONTEND_URL || "",
@@ -46,8 +51,8 @@ const corsOptions = {
     return callback(null, false);
   },
   credentials: false,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   optionsSuccessStatus: 204,
 };
 app.use(cors(corsOptions));
