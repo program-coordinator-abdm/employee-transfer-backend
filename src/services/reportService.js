@@ -44,9 +44,16 @@ const getDistrictEntryCounts = async (entity, options = {}) => {
   // Keep existing district-level response unchanged by default.
   if (!level) {
     const districtField = config.levels.district;
-    const [grouped, summary] = await Promise.all([
+    const talukField = config.levels.taluk;
+    const [districtGrouped, talukGrouped, summary] = await Promise.all([
       prisma[config.model].groupBy({
         by: [districtField],
+        _count: {
+          _all: true,
+        },
+      }),
+      prisma[config.model].groupBy({
+        by: [districtField, talukField],
         _count: {
           _all: true,
         },
@@ -61,11 +68,36 @@ const getDistrictEntryCounts = async (entity, options = {}) => {
       }),
     ]);
 
-    const counts = sortCounts(
-      grouped.map((entry) => ({
-        district: entry[districtField],
+    const talukData = talukGrouped
+      .map((entry) => ({
+        district: toOptionalString(entry[districtField]) || "UNKNOWN",
+        taluk: toOptionalString(entry[talukField]) || "UNKNOWN",
         count: entry._count._all,
-      })),
+      }))
+      .sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        if (a.district !== b.district) {
+          return String(a.district).localeCompare(String(b.district));
+        }
+        return String(a.taluk).localeCompare(String(b.taluk));
+      });
+
+    const taluksByDistrict = new Map();
+    for (const row of talukData) {
+      const rows = taluksByDistrict.get(row.district) || [];
+      rows.push({ taluk: row.taluk, count: row.count });
+      taluksByDistrict.set(row.district, rows);
+    }
+
+    const counts = sortCounts(
+      districtGrouped.map((entry) => {
+        const districtLabel = toOptionalString(entry[districtField]) || "UNKNOWN";
+        return {
+          district: entry[districtField],
+          count: entry._count._all,
+          taluks: taluksByDistrict.get(districtLabel) || [],
+        };
+      }),
       "district"
     );
 
@@ -73,6 +105,7 @@ const getDistrictEntryCounts = async (entity, options = {}) => {
       entity,
       data: counts,
       counts,
+      talukData,
       total: summary._count._all,
       lastUpdated: summary._max.updatedAt
         ? summary._max.updatedAt.toISOString()
