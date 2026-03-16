@@ -1,5 +1,6 @@
 const prisma = require("./prisma");
 const { AppError } = require("../utils/errors");
+const UNKNOWN_LABEL = "Unknown";
 
 const ENTITY_CONFIG = {
   employees: {
@@ -70,8 +71,8 @@ const getDistrictEntryCounts = async (entity, options = {}) => {
 
     const talukData = talukGrouped
       .map((entry) => ({
-        district: toOptionalString(entry[districtField]) || "UNKNOWN",
-        taluk: toOptionalString(entry[talukField]) || "UNKNOWN",
+        district: toOptionalString(entry[districtField]) || UNKNOWN_LABEL,
+        taluk: toOptionalString(entry[talukField]) || UNKNOWN_LABEL,
         count: entry._count._all,
       }))
       .sort((a, b) => {
@@ -91,9 +92,9 @@ const getDistrictEntryCounts = async (entity, options = {}) => {
 
     const counts = sortCounts(
       districtGrouped.map((entry) => {
-        const districtLabel = toOptionalString(entry[districtField]) || "UNKNOWN";
+        const districtLabel = toOptionalString(entry[districtField]) || UNKNOWN_LABEL;
         return {
-          district: entry[districtField],
+          district: districtLabel,
           count: entry._count._all,
           taluks: taluksByDistrict.get(districtLabel) || [],
         };
@@ -179,7 +180,7 @@ const getDistrictEntryCounts = async (entity, options = {}) => {
   const chartData = sortCounts(
     grouped
     .map((entry) => ({
-      label: toOptionalString(entry[groupField]) || "UNKNOWN",
+      label: toOptionalString(entry[groupField]) || UNKNOWN_LABEL,
       count: entry._count._all,
     })),
     "label"
