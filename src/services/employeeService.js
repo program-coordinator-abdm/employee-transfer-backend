@@ -848,87 +848,468 @@ const streamEmployeesCsv = async (res, { category, search }) => {
   }
 };
 
-const fetchEmployeeWithRelations = async (client, id, options = {}) => {
-  const requestId = toOptionalString(options.requestId);
-  const queryStartedAt = Date.now();
-  console.info("[employees.getById] DB query start", {
-    employeeId: id,
+const EMPLOYEE_DETAIL_RELATION_TIMEOUT_MS = (() => {
+  const parsed = Number(process.env.EMPLOYEE_DETAIL_RELATION_TIMEOUT_MS || "5000");
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5000;
+})();
+const RELATION_QUERY_TIMEOUT = Symbol("employee-relation-query-timeout");
+
+const ASSIGNMENT_HISTORY_SELECT = {
+  role: true,
+  city: true,
+  hospital: true,
+  position: true,
+  district: true,
+  startedOn: true,
+  endedOn: true,
+  period: true,
+  type: true,
+};
+
+const PAST_SERVICE_SELECT = {
+  id: true,
+  employeeId: true,
+  postHeld: true,
+  postGroup: true,
+  postSubGroup: true,
+  firstPostHeld: true,
+  institutionType: true,
+  hfrId: true,
+  institution: true,
+  district: true,
+  taluk: true,
+  cityTownVillage: true,
+  fromDate: true,
+  toDate: true,
+  tenure: true,
+  joiningDocument: true,
+};
+
+const EDUCATION_SELECT = {
+  id: true,
+  employeeId: true,
+  type: true,
+  qualification: true,
+  degree: true,
+  institution: true,
+  level: true,
+  institutionName: true,
+  university: true,
+  year: true,
+  yearOfPassing: true,
+  gradePercentage: true,
+  specialization: true,
+  documentName: true,
+  documentUrl: true,
+  documentSizeKB: true,
+  documentUploadedAt: true,
+};
+
+const POSTGRAD_SELECT = {
+  id: true,
+  employeeId: true,
+  qualification: true,
+  degree: true,
+  institution: true,
+  university: true,
+  year: true,
+  specialization: true,
+};
+
+const TIMEBOUND_PROMOTION_SELECT = {
+  id: true,
+  employeeId: true,
+  label: true,
+  status: true,
+  order: true,
+  date: true,
+};
+
+const ADMIN_ROLE_SELECT = {
+  id: true,
+  employeeId: true,
+  role: true,
+  fromDate: true,
+  toDate: true,
+  details: true,
+};
+
+const ADDITIONAL_CHARGE_SELECT = {
+  id: true,
+  employeeId: true,
+  designation: true,
+  place: true,
+  fromDate: true,
+  toDate: true,
+};
+
+const ACHIEVEMENT_SELECT = {
+  id: true,
+  employeeId: true,
+  type: true,
+  description: true,
+};
+
+const DISCIPLINARY_RECORD_SELECT = {
+  id: true,
+  employeeId: true,
+  departmentalEnquiries: true,
+  suspensionPeriods: true,
+  punishmentsReceived: true,
+  criminalProceedings: true,
+  pendingLegalMatters: true,
+};
+
+const DECLARATION_SELECT = {
+  id: true,
+  employeeId: true,
+  empDeclAgreed: true,
+  empDeclName: true,
+  empDeclDate: true,
+  officerDeclAgreed: true,
+  officerDeclName: true,
+  officerDeclDate: true,
+  remarks: true,
+};
+
+const SERVICE_INFORMATION_SELECT = {
+  id: true,
+  employeeId: true,
+  deputedByGovernment: true,
+  specialistService: true,
+  trainingInHospitalAdmin: true,
+  spouseInGovtService: true,
+  spouseServiceDetails: true,
+};
+
+const APPOINTMENT_DETAILS_SELECT = {
+  id: true,
+  employeeId: true,
+  slNoInOrder: true,
+  orderNoAndDate: true,
+  dateOfInitialAppointment: true,
+};
+
+const DOCUMENT_SELECT = {
+  id: true,
+  employeeId: true,
+  name: true,
+  sizeKB: true,
+  uploadedAt: true,
+  downloadUrl: true,
+};
+
+const fetchRelationWithLogs = async ({
+  client,
+  employeeId,
+  requestId,
+  queryName,
+  fetcher,
+  fallbackValue,
+  allowPartialRelations,
+  timeoutMs,
+}) => {
+  const startedAt = Date.now();
+  console.info("[employees.getById] Relation query start", {
+    employeeId,
     requestId: requestId || null,
+    queryName,
   });
+
   try {
-    const employee = await client.employee.findUnique({
-      where: { id },
-      include: {
-        assignmentHistory: { orderBy: { startedOn: "asc" } },
-        pastServices: true,
-        educations: true,
-        postgraduateQualifications: true,
-        timeboundPromotions: true,
-        administrativeRoles: true,
-        additionalCharges: true,
-        achievements: true,
-        disciplinaryRecord: true,
-        declaration: true,
-        serviceInformation: true,
-        appointmentDetails: true,
-        documents: true,
-      },
-    });
-    console.info("[employees.getById] DB query end", {
-      employeeId: id,
+    const queryPromise = fetcher();
+    const result = allowPartialRelations
+      ? await Promise.race([
+          queryPromise,
+          new Promise((resolve) => {
+            setTimeout(() => resolve(RELATION_QUERY_TIMEOUT), timeoutMs);
+          }),
+        ])
+      : await queryPromise;
+
+    if (result === RELATION_QUERY_TIMEOUT) {
+      console.warn("[employees.getById] Relation query timed out", {
+        employeeId,
+        requestId: requestId || null,
+        queryName,
+        durationMs: Date.now() - startedAt,
+        timeoutMs,
+      });
+      return fallbackValue;
+    }
+
+    const resultMeta = Array.isArray(result)
+      ? { count: result.length }
+      : { found: Boolean(result) };
+    console.info("[employees.getById] Relation query end", {
+      employeeId,
       requestId: requestId || null,
-      durationMs: Date.now() - queryStartedAt,
-      found: Boolean(employee),
+      queryName,
+      durationMs: Date.now() - startedAt,
+      ...resultMeta,
     });
-    return employee;
+    return result;
   } catch (error) {
-    console.error("[employees.getById] DB query failed", {
-      employeeId: id,
+    console.error("[employees.getById] Relation query failed", {
+      employeeId,
       requestId: requestId || null,
-      durationMs: Date.now() - queryStartedAt,
+      queryName,
+      durationMs: Date.now() - startedAt,
       name: error?.name,
       code: error?.code,
       message: error?.message,
       stack: error?.stack,
     });
-    const canFallbackToBaseQuery =
-      (error instanceof Prisma.PrismaClientKnownRequestError &&
-        ["P2021", "P2022"].includes(error.code)) ||
-      error instanceof Prisma.PrismaClientValidationError;
-    if (!canFallbackToBaseQuery) {
+    if (!allowPartialRelations) {
       throw error;
     }
-
-    console.warn("[employees.getById] Falling back to base employee query", {
-      employeeId: id,
-      requestId: requestId || null,
-      reasonCode: error?.code || null,
-    });
-    const fallbackStartedAt = Date.now();
-    try {
-      const employee = await client.employee.findUnique({
-        where: { id },
-      });
-      console.info("[employees.getById] Fallback DB query end", {
-        employeeId: id,
-        requestId: requestId || null,
-        durationMs: Date.now() - fallbackStartedAt,
-        found: Boolean(employee),
-      });
-      return employee;
-    } catch (fallbackError) {
-      console.error("[employees.getById] Fallback DB query failed", {
-        employeeId: id,
-        requestId: requestId || null,
-        durationMs: Date.now() - fallbackStartedAt,
-        name: fallbackError?.name,
-        code: fallbackError?.code,
-        message: fallbackError?.message,
-        stack: fallbackError?.stack,
-      });
-      throw fallbackError;
-    }
+    return fallbackValue;
   }
+};
+
+const fetchEmployeeWithRelations = async (client, id, options = {}) => {
+  const requestId = toOptionalString(options.requestId);
+  const allowPartialRelations = Boolean(options.allowPartialRelations);
+  const parsedTimeout = Number(options.timeoutMs);
+  const timeoutMs =
+    Number.isFinite(parsedTimeout) && parsedTimeout > 0
+      ? parsedTimeout
+      : EMPLOYEE_DETAIL_RELATION_TIMEOUT_MS;
+
+  const coreQueryStartedAt = Date.now();
+  console.info("[employees.getById] Core employee query start", {
+    employeeId: id,
+    requestId: requestId || null,
+  });
+  const employee = await client.employee.findUnique({
+    where: { id },
+  });
+  console.info("[employees.getById] Core employee query end", {
+    employeeId: id,
+    requestId: requestId || null,
+    durationMs: Date.now() - coreQueryStartedAt,
+    found: Boolean(employee),
+  });
+  if (!employee) {
+    return null;
+  }
+
+  const [
+    assignmentHistory,
+    pastServices,
+    educations,
+    postgraduateQualifications,
+    timeboundPromotions,
+    administrativeRoles,
+    additionalCharges,
+    achievements,
+    disciplinaryRecord,
+    declaration,
+    serviceInformation,
+    appointmentDetails,
+    documents,
+  ] = await Promise.all([
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "assignmentHistory",
+      fetcher: () =>
+        client.assignmentHistory.findMany({
+          where: { employeeId: id },
+          orderBy: { startedOn: "asc" },
+          select: ASSIGNMENT_HISTORY_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "pastServices",
+      fetcher: () =>
+        client.pastService.findMany({
+          where: { employeeId: id },
+          select: PAST_SERVICE_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "educations",
+      fetcher: () =>
+        client.education.findMany({
+          where: { employeeId: id },
+          select: EDUCATION_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "postgraduateQualifications",
+      fetcher: () =>
+        client.postgraduateQualification.findMany({
+          where: { employeeId: id },
+          select: POSTGRAD_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "timeboundPromotions",
+      fetcher: () =>
+        client.timeboundPromotion.findMany({
+          where: { employeeId: id },
+          select: TIMEBOUND_PROMOTION_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "administrativeRoles",
+      fetcher: () =>
+        client.administrativeRole.findMany({
+          where: { employeeId: id },
+          select: ADMIN_ROLE_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "additionalCharges",
+      fetcher: () =>
+        client.additionalCharge.findMany({
+          where: { employeeId: id },
+          select: ADDITIONAL_CHARGE_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "achievements",
+      fetcher: () =>
+        client.achievement.findMany({
+          where: { employeeId: id },
+          select: ACHIEVEMENT_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "disciplinaryRecord",
+      fetcher: () =>
+        client.disciplinaryRecord.findUnique({
+          where: { employeeId: id },
+          select: DISCIPLINARY_RECORD_SELECT,
+        }),
+      fallbackValue: null,
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "declaration",
+      fetcher: () =>
+        client.declaration.findUnique({
+          where: { employeeId: id },
+          select: DECLARATION_SELECT,
+        }),
+      fallbackValue: null,
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "serviceInformation",
+      fetcher: () =>
+        client.serviceInformation.findUnique({
+          where: { employeeId: id },
+          select: SERVICE_INFORMATION_SELECT,
+        }),
+      fallbackValue: null,
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "appointmentDetails",
+      fetcher: () =>
+        client.appointmentDetails.findUnique({
+          where: { employeeId: id },
+          select: APPOINTMENT_DETAILS_SELECT,
+        }),
+      fallbackValue: null,
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "documents",
+      fetcher: () =>
+        client.document.findMany({
+          where: { employeeId: id },
+          select: DOCUMENT_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+  ]);
+
+  return {
+    ...employee,
+    assignmentHistory,
+    pastServices,
+    educations,
+    postgraduateQualifications,
+    timeboundPromotions,
+    administrativeRoles,
+    additionalCharges,
+    achievements,
+    disciplinaryRecord,
+    declaration,
+    serviceInformation,
+    appointmentDetails,
+    documents,
+  };
 };
 
 const getEmployeeById = async (id, options = {}) => {
@@ -942,7 +1323,10 @@ const getEmployeeById = async (id, options = {}) => {
       ...(requestId ? { requestId } : {}),
     });
   }
-  const employee = await fetchEmployeeWithRelations(prisma, id, { requestId });
+  const employee = await fetchEmployeeWithRelations(prisma, id, {
+    requestId,
+    allowPartialRelations: true,
+  });
   if (!employee) {
     console.info("[employees.getById] Service result not found", {
       employeeId: id,
