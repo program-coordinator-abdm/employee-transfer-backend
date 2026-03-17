@@ -891,7 +891,43 @@ const fetchEmployeeWithRelations = async (client, id, options = {}) => {
       message: error?.message,
       stack: error?.stack,
     });
-    throw error;
+    const canFallbackToBaseQuery =
+      (error instanceof Prisma.PrismaClientKnownRequestError &&
+        ["P2021", "P2022"].includes(error.code)) ||
+      error instanceof Prisma.PrismaClientValidationError;
+    if (!canFallbackToBaseQuery) {
+      throw error;
+    }
+
+    console.warn("[employees.getById] Falling back to base employee query", {
+      employeeId: id,
+      requestId: requestId || null,
+      reasonCode: error?.code || null,
+    });
+    const fallbackStartedAt = Date.now();
+    try {
+      const employee = await client.employee.findUnique({
+        where: { id },
+      });
+      console.info("[employees.getById] Fallback DB query end", {
+        employeeId: id,
+        requestId: requestId || null,
+        durationMs: Date.now() - fallbackStartedAt,
+        found: Boolean(employee),
+      });
+      return employee;
+    } catch (fallbackError) {
+      console.error("[employees.getById] Fallback DB query failed", {
+        employeeId: id,
+        requestId: requestId || null,
+        durationMs: Date.now() - fallbackStartedAt,
+        name: fallbackError?.name,
+        code: fallbackError?.code,
+        message: fallbackError?.message,
+        stack: fallbackError?.stack,
+      });
+      throw fallbackError;
+    }
   }
 };
 

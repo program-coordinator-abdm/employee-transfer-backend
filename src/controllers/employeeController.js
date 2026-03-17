@@ -1102,6 +1102,17 @@ const getEmployeeById = asyncHandler(async (req, res) => {
     });
     return res.status(200).json(employee);
   } catch (error) {
+    if (error instanceof AppError && error.status === 400) {
+      console.warn("[employees.getById] Invalid employee id in service", {
+        employeeId: id,
+        requestId: requestId || null,
+        message: error?.message,
+      });
+      return res.status(400).json({
+        error: error.message || "Invalid employee id",
+        ...(requestId ? { requestId } : {}),
+      });
+    }
     if (error instanceof AppError && error.status === 404) {
       console.warn("[employees.getById] Employee not found", {
         employeeId: id,
@@ -1121,7 +1132,10 @@ const getEmployeeById = asyncHandler(async (req, res) => {
       code: error?.code,
       stack: error?.stack,
     });
-    throw error;
+    return res.status(500).json({
+      error: "Failed to fetch employee details",
+      ...(requestId ? { requestId } : {}),
+    });
   }
 });
 
