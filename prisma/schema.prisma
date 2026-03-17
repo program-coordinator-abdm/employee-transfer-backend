@@ -427,6 +427,7 @@ model TransferApplication {
   spouseGovtServiceDocUrl       String?
   ngoBenefits                   Boolean          @default(false)
   ngoBenefitsDoc                String?
+  remarks                       String?
   employeeDeclarationAccepted   Boolean          @default(false)
   employeeSignatureName         String?
   employeeDeclarationDate       DateTime?
