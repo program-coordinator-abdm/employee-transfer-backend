@@ -52,6 +52,16 @@ const toIsoStringOrNull = (value) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 };
 
+const toDateOnlyStringOrNull = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const year = parsed.getUTCFullYear();
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const normalizeSearchMode = (value) => {
   const normalized = String(value || "")
     .trim()
@@ -439,6 +449,11 @@ const mapEmployeeDetail = (employee) => {
   const assignments = (employee.assignmentHistory || []).map(mapAssignment);
   const totalExperienceYears = calculateTotalExperienceYears(assignments);
   const education = employee.educations || [];
+  const pastServices = (employee.pastServices || []).map((entry) => ({
+    ...entry,
+    fromDate: toDateOnlyStringOrNull(entry.fromDate),
+    toDate: toDateOnlyStringOrNull(entry.toDate),
+  }));
 
   return {
     id: String(employee.id),
@@ -571,10 +586,8 @@ const mapEmployeeDetail = (employee) => {
     officerDeclDate: employee.declaration?.officerDeclDate,
     declarationRemarks: employee.declaration?.remarks,
     assignmentHistory: assignments,
-    pastServices: employee.pastServices || [],
-    pastServiceDocs: (employee.pastServices || []).map(
-      (entry) => entry.joiningDocument || ""
-    ),
+    pastServices,
+    pastServiceDocs: pastServices.map((entry) => entry.joiningDocument || ""),
     education,
     educationDetails: mapEducationDetails(education),
     postgraduateQualifications: employee.postgraduateQualifications || [],
