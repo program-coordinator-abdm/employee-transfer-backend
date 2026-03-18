@@ -628,14 +628,138 @@ const toOptionalString = (value) => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
+const ACCESS_UNRESTRICTED_USERNAMES = new Set(["admin", "dataofficer"]);
+
+const normalizeUsername = (value) => {
+  const normalized = toOptionalString(value);
+  return normalized ? normalized.toLowerCase() : null;
+};
+
+const normalizeUserId = (value) => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) return null;
+  return parsed;
+};
+
+const resolveEmployeeAccessScope = async (
+  client,
+  actor,
+  { requestId, context = "unknown" } = {}
+) => {
+  if (!actor) {
+    console.info("[employees.access] Scope resolved", {
+      context,
+      requestId: requestId || null,
+      loggedInUsername: null,
+      role: null,
+      mode: "unrestricted",
+      reason: "no-actor-context",
+    });
+    return {
+      userId: null,
+      username: null,
+      role: null,
+      unrestricted: true,
+    };
+  }
+
+  const userId = normalizeUserId(actor.id ?? actor.userId);
+  let username = normalizeUsername(actor.username);
+  let role = toOptionalString(actor.role);
+
+  if ((!username || !role) && userId) {
+    const user = await client.user.findUnique({
+      where: { id: userId },
+      select: {
+        username: true,
+        role: true,
+      },
+    });
+    if (!username) {
+      username = normalizeUsername(user?.username);
+    }
+    if (!role) {
+      role = toOptionalString(user?.role);
+    }
+  }
+
+  const unrestricted = Boolean(
+    username && ACCESS_UNRESTRICTED_USERNAMES.has(username)
+  );
+  const mode = unrestricted ? "unrestricted" : "self-only";
+
+  console.info("[employees.access] Scope resolved", {
+    context,
+    requestId: requestId || null,
+    loggedInUsername: username || null,
+    role: role || null,
+    userId: userId || null,
+    mode,
+  });
+
+  return {
+    userId,
+    username,
+    role,
+    unrestricted,
+  };
+};
+
+const buildEmployeeAccessWhere = (scope) => {
+  if (!scope || scope.unrestricted) {
+    return {};
+  }
+  if (scope.userId) {
+    return { createdByUserId: scope.userId };
+  }
+  if (scope.username) {
+    return {
+      createdByUsername: {
+        equals: scope.username,
+        mode: "insensitive",
+      },
+    };
+  }
+  return { id: -1 };
+};
+
+const canAccessEmployeeRecord = (scope, employee) => {
+  if (!scope || scope.unrestricted) return true;
+  if (!employee) return false;
+
+  const employeeCreatorUserId = normalizeUserId(employee.createdByUserId);
+  if (scope.userId && employeeCreatorUserId && scope.userId === employeeCreatorUserId) {
+    return true;
+  }
+
+  const employeeCreatorUsername = normalizeUsername(employee.createdByUsername);
+  if (scope.username && employeeCreatorUsername && scope.username === employeeCreatorUsername) {
+    return true;
+  }
+
+  return false;
+};
+
 const toInsensitiveEqualsFilter = (value) => {
   const normalized = toOptionalString(value);
   if (!normalized) return undefined;
   return { equals: normalized, mode: "insensitive" };
 };
 
-const listEmployees = async ({ category, page, pageSize, search }) => {
+const listEmployees = async ({
+  category,
+  page,
+  pageSize,
+  search,
+  actor,
+  requestId,
+}) => {
+  const accessScope = await resolveEmployeeAccessScope(prisma, actor, {
+    requestId,
+    context: "list",
+  });
   const where = combineWhereClauses(
+    buildEmployeeAccessWhere(accessScope),
     buildListSearchWhere(search),
     buildCategoryWhere(category)
   );
@@ -661,7 +785,11 @@ const listEmployees = async ({ category, page, pageSize, search }) => {
   };
 };
 
-const listEmployeesByFilters = async (filters = {}) => {
+const listEmployeesByFilters = async (filters = {}, options = {}) => {
+  const accessScope = await resolveEmployeeAccessScope(prisma, options.actor, {
+    requestId: options.requestId,
+    context: "filter",
+  });
   const where = {};
 
   const districtFilter = toInsensitiveEqualsFilter(filters.district);
@@ -722,7 +850,7 @@ const listEmployeesByFilters = async (filters = {}) => {
   }
 
   const rows = await prisma.employee.findMany({
-    where,
+    where: combineWhereClauses(where, buildEmployeeAccessWhere(accessScope)),
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
       id: true,
@@ -748,9 +876,21 @@ const listEmployeesByFilters = async (filters = {}) => {
   }));
 };
 
-const getSuggestions = async ({ category, searchMode, query, limit }) => {
+const getSuggestions = async ({
+  category,
+  searchMode,
+  query,
+  limit,
+  actor,
+  requestId,
+}) => {
   if (!query) return [];
+  const accessScope = await resolveEmployeeAccessScope(prisma, actor, {
+    requestId,
+    context: "suggestions",
+  });
   const where = combineWhereClauses(
+    buildEmployeeAccessWhere(accessScope),
     buildSearchWhere(searchMode, query),
     buildCategoryWhere(category)
   );
@@ -1336,6 +1476,10 @@ const getEmployeeById = async (id, options = {}) => {
       ...(requestId ? { requestId } : {}),
     });
   }
+  const accessScope = await resolveEmployeeAccessScope(prisma, options.actor, {
+    requestId,
+    context: "detail",
+  });
   const employee = await fetchEmployeeWithRelations(prisma, id, {
     requestId,
     allowPartialRelations: true,
@@ -1344,6 +1488,18 @@ const getEmployeeById = async (id, options = {}) => {
     console.info("[employees.getById] Service result not found", {
       employeeId: id,
       requestId: requestId || null,
+    });
+    throw new AppError("Employee not found", 404, {
+      ...(requestId ? { requestId } : {}),
+    });
+  }
+  if (!canAccessEmployeeRecord(accessScope, employee)) {
+    console.warn("[employees.getById] Access denied for employee detail", {
+      employeeId: id,
+      requestId: requestId || null,
+      loggedInUsername: accessScope.username || null,
+      role: accessScope.role || null,
+      mode: "self-only",
     });
     throw new AppError("Employee not found", 404, {
       ...(requestId ? { requestId } : {}),
@@ -1418,6 +1574,7 @@ const buildEmployeeCreateData = ({
   dateOfEntry,
   dateOfJoining,
   yearsOfWork,
+  creator,
 }) => ({
   empName,
   empKgid: payload.empKgid,
@@ -1539,11 +1696,17 @@ const buildEmployeeCreateData = ({
   spouseCityTownVillage: toNullableString(payload.spouseCityTownVillage),
   ngoBenefits: Boolean(payload.ngoBenefits),
   ngoBenefitsDoc: toNullableString(payload.ngoBenefitsDoc),
+  createdByUserId: creator?.userId || null,
+  createdByUsername: creator?.username || null,
 });
 
 const createEmployee = async (payload, options = {}) => {
   const requestId = toNullableString(options.requestId);
   validateRequiredCreateFields(payload, requestId);
+  const creatorScope = await resolveEmployeeAccessScope(prisma, options.actor, {
+    requestId,
+    context: "create",
+  });
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -1573,6 +1736,7 @@ const createEmployee = async (payload, options = {}) => {
           dateOfEntry,
           dateOfJoining,
           yearsOfWork,
+          creator: creatorScope,
         }),
       });
 

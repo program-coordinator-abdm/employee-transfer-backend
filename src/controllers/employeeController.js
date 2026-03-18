@@ -1101,6 +1101,7 @@ const formatValidationIssues = (issues = []) =>
   }));
 
 const listEmployees = asyncHandler(async (req, res) => {
+  const requestId = getApiGatewayRequestId(req);
   const parsed = parseListQuery(req.query);
   const pageSize = parsed.pageSize ?? parsed.limit ?? 50;
   const search = parsed.search || parsed.query || "";
@@ -1108,6 +1109,8 @@ const listEmployees = asyncHandler(async (req, res) => {
     ...parsed,
     pageSize,
     search,
+    actor: req.user,
+    requestId,
   });
   res.set("Cache-Control", "no-store");
   res.json(result);
@@ -1120,14 +1123,23 @@ const exportEmployees = asyncHandler(async (req, res) => {
 });
 
 const getSuggestions = asyncHandler(async (req, res) => {
+  const requestId = getApiGatewayRequestId(req);
   const query = parseSuggestionsQuery(req.query);
-  const result = await employeeService.getSuggestions(query);
+  const result = await employeeService.getSuggestions({
+    ...query,
+    actor: req.user,
+    requestId,
+  });
   res.json(result);
 });
 
 const filterEmployees = asyncHandler(async (req, res) => {
+  const requestId = getApiGatewayRequestId(req);
   const filters = parseEmployeeFilterQuery(req.query);
-  const result = await employeeService.listEmployeesByFilters(filters);
+  const result = await employeeService.listEmployeesByFilters(filters, {
+    actor: req.user,
+    requestId,
+  });
   res.set("Cache-Control", "no-store");
   res.json(result);
 });
@@ -1156,7 +1168,10 @@ const getEmployeeById = asyncHandler(async (req, res) => {
       employeeId: id,
       requestId: requestId || null,
     });
-    const employee = await employeeService.getEmployeeById(id, { requestId });
+    const employee = await employeeService.getEmployeeById(id, {
+      requestId,
+      actor: req.user,
+    });
     console.info("[employees.getById] Service returned employee", {
       employeeId: id,
       requestId: requestId || null,
@@ -1231,6 +1246,7 @@ const createEmployee = asyncHandler(async (req, res) => {
   try {
     const employee = await employeeService.createEmployee(parsed.data, {
       requestId,
+      actor: req.user,
     });
     res.status(201).json(employee);
   } catch (error) {
