@@ -250,6 +250,7 @@ model Education {
   degree         String?
   institution    String?
   level          String?
+  customEducationLevel String?
   institutionName String?
   university     String?
   year           String?

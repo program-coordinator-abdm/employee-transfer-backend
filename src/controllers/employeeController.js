@@ -268,7 +268,11 @@ const educationSchema = z
     qualification: z.string().optional(),
     degree: z.string().optional(),
     institution: z.string().optional(),
-    level: z.string().optional(),
+    level: z.preprocess((value) => toOptionalString(value), z.string().optional()),
+    customEducationLevel: z.preprocess(
+      (value) => toOptionalString(value),
+      z.string().max(100, "customEducationLevel must be at most 100 characters").optional()
+    ),
     institutionName: z.string().optional(),
     university: z.string().optional(),
     year: z.string().optional(),
@@ -280,7 +284,19 @@ const educationSchema = z
     documentSizeKB: z.coerce.number().optional(),
     documentUploadedAt: z.string().optional(),
   })
-  .strip();
+  .strip()
+  .superRefine((entry, ctx) => {
+    if (String(entry.level || "").trim().toLowerCase() !== "others") {
+      return;
+    }
+    if (!toOptionalString(entry.customEducationLevel)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["customEducationLevel"],
+        message: "customEducationLevel is required when educationLevel is Others.",
+      });
+    }
+  });
 
 const postgradSchema = z.object({
   qualification: z.string().optional(),
@@ -778,6 +794,14 @@ const normalizeEducationEntries = (body) => {
   return rawEntries
     .map((entry = {}) => {
       const unschooled = isUnschooledEducationEntry(entry);
+      const normalizedEducationLevel = normalizeEducationLabel(
+        entry.level ?? entry.educationLevel
+      );
+      const isOthersEducationLevel =
+        String(normalizedEducationLevel || "").trim().toLowerCase() === "others";
+      const customEducationLevel = toOptionalString(
+        entry.customEducationLevel ?? entry.otherEducationLevel
+      );
       return {
         type: unschooled
           ? UNSCHOOLED_EDUCATION_LABEL
@@ -789,7 +813,9 @@ const normalizeEducationEntries = (body) => {
         institution: toOptionalString(entry.institution),
         level: unschooled
           ? UNSCHOOLED_EDUCATION_LABEL
-          : normalizeEducationLabel(entry.level),
+          : normalizedEducationLevel,
+        customEducationLevel:
+          unschooled || !isOthersEducationLevel ? undefined : customEducationLevel,
         institutionName: toOptionalString(entry.institutionName ?? entry.institution),
         university: toOptionalString(entry.university),
         year: unschooled ? undefined : toOptionalString(entry.year),

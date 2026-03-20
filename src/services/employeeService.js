@@ -144,6 +144,12 @@ const mapAssignment = (entry) => ({
 const mapEducationDetails = (entries = []) =>
   entries.map((entry) => ({
     level: entry.level || "",
+    customEducationLevel: entry.customEducationLevel || "",
+    educationLevel: entry.level || "",
+    effectiveEducationLevel:
+      String(entry.level || "").trim().toLowerCase() === "others"
+        ? entry.customEducationLevel || ""
+        : entry.level || "",
     institution: entry.institutionName || entry.institution || "",
     yearOfPassing: entry.yearOfPassing || entry.year || "",
     gradePercentage: entry.gradePercentage || "",
@@ -435,7 +441,14 @@ const mapEmployeeList = (employee) => {
 const mapEmployeeDetail = (employee) => {
   const assignments = (employee.assignmentHistory || []).map(mapAssignment);
   const totalExperienceYears = calculateTotalExperienceYears(assignments);
-  const education = employee.educations || [];
+  const education = (employee.educations || []).map((entry) => ({
+    ...entry,
+    educationLevel: entry.level || null,
+    effectiveEducationLevel:
+      String(entry.level || "").trim().toLowerCase() === "others"
+        ? entry.customEducationLevel || entry.level || null
+        : entry.level || null,
+  }));
 
   return {
     id: String(employee.id),
