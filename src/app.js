@@ -13,7 +13,13 @@ const { AppError } = require("./utils/errors");
 const app = express();
 app.set("etag", false);
 
-const defaultOrigins = ["http://localhost:5173", "http://localhost:8080"];
+const defaultOrigins = [
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "https://www.hfwgeneralpost.com",
+  "https://hfwgeneralpost.com",
+  "https://employee-transfer-frontend.vercel.app",
+];
 const configuredOrigins = [
   process.env.CORS_ORIGIN || "",
   process.env.VERCEL_FRONTEND_URL || "",
@@ -46,12 +52,18 @@ const corsOptions = {
     return callback(null, false);
   },
   credentials: false,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 204,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+  optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  return next();
+});
 app.use(express.json());
 
 app.get("/", (_req, res) => {
