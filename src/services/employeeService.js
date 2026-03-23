@@ -726,9 +726,6 @@ const buildEmployeeAccessWhere = (scope) => {
   if (!scope || scope.unrestricted) {
     return {};
   }
-  if (scope.userId) {
-    return { createdByUserId: scope.userId };
-  }
   if (scope.username) {
     return {
       createdByUsername: {
@@ -743,11 +740,6 @@ const buildEmployeeAccessWhere = (scope) => {
 const canAccessEmployeeRecord = (scope, employee) => {
   if (!scope || scope.unrestricted) return true;
   if (!employee) return false;
-
-  const employeeCreatorUserId = normalizeUserId(employee.createdByUserId);
-  if (scope.userId && employeeCreatorUserId && scope.userId === employeeCreatorUserId) {
-    return true;
-  }
 
   const employeeCreatorUsername = normalizeUsername(employee.createdByUsername);
   if (scope.username && employeeCreatorUsername && scope.username === employeeCreatorUsername) {
@@ -1587,13 +1579,15 @@ const toNullableJsonObject = (value) => {
   return value;
 };
 
+const resolveEmployeeCreatorUsername = (payload) =>
+  toNullableString(payload.officerDeclName);
+
 const buildEmployeeCreateData = ({
   payload,
   empName,
   dateOfEntry,
   dateOfJoining,
   yearsOfWork,
-  creator,
 }) => ({
   empName,
   empKgid: payload.empKgid,
@@ -1716,17 +1710,12 @@ const buildEmployeeCreateData = ({
   spouseCityTownVillage: toNullableString(payload.spouseCityTownVillage),
   ngoBenefits: Boolean(payload.ngoBenefits),
   ngoBenefitsDoc: toNullableString(payload.ngoBenefitsDoc),
-  createdByUserId: creator?.userId || null,
-  createdByUsername: creator?.username || null,
+  createdByUsername: resolveEmployeeCreatorUsername(payload),
 });
 
 const createEmployee = async (payload, options = {}) => {
   const requestId = toNullableString(options.requestId);
   validateRequiredCreateFields(payload, requestId);
-  const creatorScope = await resolveEmployeeAccessScope(prisma, options.actor, {
-    requestId,
-    context: "create",
-  });
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -1756,7 +1745,6 @@ const createEmployee = async (payload, options = {}) => {
           dateOfEntry,
           dateOfJoining,
           yearsOfWork,
-          creator: creatorScope,
         }),
       });
 
@@ -1929,6 +1917,7 @@ const updateEmployee = async (id, payload) => {
     const additionalCharges = toArray(payload.additionalCharges);
     const achievements = toArray(payload.achievements);
     const documents = toArray(payload.documents);
+    const declarationOwnerName = resolveEmployeeCreatorUsername(payload);
 
     await validateEmployeeUniqueness(tx, {
       empKgid: payload.empKgid,
@@ -2064,6 +2053,7 @@ const updateEmployee = async (id, payload) => {
         spouseCityTownVillage: payload.spouseCityTownVillage || null,
         ngoBenefits: payload.ngoBenefits,
         ngoBenefitsDoc: payload.ngoBenefitsDoc || null,
+        createdByUsername: declarationOwnerName ?? existing.createdByUsername,
       },
     });
 
@@ -2196,7 +2186,7 @@ const updateEmployee = async (id, payload) => {
         empDeclName: payload.empDeclName || null,
         empDeclDate: payload.empDeclDate || null,
         officerDeclAgreed: payload.officerDeclAgreed,
-        officerDeclName: payload.officerDeclName || null,
+        officerDeclName: toNullableString(payload.officerDeclName),
         officerDeclDate: payload.officerDeclDate || null,
         remarks: payload.declarationRemarks || null,
       },
@@ -2206,7 +2196,7 @@ const updateEmployee = async (id, payload) => {
         empDeclName: payload.empDeclName || null,
         empDeclDate: payload.empDeclDate || null,
         officerDeclAgreed: payload.officerDeclAgreed,
-        officerDeclName: payload.officerDeclName || null,
+        officerDeclName: toNullableString(payload.officerDeclName),
         officerDeclDate: payload.officerDeclDate || null,
         remarks: payload.declarationRemarks || null,
       },

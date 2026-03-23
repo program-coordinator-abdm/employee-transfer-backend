@@ -181,7 +181,6 @@ model Employee {
   currentAddress         Json?
   currentFirstPostHeld   String?
   currentAreaType        String?
-  createdByUserId        Int?
   createdByUsername      String?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
@@ -203,7 +202,6 @@ model Employee {
 
   @@index([designationGroup])
   @@index([designationSubGroup])
-  @@index([createdByUserId])
   @@index([createdByUsername])
 }
 
