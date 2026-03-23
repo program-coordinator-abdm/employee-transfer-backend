@@ -144,6 +144,7 @@ const mapAssignment = (entry) => ({
 const mapEducationDetails = (entries = []) =>
   entries.map((entry) => ({
     level: entry.level || "",
+    otherStateLocation: entry.otherStateLocation || "",
     institution: entry.institutionName || entry.institution || "",
     yearOfPassing: entry.yearOfPassing || entry.year || "",
     gradePercentage: entry.gradePercentage || "",
@@ -366,6 +367,7 @@ const mapEmployeeList = (employee) => {
     currentPostGroup: employee.currentPostGroup,
     currentHospital: employee.currentInstitution,
     currentInstitutionType: employee.currentInstitutionType,
+    otherStateLocation: employee.otherStateLocation,
     currentHfrId: employee.currentHfrId,
     currentDesignation: normalizeDesignationForRead(employee.currentDesignation),
     email: employee.email,
@@ -465,6 +467,7 @@ const mapEmployeeDetail = (employee) => {
     currentDistrict: employee.currentDistrict,
     currentTaluk: employee.currentTaluk,
     currentCityTownVillage: employee.currentCityTownVillage,
+    otherStateLocation: employee.otherStateLocation,
     currentHfrId: employee.currentHfrId,
     currentAreaType: employee.currentAreaType,
     currentWorkingSince: employee.currentWorkingSince,
@@ -601,6 +604,7 @@ const LIST_EMPLOYEE_SELECT = {
   currentPostHeld: true,
   currentPostGroup: true,
   currentInstitution: true,
+  otherStateLocation: true,
   email: true,
   phoneNumber: true,
   designationGroup: true,
@@ -717,6 +721,7 @@ const listEmployeesByFilters = async (filters = {}) => {
       currentInstitution: true,
       currentDistrict: true,
       currentTaluk: true,
+      otherStateLocation: true,
     },
   });
 
@@ -729,6 +734,7 @@ const listEmployeesByFilters = async (filters = {}) => {
     currentInstitution: row.currentInstitution,
     currentDistrict: row.currentDistrict,
     currentTaluk: row.currentTaluk || null,
+    otherStateLocation: row.otherStateLocation || null,
   }));
 };
 
@@ -948,6 +954,7 @@ const buildEmployeeCreateData = ({
   currentDistrict: payload.currentDistrict,
   currentTaluk: payload.currentTaluk,
   currentCityTownVillage: payload.currentCityTownVillage,
+  otherStateLocation: toNullableString(payload.otherStateLocation),
   currentHfrId: toNullableString(payload.currentHfrId),
   currentAreaType: toNullableString(payload.currentAreaType),
   currentWorkingSince: payload.currentWorkingSince,
@@ -1285,6 +1292,7 @@ const updateEmployee = async (id, payload) => {
         currentDistrict: payload.currentDistrict,
         currentTaluk: payload.currentTaluk,
         currentCityTownVillage: payload.currentCityTownVillage,
+        otherStateLocation: payload.otherStateLocation || null,
         currentHfrId: payload.currentHfrId || null,
         currentAreaType: payload.currentAreaType || null,
         currentWorkingSince: payload.currentWorkingSince,

@@ -245,22 +245,44 @@ const TIMEBOUND_MILESTONE_FIELDS = [
   },
 ];
 
-const pastServiceSchema = z.object({
-  postHeld: z.string().min(1),
-  postGroup: z.string().min(1),
-  postSubGroup: z.string().min(1),
-  firstPostHeld: z.string().optional().default(""),
-  institutionType: z.string().optional().default(""),
-  hfrId: permissiveIdSchema(),
-  institution: z.string().min(1),
-  district: z.string().min(1),
-  taluk: z.string().optional().default(""),
-  cityTownVillage: z.string().optional().default(""),
-  fromDate: requiredDateSchema(),
-  toDate: requiredDateSchema(),
-  tenure: z.string().optional().default(""),
-  joiningDocument: z.string().optional().default(""),
-});
+const pastServiceSchema = z
+  .object({
+    postHeld: z.string().min(1),
+    postGroup: z.string().min(1),
+    postSubGroup: z.string().min(1),
+    firstPostHeld: z.string().optional().default(""),
+    institutionType: z.string().optional().default(""),
+    hfrId: permissiveIdSchema(),
+    institution: z.string().min(1),
+    district: z.preprocess((value) => toOptionalString(value), z.string().optional()),
+    taluk: z.preprocess((value) => toOptionalString(value), z.string().optional()),
+    cityTownVillage: z.preprocess(
+      (value) => toOptionalString(value),
+      z.string().optional()
+    ),
+    otherStateLocation: z.preprocess(
+      (value) => toOptionalString(value),
+      z.string().optional()
+    ),
+    fromDate: requiredDateSchema(),
+    toDate: requiredDateSchema(),
+    tenure: z.string().optional().default(""),
+    joiningDocument: z.string().optional().default(""),
+  })
+  .superRefine((service, ctx) => {
+    // Keep existing required validation (district) unless otherStateLocation is supplied.
+    if (toOptionalString(service.otherStateLocation)) {
+      return;
+    }
+    if (!toOptionalString(service.district)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["district"],
+        message:
+          "district is required when otherStateLocation is not provided.",
+      });
+    }
+  });
 
 const educationSchema = z
   .object({
@@ -269,6 +291,10 @@ const educationSchema = z
     degree: z.string().optional(),
     institution: z.string().optional(),
     level: z.string().optional(),
+    otherStateLocation: z.preprocess(
+      (value) => toOptionalString(value),
+      z.string().optional()
+    ),
     institutionName: z.string().optional(),
     university: z.string().optional(),
     year: z.string().optional(),
@@ -376,9 +402,16 @@ const employeeSchema = z
     currentFirstPostHeld: z.string().optional(),
     currentInstitution: z.string().min(1),
     currentInstitutionType: z.string().optional(),
-    currentDistrict: z.string().min(1),
-    currentTaluk: z.string().min(1),
-    currentCityTownVillage: z.string().min(1),
+    currentDistrict: z.preprocess((value) => toOptionalString(value), z.string().optional()),
+    currentTaluk: z.preprocess((value) => toOptionalString(value), z.string().optional()),
+    currentCityTownVillage: z.preprocess(
+      (value) => toOptionalString(value),
+      z.string().optional()
+    ),
+    otherStateLocation: z.preprocess(
+      (value) => toOptionalString(value),
+      z.string().optional()
+    ),
     currentHfrId: permissiveIdSchema().optional(),
     currentWorkingSince: requiredDateSchema(),
     currentAreaType: z.string().optional(),
@@ -480,6 +513,32 @@ const employeeSchema = z
     documents: z.array(documentSchema).optional(),
   })
   .superRefine((data, ctx) => {
+    if (!toOptionalString(data.otherStateLocation)) {
+      if (!toOptionalString(data.currentDistrict)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["currentDistrict"],
+          message:
+            "currentDistrict is required when otherStateLocation is not provided.",
+        });
+      }
+      if (!toOptionalString(data.currentTaluk)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["currentTaluk"],
+          message:
+            "currentTaluk is required when otherStateLocation is not provided.",
+        });
+      }
+      if (!toOptionalString(data.currentCityTownVillage)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["currentCityTownVillage"],
+          message:
+            "currentCityTownVillage is required when otherStateLocation is not provided.",
+        });
+      }
+    }
     if (
       data.probationaryPeriod &&
       !toOptionalString(data.probationaryPeriodDoc)
@@ -790,6 +849,7 @@ const normalizeEducationEntries = (body) => {
         level: unschooled
           ? UNSCHOOLED_EDUCATION_LABEL
           : normalizeEducationLabel(entry.level),
+        otherStateLocation: toOptionalString(entry.otherStateLocation),
         institutionName: toOptionalString(entry.institutionName ?? entry.institution),
         university: toOptionalString(entry.university),
         year: unschooled ? undefined : toOptionalString(entry.year),
@@ -831,10 +891,29 @@ const normalizePastServices = (body) => {
     const normalizedHfrId = toOptionalString(
       service.hfrId ?? service.hfrID ?? service.hfr_id
     );
+    const normalizedOtherStateLocation = toOptionalString(
+      service.otherStateLocation
+    );
+    const normalizedDistrict = toOptionalString(service.district);
+    const normalizedTaluk = toOptionalString(service.taluk);
+    const normalizedCityTownVillage = toOptionalString(service.cityTownVillage);
     return {
       ...service,
       institutionType: normalizedInstitutionType ?? "",
       hfrId: normalizedHfrId ?? "",
+      district:
+        normalizedOtherStateLocation && !normalizedDistrict
+          ? "NA"
+          : normalizedDistrict,
+      taluk:
+        normalizedOtherStateLocation && !normalizedTaluk
+          ? "NA"
+          : normalizedTaluk,
+      cityTownVillage:
+        normalizedOtherStateLocation && !normalizedCityTownVillage
+          ? "NA"
+          : normalizedCityTownVillage,
+      otherStateLocation: normalizedOtherStateLocation,
       joiningDocument: service.joiningDocument ?? docs[index] ?? "",
     };
   });
@@ -880,6 +959,12 @@ const normalizeEmployeePayload = (body) => {
     extractAddressLine(permanentAddressInput);
   const fallbackPinCode =
     extractPinCode(currentAddressInput) || extractPinCode(permanentAddressInput);
+  const normalizedOtherStateLocation = toOptionalString(body.otherStateLocation);
+  const normalizedCurrentDistrict = toOptionalString(body.currentDistrict);
+  const normalizedCurrentTaluk = toOptionalString(body.currentTaluk);
+  const normalizedCurrentCityTownVillage = toOptionalString(
+    body.currentCityTownVillage ?? body.currentCity
+  );
 
   return {
     empKgid: body.empKgid ?? body.kgid,
@@ -914,9 +999,19 @@ const normalizeEmployeePayload = (body) => {
     currentFirstPostHeld: body.currentFirstPostHeld,
     currentInstitution: body.currentInstitution ?? body.currentHospital,
     currentInstitutionType: normalizedCurrentInstitutionType,
-    currentDistrict: body.currentDistrict,
-    currentTaluk: body.currentTaluk,
-    currentCityTownVillage: body.currentCityTownVillage ?? body.currentCity,
+    currentDistrict:
+      normalizedOtherStateLocation && !normalizedCurrentDistrict
+        ? "NA"
+        : normalizedCurrentDistrict,
+    currentTaluk:
+      normalizedOtherStateLocation && !normalizedCurrentTaluk
+        ? "NA"
+        : normalizedCurrentTaluk,
+    currentCityTownVillage:
+      normalizedOtherStateLocation && !normalizedCurrentCityTownVillage
+        ? "NA"
+        : normalizedCurrentCityTownVillage,
+    otherStateLocation: normalizedOtherStateLocation,
     currentHfrId:
       normalizedCurrentHfrId ??
       (requiresHfrIdForInstitutionType(normalizedCurrentInstitutionType)

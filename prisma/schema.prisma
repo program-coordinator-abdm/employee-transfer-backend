@@ -87,6 +87,7 @@ model Employee {
   currentDistrict        String
   currentTaluk           String
   currentCityTownVillage String
+  otherStateLocation     String?
   currentHfrId           String?
   currentWorkingSince    DateTime
   currentDesignation     String?
@@ -233,6 +234,7 @@ model PastService {
   district       String
   taluk          String?
   cityTownVillage String?
+  otherStateLocation String?
   fromDate       DateTime
   toDate         DateTime
   tenure         String?
@@ -250,6 +252,7 @@ model Education {
   degree         String?
   institution    String?
   level          String?
+  otherStateLocation String?
   institutionName String?
   university     String?
   year           String?
