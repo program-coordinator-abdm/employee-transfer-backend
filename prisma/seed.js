@@ -89,7 +89,9 @@ const normalizeRole = (value) => {
   const normalized = String(value || "")
     .trim()
     .toUpperCase();
-  return normalized === "ADMIN" ? "ADMIN" : "DATA_OFFICER";
+  if (normalized === "ADMIN") return "ADMIN";
+  if (normalized === "TRANSFER_OPERATOR") return "TRANSFER_OPERATOR";
+  return "DATA_OFFICER";
 };
 
 const normalizeUserRecord = (record) => {

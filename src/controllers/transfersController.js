@@ -104,6 +104,7 @@ const normalizeTransferPayload = (body = {}) => {
     widowDocUrl: body.widowDocUrl ?? body.widowDoc,
     spouseGovtServiceDocUrl:
       body.spouseGovtServiceDocUrl ?? body.spouseInGovtServiceDoc,
+    remarks: body.remarks,
     serviceDetails,
   };
 };
@@ -156,6 +157,7 @@ const transferApplicationSchema = z.object({
   ),
   ngoBenefits: z.coerce.boolean().optional().default(false),
   ngoBenefitsDoc: z.preprocess((value) => toOptionalString(value), z.string().optional()),
+  remarks: z.preprocess((value) => toOptionalString(value), z.string().optional()),
   serviceDetails: z.array(transferServiceDetailSchema).min(1),
 });
 
@@ -221,6 +223,7 @@ const toFrontendTransferRecord = (record = {}) => {
       spouseInGovtServiceDoc: record.spouseGovtServiceDocUrl || "",
       ngoBenefits: Boolean(record.ngoBenefits),
       ngoBenefitsDoc: record.ngoBenefitsDoc || "",
+      remarks: record.remarks || "",
     },
   };
 };

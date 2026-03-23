@@ -10,6 +10,7 @@ generator client {
 enum UserRole {
   ADMIN
   DATA_OFFICER
+  TRANSFER_OPERATOR
 }
 
 enum AssignmentType {
@@ -180,6 +181,8 @@ model Employee {
   currentAddress         Json?
   currentFirstPostHeld   String?
   currentAreaType        String?
+  createdByUserId        Int?
+  createdByUsername      String?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
@@ -200,6 +203,8 @@ model Employee {
 
   @@index([designationGroup])
   @@index([designationSubGroup])
+  @@index([createdByUserId])
+  @@index([createdByUsername])
 }
 
 model AssignmentHistory {
@@ -253,6 +258,7 @@ model Education {
   institution    String?
   level          String?
   otherStateLocation String?
+  customEducationLevel String?
   institutionName String?
   university     String?
   year           String?
@@ -429,6 +435,7 @@ model TransferApplication {
   spouseGovtServiceDocUrl       String?
   ngoBenefits                   Boolean          @default(false)
   ngoBenefitsDoc                String?
+  remarks                       String?
   employeeDeclarationAccepted   Boolean          @default(false)
   employeeSignatureName         String?
   employeeDeclarationDate       DateTime?

@@ -1,6 +1,7 @@
 const { z } = require("zod");
 const asyncHandler = require("../utils/asyncHandler");
 const employeeService = require("../services/employeeService");
+const { AppError } = require("../utils/errors");
 
 const DIRECT_RECRUITMENT_MODES = ["KPSC", "DRC", "SRC", "OTHER"];
 const UNSCHOOLED_EDUCATION_LABEL = "Unschooled/UnEducated";
@@ -153,6 +154,65 @@ const parseFlexibleBoolean = (value) => {
 };
 
 const DD_MM_YYYY_REGEX = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+const YYYY_MM_DD_PREFIX_REGEX = /^(\d{4})-(\d{2})-(\d{2})/;
+
+const toUtcNoonFromYmd = (year, month, day) => {
+  const parsed = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
+  const isValid =
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day;
+  return isValid ? parsed : new Date(Number.NaN);
+};
+
+const parsePastServiceCalendarDate = (value) => {
+  if (value === "" || value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      return value;
+    }
+    // Preserve the calendar day entered by users regardless of timezone.
+    return toUtcNoonFromYmd(
+      value.getFullYear(),
+      value.getMonth() + 1,
+      value.getDate()
+    );
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return undefined;
+  }
+
+  const isoPrefixMatch = YYYY_MM_DD_PREFIX_REGEX.exec(text);
+  if (isoPrefixMatch) {
+    const year = Number(isoPrefixMatch[1]);
+    const month = Number(isoPrefixMatch[2]);
+    const day = Number(isoPrefixMatch[3]);
+    return toUtcNoonFromYmd(year, month, day);
+  }
+
+  const ddmmyyyyMatch = DD_MM_YYYY_REGEX.exec(text);
+  if (ddmmyyyyMatch) {
+    const day = Number(ddmmyyyyMatch[1]);
+    const month = Number(ddmmyyyyMatch[2]);
+    const year = Number(ddmmyyyyMatch[3]);
+    return toUtcNoonFromYmd(year, month, day);
+  }
+
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) {
+    return new Date(Number.NaN);
+  }
+  return toUtcNoonFromYmd(
+    parsed.getUTCFullYear(),
+    parsed.getUTCMonth() + 1,
+    parsed.getUTCDate()
+  );
+};
 
 const parseFlexibleDate = (value) => {
   if (value === "" || value === null || value === undefined) {
@@ -191,6 +251,8 @@ const parseFlexibleDate = (value) => {
 };
 
 const requiredDateSchema = () => z.preprocess(parseFlexibleDate, z.date());
+const requiredDateOnlySchema = () =>
+  z.preprocess(parsePastServiceCalendarDate, z.date());
 const parseOptionalFlexibleDate = (value) => {
   const parsed = parseFlexibleDate(value);
   if (parsed instanceof Date && Number.isNaN(parsed.getTime())) {
@@ -264,8 +326,8 @@ const pastServiceSchema = z
       (value) => toOptionalString(value),
       z.string().optional()
     ),
-    fromDate: requiredDateSchema(),
-    toDate: requiredDateSchema(),
+    fromDate: requiredDateOnlySchema(),
+    toDate: requiredDateOnlySchema(),
     tenure: z.string().optional().default(""),
     joiningDocument: z.string().optional().default(""),
   })
@@ -290,7 +352,11 @@ const educationSchema = z
     qualification: z.string().optional(),
     degree: z.string().optional(),
     institution: z.string().optional(),
-    level: z.string().optional(),
+    level: z.preprocess((value) => toOptionalString(value), z.string().optional()),
+    customEducationLevel: z.preprocess(
+      (value) => toOptionalString(value),
+      z.string().max(100, "customEducationLevel must be at most 100 characters").optional()
+    ),
     otherStateLocation: z.preprocess(
       (value) => toOptionalString(value),
       z.string().optional()
@@ -306,7 +372,19 @@ const educationSchema = z
     documentSizeKB: z.coerce.number().optional(),
     documentUploadedAt: z.string().optional(),
   })
-  .strip();
+  .strip()
+  .superRefine((entry, ctx) => {
+    if (String(entry.level || "").trim().toLowerCase() !== "others") {
+      return;
+    }
+    if (!toOptionalString(entry.customEducationLevel)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["customEducationLevel"],
+        message: "customEducationLevel is required when educationLevel is Others.",
+      });
+    }
+  });
 
 const postgradSchema = z.object({
   qualification: z.string().optional(),
@@ -837,6 +915,14 @@ const normalizeEducationEntries = (body) => {
   return rawEntries
     .map((entry = {}) => {
       const unschooled = isUnschooledEducationEntry(entry);
+      const normalizedEducationLevel = normalizeEducationLabel(
+        entry.level ?? entry.educationLevel
+      );
+      const isOthersEducationLevel =
+        String(normalizedEducationLevel || "").trim().toLowerCase() === "others";
+      const customEducationLevel = toOptionalString(
+        entry.customEducationLevel ?? entry.otherEducationLevel
+      );
       return {
         type: unschooled
           ? UNSCHOOLED_EDUCATION_LABEL
@@ -848,7 +934,9 @@ const normalizeEducationEntries = (body) => {
         institution: toOptionalString(entry.institution),
         level: unschooled
           ? UNSCHOOLED_EDUCATION_LABEL
-          : normalizeEducationLabel(entry.level),
+          : normalizedEducationLevel,
+        customEducationLevel:
+          unschooled || !isOthersEducationLevel ? undefined : customEducationLevel,
         otherStateLocation: toOptionalString(entry.otherStateLocation),
         institutionName: toOptionalString(entry.institutionName ?? entry.institution),
         university: toOptionalString(entry.university),
@@ -1134,6 +1222,7 @@ const formatValidationIssues = (issues = []) =>
   }));
 
 const listEmployees = asyncHandler(async (req, res) => {
+  const requestId = getApiGatewayRequestId(req);
   const parsed = parseListQuery(req.query);
   const pageSize = parsed.pageSize ?? parsed.limit ?? 50;
   const search = parsed.search || parsed.query || "";
@@ -1141,6 +1230,8 @@ const listEmployees = asyncHandler(async (req, res) => {
     ...parsed,
     pageSize,
     search,
+    actor: req.user,
+    requestId,
   });
   res.set("Cache-Control", "no-store");
   res.json(result);
@@ -1153,25 +1244,96 @@ const exportEmployees = asyncHandler(async (req, res) => {
 });
 
 const getSuggestions = asyncHandler(async (req, res) => {
+  const requestId = getApiGatewayRequestId(req);
   const query = parseSuggestionsQuery(req.query);
-  const result = await employeeService.getSuggestions(query);
+  const result = await employeeService.getSuggestions({
+    ...query,
+    actor: req.user,
+    requestId,
+  });
   res.json(result);
 });
 
 const filterEmployees = asyncHandler(async (req, res) => {
+  const requestId = getApiGatewayRequestId(req);
   const filters = parseEmployeeFilterQuery(req.query);
-  const result = await employeeService.listEmployeesByFilters(filters);
+  const result = await employeeService.listEmployeesByFilters(filters, {
+    actor: req.user,
+    requestId,
+  });
   res.set("Cache-Control", "no-store");
   res.json(result);
 });
 
 const getEmployeeById = asyncHandler(async (req, res) => {
-  const id = Number(req.params.id);
-  if (Number.isNaN(id)) {
-    return res.status(400).json({ message: "Invalid employee id" });
+  const requestId = getApiGatewayRequestId(req);
+  console.info("[employees.getById] Route entry", {
+    method: req.method,
+    path: req.originalUrl,
+    paramsId: req.params?.id,
+    requestId: requestId || null,
+  });
+  const id = Number.parseInt(String(req.params.id), 10);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({
+      message: "Invalid employee id",
+      ...(requestId ? { requestId } : {}),
+    });
   }
-  const employee = await employeeService.getEmployeeById(id);
-  res.json(employee);
+  console.info("[employees.getById] Parsed employee id", {
+    employeeId: id,
+    requestId: requestId || null,
+  });
+  try {
+    console.info("[employees.getById] Calling service", {
+      employeeId: id,
+      requestId: requestId || null,
+    });
+    const employee = await employeeService.getEmployeeById(id, {
+      requestId,
+      actor: req.user,
+    });
+    console.info("[employees.getById] Service returned employee", {
+      employeeId: id,
+      requestId: requestId || null,
+    });
+    return res.status(200).json(employee);
+  } catch (error) {
+    if (error instanceof AppError && error.status === 400) {
+      console.warn("[employees.getById] Invalid employee id in service", {
+        employeeId: id,
+        requestId: requestId || null,
+        message: error?.message,
+      });
+      return res.status(400).json({
+        error: error.message || "Invalid employee id",
+        ...(requestId ? { requestId } : {}),
+      });
+    }
+    if (error instanceof AppError && error.status === 404) {
+      console.warn("[employees.getById] Employee not found", {
+        employeeId: id,
+        requestId: requestId || null,
+      });
+      return res.status(404).json({
+        error: "Employee not found",
+        id: String(id),
+        ...(requestId ? { requestId } : {}),
+      });
+    }
+    console.error("[employees.getById] Failed to fetch employee", {
+      employeeId: id,
+      requestId: requestId || null,
+      name: error?.name,
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+    });
+    return res.status(500).json({
+      error: "Failed to fetch employee details",
+      ...(requestId ? { requestId } : {}),
+    });
+  }
 });
 
 const deleteEmployee = asyncHandler(async (req, res) => {
@@ -1188,7 +1350,12 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 
 const createEmployee = asyncHandler(async (req, res) => {
   const requestId = getApiGatewayRequestId(req);
+  console.info("[employees.submit] request.isDraft", {
+    requestId: requestId || null,
+    isDraft: req.body?.isDraft,
+  });
   const normalized = normalizeEmployeePayload(req.body);
+  normalized.submittedOn = normalized.submittedOn || new Date();
   const parsed = employeeSchema.safeParse(normalized);
   if (!parsed.success) {
     return res.status(400).json({
@@ -1200,6 +1367,7 @@ const createEmployee = asyncHandler(async (req, res) => {
   try {
     const employee = await employeeService.createEmployee(parsed.data, {
       requestId,
+      actor: req.user,
     });
     res.status(201).json(employee);
   } catch (error) {
@@ -1214,7 +1382,24 @@ const createEmployee = asyncHandler(async (req, res) => {
         requestId,
       };
     }
-    throw error;
+    if (error instanceof AppError) {
+      if (error.status >= 500) {
+        return res.status(500).json({
+          error: "Unable to submit the form. Please try again.",
+          ...(requestId ? { requestId } : {}),
+        });
+      }
+      throw error;
+    }
+    console.error("[employees.submit] Unexpected create error", {
+      requestId: requestId || null,
+      message: error?.message,
+      stack: error?.stack,
+    });
+    return res.status(500).json({
+      error: "Unable to submit the form. Please try again.",
+      ...(requestId ? { requestId } : {}),
+    });
   }
 });
 
@@ -1223,10 +1408,42 @@ const updateEmployee = asyncHandler(async (req, res) => {
   if (Number.isNaN(id)) {
     return res.status(400).json({ message: "Invalid employee id" });
   }
+  const requestId = getApiGatewayRequestId(req);
+  console.info("[employees.submit] request.isDraft", {
+    requestId: requestId || null,
+    employeeId: id,
+    isDraft: req.body?.isDraft,
+  });
   const normalized = normalizeEmployeePayload(req.body);
-  const payload = employeeSchema.parse(normalized);
-  const employee = await employeeService.updateEmployee(id, payload);
-  res.json(employee);
+  normalized.submittedOn = normalized.submittedOn || new Date();
+  try {
+    const payload = employeeSchema.parse(normalized);
+    const employee = await employeeService.updateEmployee(id, payload);
+    res.json(employee);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw error;
+    }
+    if (error instanceof AppError) {
+      if (error.status >= 500) {
+        return res.status(500).json({
+          error: "Unable to submit the form. Please try again.",
+          ...(requestId ? { requestId } : {}),
+        });
+      }
+      throw error;
+    }
+    console.error("[employees.submit] Unexpected update error", {
+      requestId: requestId || null,
+      employeeId: id,
+      message: error?.message,
+      stack: error?.stack,
+    });
+    return res.status(500).json({
+      error: "Unable to submit the form. Please try again.",
+      ...(requestId ? { requestId } : {}),
+    });
+  }
 });
 
 module.exports = {

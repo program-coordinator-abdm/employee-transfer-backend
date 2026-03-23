@@ -129,6 +129,7 @@ const mapTransferApplication = (entry) => {
   spouseGovtServiceDocUrl: entry.spouseGovtServiceDocUrl,
   ngoBenefits: entry.ngoBenefits ?? false,
   ngoBenefitsDoc: entry.ngoBenefitsDoc,
+  remarks: entry.remarks,
   status: entry.status,
   submittedAt: entry.submittedAt,
   createdByUserId: entry.createdByUserId,
@@ -177,6 +178,7 @@ const buildTransferApplicationData = (payload) => ({
     spouseGovtServiceDocUrl: payload.spouseGovtServiceDocUrl || null,
     ngoBenefits: Boolean(payload.ngoBenefits),
     ngoBenefitsDoc: payload.ngoBenefitsDoc || null,
+    remarks: payload.remarks || null,
 });
 
 const buildServiceDetailsData = (transferApplicationId, details = []) =>
@@ -195,51 +197,6 @@ const buildServiceDetailsData = (transferApplicationId, details = []) =>
         ? index + 1
         : entry.orderIndex,
   }));
-
-const validateFinalSubmission = (application) => {
-  const issues = [];
-
-  if (application.terminallyIll && !toOptionalString(application.terminallyIllDocUrl)) {
-    issues.push({
-      path: "terminallyIllDocUrl",
-      message: "Terminally ill document is required for final submission",
-    });
-  }
-  if (
-    application.physicallyChallenged &&
-    !toOptionalString(application.physicallyChallengedDocUrl)
-  ) {
-    issues.push({
-      path: "physicallyChallengedDocUrl",
-      message: "Physically challenged document is required for final submission",
-    });
-  }
-  if (application.widow && !toOptionalString(application.widowDocUrl)) {
-    issues.push({
-      path: "widowDocUrl",
-      message: "Widow document is required for final submission",
-    });
-  }
-  if (
-    application.spouseInGovtService &&
-    !toOptionalString(application.spouseGovtServiceDocUrl)
-  ) {
-    issues.push({
-      path: "spouseGovtServiceDocUrl",
-      message: "Spouse government service document is required for final submission",
-    });
-  }
-  if (application.ngoBenefits && !toOptionalString(application.ngoBenefitsDoc)) {
-    issues.push({
-      path: "ngoBenefitsDoc",
-      message: "Elected members document is required for final submission",
-    });
-  }
-
-  if (issues.length > 0) {
-    throw new AppError("Final submission validation failed", 400, { issues });
-  }
-};
 
 const createTransferApplication = async (payload, actor) =>
   prisma.$transaction(async (tx) => {
@@ -341,7 +298,6 @@ const submitTransferApplication = async (id, actor) =>
       });
     }
 
-    validateFinalSubmission(existing);
     const actorInfo = await resolveActor(tx, actor);
 
     const updated = await tx.transferApplication.update({

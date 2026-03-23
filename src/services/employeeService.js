@@ -43,6 +43,25 @@ const calculateTotalExperienceYears = (assignments) => {
   return Math.max(0, Math.floor(totalMonths / 12));
 };
 
+const toIsoStringOrNull = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
+
+const toDateOnlyStringOrNull = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const year = parsed.getUTCFullYear();
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const normalizeSearchMode = (value) => {
   const normalized = String(value || "")
     .trim()
@@ -129,22 +148,32 @@ const normalizeDesignationForRead = (value) => {
   return mapped || value;
 };
 
-const mapAssignment = (entry) => ({
-  role: normalizeDesignationForRead(entry.role),
-  city: entry.city,
-  hospital: entry.hospital,
-  position: normalizeDesignationForRead(entry.position),
-  district: entry.district || entry.city,
-  startedOn: entry.startedOn.toISOString(),
-  endedOn: entry.endedOn ? entry.endedOn.toISOString() : null,
-  period: entry.period || formatPeriod(entry.startedOn, entry.endedOn),
-  type: entry.type,
-});
+const mapAssignment = (entry) => {
+  const startedOn = toIsoStringOrNull(entry.startedOn);
+  const endedOn = toIsoStringOrNull(entry.endedOn);
+  return {
+    role: normalizeDesignationForRead(entry.role),
+    city: entry.city,
+    hospital: entry.hospital,
+    position: normalizeDesignationForRead(entry.position),
+    district: entry.district || entry.city,
+    startedOn,
+    endedOn,
+    period: entry.period || formatPeriod(entry.startedOn, entry.endedOn),
+    type: entry.type,
+  };
+};
 
 const mapEducationDetails = (entries = []) =>
   entries.map((entry) => ({
     level: entry.level || "",
     otherStateLocation: entry.otherStateLocation || "",
+    customEducationLevel: entry.customEducationLevel || "",
+    educationLevel: entry.level || "",
+    effectiveEducationLevel:
+      String(entry.level || "").trim().toLowerCase() === "others"
+        ? entry.customEducationLevel || ""
+        : entry.level || "",
     institution: entry.institutionName || entry.institution || "",
     yearOfPassing: entry.yearOfPassing || entry.year || "",
     gradePercentage: entry.gradePercentage || "",
@@ -265,9 +294,6 @@ const mapPrismaCreateEmployeeError = (error, requestId) => {
       if (fields.includes("empKgid")) {
         return new AppError("Duplicate KGID", 400, baseDetails);
       }
-      if (fields.includes("email")) {
-        return new AppError("Duplicate email", 400, baseDetails);
-      }
       return new AppError("Duplicate entry", 400, {
         ...baseDetails,
         message:
@@ -320,19 +346,15 @@ const mapPrismaCreateEmployeeError = (error, requestId) => {
 // Duplicate guard section: KGID is always validated as unique (case-insensitive).
 const validateEmployeeUniqueness = async (
   tx,
-  { empKgid, email, excludeEmployeeId = null }
+  { empKgid, excludeEmployeeId = null }
 ) => {
   const duplicate = await tx.employee.findFirst({
     where: {
-      OR: [
-        { empKgid: { equals: empKgid, mode: "insensitive" } },
-        { email: { equals: email, mode: "insensitive" } },
-      ],
+      empKgid: { equals: empKgid, mode: "insensitive" },
       ...(excludeEmployeeId ? { NOT: { id: excludeEmployeeId } } : {}),
     },
     select: {
       empKgid: true,
-      email: true,
     },
   });
 
@@ -343,9 +365,6 @@ const validateEmployeeUniqueness = async (
     normalizeForCompare(duplicate.empKgid) === normalizeForCompare(empKgid)
   ) {
     duplicateFields.push("empKgid");
-  }
-  if (normalizeForCompare(duplicate.email) === normalizeForCompare(email)) {
-    duplicateFields.push("email");
   }
   throw buildDuplicateEntryError(duplicateFields);
 };
@@ -437,7 +456,19 @@ const mapEmployeeList = (employee) => {
 const mapEmployeeDetail = (employee) => {
   const assignments = (employee.assignmentHistory || []).map(mapAssignment);
   const totalExperienceYears = calculateTotalExperienceYears(assignments);
-  const education = employee.educations || [];
+  const education = (employee.educations || []).map((entry) => ({
+    ...entry,
+    educationLevel: entry.level || null,
+    effectiveEducationLevel:
+      String(entry.level || "").trim().toLowerCase() === "others"
+        ? entry.customEducationLevel || entry.level || null
+        : entry.level || null,
+  }));
+  const pastServices = (employee.pastServices || []).map((entry) => ({
+    ...entry,
+    fromDate: toDateOnlyStringOrNull(entry.fromDate),
+    toDate: toDateOnlyStringOrNull(entry.toDate),
+  }));
 
   return {
     id: String(employee.id),
@@ -571,10 +602,8 @@ const mapEmployeeDetail = (employee) => {
     officerDeclDate: employee.declaration?.officerDeclDate,
     declarationRemarks: employee.declaration?.remarks,
     assignmentHistory: assignments,
-    pastServices: employee.pastServices || [],
-    pastServiceDocs: (employee.pastServices || []).map(
-      (entry) => entry.joiningDocument || ""
-    ),
+    pastServices,
+    pastServiceDocs: pastServices.map((entry) => entry.joiningDocument || ""),
     education,
     educationDetails: mapEducationDetails(education),
     postgraduateQualifications: employee.postgraduateQualifications || [],
@@ -616,14 +645,138 @@ const toOptionalString = (value) => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
+const ACCESS_UNRESTRICTED_USERNAMES = new Set(["admin", "dataofficer"]);
+
+const normalizeUsername = (value) => {
+  const normalized = toOptionalString(value);
+  return normalized ? normalized.toLowerCase() : null;
+};
+
+const normalizeUserId = (value) => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) return null;
+  return parsed;
+};
+
+const resolveEmployeeAccessScope = async (
+  client,
+  actor,
+  { requestId, context = "unknown" } = {}
+) => {
+  if (!actor) {
+    console.info("[employees.access] Scope resolved", {
+      context,
+      requestId: requestId || null,
+      loggedInUsername: null,
+      role: null,
+      mode: "unrestricted",
+      reason: "no-actor-context",
+    });
+    return {
+      userId: null,
+      username: null,
+      role: null,
+      unrestricted: true,
+    };
+  }
+
+  const userId = normalizeUserId(actor.id ?? actor.userId);
+  let username = normalizeUsername(actor.username);
+  let role = toOptionalString(actor.role);
+
+  if ((!username || !role) && userId) {
+    const user = await client.user.findUnique({
+      where: { id: userId },
+      select: {
+        username: true,
+        role: true,
+      },
+    });
+    if (!username) {
+      username = normalizeUsername(user?.username);
+    }
+    if (!role) {
+      role = toOptionalString(user?.role);
+    }
+  }
+
+  const unrestricted = Boolean(
+    username && ACCESS_UNRESTRICTED_USERNAMES.has(username)
+  );
+  const mode = unrestricted ? "unrestricted" : "self-only";
+
+  console.info("[employees.access] Scope resolved", {
+    context,
+    requestId: requestId || null,
+    loggedInUsername: username || null,
+    role: role || null,
+    userId: userId || null,
+    mode,
+  });
+
+  return {
+    userId,
+    username,
+    role,
+    unrestricted,
+  };
+};
+
+const buildEmployeeAccessWhere = (scope) => {
+  if (!scope || scope.unrestricted) {
+    return {};
+  }
+  if (scope.userId) {
+    return { createdByUserId: scope.userId };
+  }
+  if (scope.username) {
+    return {
+      createdByUsername: {
+        equals: scope.username,
+        mode: "insensitive",
+      },
+    };
+  }
+  return { id: -1 };
+};
+
+const canAccessEmployeeRecord = (scope, employee) => {
+  if (!scope || scope.unrestricted) return true;
+  if (!employee) return false;
+
+  const employeeCreatorUserId = normalizeUserId(employee.createdByUserId);
+  if (scope.userId && employeeCreatorUserId && scope.userId === employeeCreatorUserId) {
+    return true;
+  }
+
+  const employeeCreatorUsername = normalizeUsername(employee.createdByUsername);
+  if (scope.username && employeeCreatorUsername && scope.username === employeeCreatorUsername) {
+    return true;
+  }
+
+  return false;
+};
+
 const toInsensitiveEqualsFilter = (value) => {
   const normalized = toOptionalString(value);
   if (!normalized) return undefined;
   return { equals: normalized, mode: "insensitive" };
 };
 
-const listEmployees = async ({ category, page, pageSize, search }) => {
+const listEmployees = async ({
+  category,
+  page,
+  pageSize,
+  search,
+  actor,
+  requestId,
+}) => {
+  const accessScope = await resolveEmployeeAccessScope(prisma, actor, {
+    requestId,
+    context: "list",
+  });
   const where = combineWhereClauses(
+    buildEmployeeAccessWhere(accessScope),
     buildListSearchWhere(search),
     buildCategoryWhere(category)
   );
@@ -649,7 +802,11 @@ const listEmployees = async ({ category, page, pageSize, search }) => {
   };
 };
 
-const listEmployeesByFilters = async (filters = {}) => {
+const listEmployeesByFilters = async (filters = {}, options = {}) => {
+  const accessScope = await resolveEmployeeAccessScope(prisma, options.actor, {
+    requestId: options.requestId,
+    context: "filter",
+  });
   const where = {};
 
   const districtFilter = toInsensitiveEqualsFilter(filters.district);
@@ -710,7 +867,7 @@ const listEmployeesByFilters = async (filters = {}) => {
   }
 
   const rows = await prisma.employee.findMany({
-    where,
+    where: combineWhereClauses(where, buildEmployeeAccessWhere(accessScope)),
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
       id: true,
@@ -738,9 +895,21 @@ const listEmployeesByFilters = async (filters = {}) => {
   }));
 };
 
-const getSuggestions = async ({ category, searchMode, query, limit }) => {
+const getSuggestions = async ({
+  category,
+  searchMode,
+  query,
+  limit,
+  actor,
+  requestId,
+}) => {
   if (!query) return [];
+  const accessScope = await resolveEmployeeAccessScope(prisma, actor, {
+    requestId,
+    context: "suggestions",
+  });
   const where = combineWhereClauses(
+    buildEmployeeAccessWhere(accessScope),
     buildSearchWhere(searchMode, query),
     buildCategoryWhere(category)
   );
@@ -851,32 +1020,523 @@ const streamEmployeesCsv = async (res, { category, search }) => {
   }
 };
 
-const fetchEmployeeWithRelations = async (client, id) =>
-  client.employee.findUnique({
-    where: { id },
-    include: {
-      assignmentHistory: { orderBy: { startedOn: "asc" } },
-      pastServices: true,
-      educations: true,
-      postgraduateQualifications: true,
-      timeboundPromotions: true,
-      administrativeRoles: true,
-      additionalCharges: true,
-      achievements: true,
-      disciplinaryRecord: true,
-      declaration: true,
-      serviceInformation: true,
-      appointmentDetails: true,
-      documents: true,
-    },
+const EMPLOYEE_DETAIL_RELATION_TIMEOUT_MS = (() => {
+  const parsed = Number(process.env.EMPLOYEE_DETAIL_RELATION_TIMEOUT_MS || "5000");
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5000;
+})();
+const RELATION_QUERY_TIMEOUT = Symbol("employee-relation-query-timeout");
+
+const ASSIGNMENT_HISTORY_SELECT = {
+  role: true,
+  city: true,
+  hospital: true,
+  position: true,
+  district: true,
+  startedOn: true,
+  endedOn: true,
+  period: true,
+  type: true,
+};
+
+const PAST_SERVICE_SELECT = {
+  id: true,
+  employeeId: true,
+  postHeld: true,
+  postGroup: true,
+  postSubGroup: true,
+  firstPostHeld: true,
+  institutionType: true,
+  hfrId: true,
+  institution: true,
+  district: true,
+  taluk: true,
+  cityTownVillage: true,
+  fromDate: true,
+  toDate: true,
+  tenure: true,
+  joiningDocument: true,
+};
+
+const EDUCATION_SELECT = {
+  id: true,
+  employeeId: true,
+  type: true,
+  qualification: true,
+  degree: true,
+  institution: true,
+  level: true,
+  institutionName: true,
+  university: true,
+  year: true,
+  yearOfPassing: true,
+  gradePercentage: true,
+  specialization: true,
+  documentName: true,
+  documentUrl: true,
+  documentSizeKB: true,
+  documentUploadedAt: true,
+};
+
+const POSTGRAD_SELECT = {
+  id: true,
+  employeeId: true,
+  qualification: true,
+  degree: true,
+  institution: true,
+  university: true,
+  year: true,
+  specialization: true,
+};
+
+const TIMEBOUND_PROMOTION_SELECT = {
+  id: true,
+  employeeId: true,
+  label: true,
+  status: true,
+  order: true,
+  date: true,
+};
+
+const ADMIN_ROLE_SELECT = {
+  id: true,
+  employeeId: true,
+  role: true,
+  fromDate: true,
+  toDate: true,
+  details: true,
+};
+
+const ADDITIONAL_CHARGE_SELECT = {
+  id: true,
+  employeeId: true,
+  designation: true,
+  place: true,
+  fromDate: true,
+  toDate: true,
+};
+
+const ACHIEVEMENT_SELECT = {
+  id: true,
+  employeeId: true,
+  type: true,
+  description: true,
+};
+
+const DISCIPLINARY_RECORD_SELECT = {
+  id: true,
+  employeeId: true,
+  departmentalEnquiries: true,
+  suspensionPeriods: true,
+  punishmentsReceived: true,
+  criminalProceedings: true,
+  pendingLegalMatters: true,
+};
+
+const DECLARATION_SELECT = {
+  id: true,
+  employeeId: true,
+  empDeclAgreed: true,
+  empDeclName: true,
+  empDeclDate: true,
+  officerDeclAgreed: true,
+  officerDeclName: true,
+  officerDeclDate: true,
+  remarks: true,
+};
+
+const SERVICE_INFORMATION_SELECT = {
+  id: true,
+  employeeId: true,
+  deputedByGovernment: true,
+  specialistService: true,
+  trainingInHospitalAdmin: true,
+  spouseInGovtService: true,
+  spouseServiceDetails: true,
+};
+
+const APPOINTMENT_DETAILS_SELECT = {
+  id: true,
+  employeeId: true,
+  slNoInOrder: true,
+  orderNoAndDate: true,
+  dateOfInitialAppointment: true,
+};
+
+const DOCUMENT_SELECT = {
+  id: true,
+  employeeId: true,
+  name: true,
+  sizeKB: true,
+  uploadedAt: true,
+  downloadUrl: true,
+};
+
+const fetchRelationWithLogs = async ({
+  client,
+  employeeId,
+  requestId,
+  queryName,
+  fetcher,
+  fallbackValue,
+  allowPartialRelations,
+  timeoutMs,
+}) => {
+  const startedAt = Date.now();
+  console.info("[employees.getById] Relation query start", {
+    employeeId,
+    requestId: requestId || null,
+    queryName,
   });
 
-const getEmployeeById = async (id) => {
-  const employee = await fetchEmployeeWithRelations(prisma, id);
-  if (!employee) {
-    throw new AppError("Employee not found", 404);
+  try {
+    const queryPromise = fetcher();
+    const result = allowPartialRelations
+      ? await Promise.race([
+          queryPromise,
+          new Promise((resolve) => {
+            setTimeout(() => resolve(RELATION_QUERY_TIMEOUT), timeoutMs);
+          }),
+        ])
+      : await queryPromise;
+
+    if (result === RELATION_QUERY_TIMEOUT) {
+      console.warn("[employees.getById] Relation query timed out", {
+        employeeId,
+        requestId: requestId || null,
+        queryName,
+        durationMs: Date.now() - startedAt,
+        timeoutMs,
+      });
+      return fallbackValue;
+    }
+
+    const resultMeta = Array.isArray(result)
+      ? { count: result.length }
+      : { found: Boolean(result) };
+    console.info("[employees.getById] Relation query end", {
+      employeeId,
+      requestId: requestId || null,
+      queryName,
+      durationMs: Date.now() - startedAt,
+      ...resultMeta,
+    });
+    return result;
+  } catch (error) {
+    console.error("[employees.getById] Relation query failed", {
+      employeeId,
+      requestId: requestId || null,
+      queryName,
+      durationMs: Date.now() - startedAt,
+      name: error?.name,
+      code: error?.code,
+      message: error?.message,
+      stack: error?.stack,
+    });
+    if (!allowPartialRelations) {
+      throw error;
+    }
+    return fallbackValue;
   }
-  return mapEmployeeDetail(employee);
+};
+
+const fetchEmployeeWithRelations = async (client, id, options = {}) => {
+  const requestId = toOptionalString(options.requestId);
+  const allowPartialRelations = Boolean(options.allowPartialRelations);
+  const parsedTimeout = Number(options.timeoutMs);
+  const timeoutMs =
+    Number.isFinite(parsedTimeout) && parsedTimeout > 0
+      ? parsedTimeout
+      : EMPLOYEE_DETAIL_RELATION_TIMEOUT_MS;
+
+  const coreQueryStartedAt = Date.now();
+  console.info("[employees.getById] Core employee query start", {
+    employeeId: id,
+    requestId: requestId || null,
+  });
+  const employee = await client.employee.findUnique({
+    where: { id },
+  });
+  console.info("[employees.getById] Core employee query end", {
+    employeeId: id,
+    requestId: requestId || null,
+    durationMs: Date.now() - coreQueryStartedAt,
+    found: Boolean(employee),
+  });
+  if (!employee) {
+    return null;
+  }
+
+  const [
+    assignmentHistory,
+    pastServices,
+    educations,
+    postgraduateQualifications,
+    timeboundPromotions,
+    administrativeRoles,
+    additionalCharges,
+    achievements,
+    disciplinaryRecord,
+    declaration,
+    serviceInformation,
+    appointmentDetails,
+    documents,
+  ] = await Promise.all([
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "assignmentHistory",
+      fetcher: () =>
+        client.assignmentHistory.findMany({
+          where: { employeeId: id },
+          orderBy: { startedOn: "asc" },
+          select: ASSIGNMENT_HISTORY_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "pastServices",
+      fetcher: () =>
+        client.pastService.findMany({
+          where: { employeeId: id },
+          select: PAST_SERVICE_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "educations",
+      fetcher: () =>
+        client.education.findMany({
+          where: { employeeId: id },
+          select: EDUCATION_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "postgraduateQualifications",
+      fetcher: () =>
+        client.postgraduateQualification.findMany({
+          where: { employeeId: id },
+          select: POSTGRAD_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "timeboundPromotions",
+      fetcher: () =>
+        client.timeboundPromotion.findMany({
+          where: { employeeId: id },
+          select: TIMEBOUND_PROMOTION_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "administrativeRoles",
+      fetcher: () =>
+        client.administrativeRole.findMany({
+          where: { employeeId: id },
+          select: ADMIN_ROLE_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "additionalCharges",
+      fetcher: () =>
+        client.additionalCharge.findMany({
+          where: { employeeId: id },
+          select: ADDITIONAL_CHARGE_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "achievements",
+      fetcher: () =>
+        client.achievement.findMany({
+          where: { employeeId: id },
+          select: ACHIEVEMENT_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "disciplinaryRecord",
+      fetcher: () =>
+        client.disciplinaryRecord.findUnique({
+          where: { employeeId: id },
+          select: DISCIPLINARY_RECORD_SELECT,
+        }),
+      fallbackValue: null,
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "declaration",
+      fetcher: () =>
+        client.declaration.findUnique({
+          where: { employeeId: id },
+          select: DECLARATION_SELECT,
+        }),
+      fallbackValue: null,
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "serviceInformation",
+      fetcher: () =>
+        client.serviceInformation.findUnique({
+          where: { employeeId: id },
+          select: SERVICE_INFORMATION_SELECT,
+        }),
+      fallbackValue: null,
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "appointmentDetails",
+      fetcher: () =>
+        client.appointmentDetails.findUnique({
+          where: { employeeId: id },
+          select: APPOINTMENT_DETAILS_SELECT,
+        }),
+      fallbackValue: null,
+      allowPartialRelations,
+      timeoutMs,
+    }),
+    fetchRelationWithLogs({
+      client,
+      employeeId: id,
+      requestId,
+      queryName: "documents",
+      fetcher: () =>
+        client.document.findMany({
+          where: { employeeId: id },
+          select: DOCUMENT_SELECT,
+        }),
+      fallbackValue: [],
+      allowPartialRelations,
+      timeoutMs,
+    }),
+  ]);
+
+  return {
+    ...employee,
+    assignmentHistory,
+    pastServices,
+    educations,
+    postgraduateQualifications,
+    timeboundPromotions,
+    administrativeRoles,
+    additionalCharges,
+    achievements,
+    disciplinaryRecord,
+    declaration,
+    serviceInformation,
+    appointmentDetails,
+    documents,
+  };
+};
+
+const getEmployeeById = async (id, options = {}) => {
+  const requestId = toOptionalString(options.requestId);
+  console.info("[employees.getById] Service start", {
+    employeeId: id,
+    requestId: requestId || null,
+  });
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new AppError("Invalid employee id", 400, {
+      ...(requestId ? { requestId } : {}),
+    });
+  }
+  const accessScope = await resolveEmployeeAccessScope(prisma, options.actor, {
+    requestId,
+    context: "detail",
+  });
+  const employee = await fetchEmployeeWithRelations(prisma, id, {
+    requestId,
+    allowPartialRelations: true,
+  });
+  if (!employee) {
+    console.info("[employees.getById] Service result not found", {
+      employeeId: id,
+      requestId: requestId || null,
+    });
+    throw new AppError("Employee not found", 404, {
+      ...(requestId ? { requestId } : {}),
+    });
+  }
+  if (!canAccessEmployeeRecord(accessScope, employee)) {
+    console.warn("[employees.getById] Access denied for employee detail", {
+      employeeId: id,
+      requestId: requestId || null,
+      loggedInUsername: accessScope.username || null,
+      role: accessScope.role || null,
+      mode: "self-only",
+    });
+    throw new AppError("Employee not found", 404, {
+      ...(requestId ? { requestId } : {}),
+    });
+  }
+  const mapped = mapEmployeeDetail(employee);
+  console.info("[employees.getById] Service success", {
+    employeeId: id,
+    requestId: requestId || null,
+    assignmentHistoryCount: Array.isArray(mapped.assignmentHistory)
+      ? mapped.assignmentHistory.length
+      : 0,
+    pastServicesCount: Array.isArray(mapped.pastServices)
+      ? mapped.pastServices.length
+      : 0,
+    educationCount: Array.isArray(mapped.education) ? mapped.education.length : 0,
+  });
+  return mapped;
 };
 
 const deleteEmployee = async (id) => {
@@ -933,6 +1593,7 @@ const buildEmployeeCreateData = ({
   dateOfEntry,
   dateOfJoining,
   yearsOfWork,
+  creator,
 }) => ({
   empName,
   empKgid: payload.empKgid,
@@ -1055,11 +1716,17 @@ const buildEmployeeCreateData = ({
   spouseCityTownVillage: toNullableString(payload.spouseCityTownVillage),
   ngoBenefits: Boolean(payload.ngoBenefits),
   ngoBenefitsDoc: toNullableString(payload.ngoBenefitsDoc),
+  createdByUserId: creator?.userId || null,
+  createdByUsername: creator?.username || null,
 });
 
 const createEmployee = async (payload, options = {}) => {
   const requestId = toNullableString(options.requestId);
   validateRequiredCreateFields(payload, requestId);
+  const creatorScope = await resolveEmployeeAccessScope(prisma, options.actor, {
+    requestId,
+    context: "create",
+  });
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -1080,7 +1747,6 @@ const createEmployee = async (payload, options = {}) => {
 
       await validateEmployeeUniqueness(tx, {
         empKgid: payload.empKgid,
-        email: payload.email,
       });
 
       const employee = await tx.employee.create({
@@ -1090,6 +1756,7 @@ const createEmployee = async (payload, options = {}) => {
           dateOfEntry,
           dateOfJoining,
           yearsOfWork,
+          creator: creatorScope,
         }),
       });
 
@@ -1265,7 +1932,6 @@ const updateEmployee = async (id, payload) => {
 
     await validateEmployeeUniqueness(tx, {
       empKgid: payload.empKgid,
-      email: payload.email,
       excludeEmployeeId: id,
     });
 
