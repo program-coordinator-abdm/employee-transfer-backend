@@ -44,7 +44,7 @@ const handleUpload = (req, res, next) => {
 };
 
 router.use(authMiddleware);
-router.use(authorizeRoles("ADMIN", "TRANSFER_OPERATOR"));
+router.use(authorizeRoles("ADMIN", "TRANSFER_OFFICER"));
 
 router.post("/", transfersController.createTransferApplication);
 router.get("/", transfersController.listTransferApplications);

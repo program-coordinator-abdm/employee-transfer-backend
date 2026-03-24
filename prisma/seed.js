@@ -90,7 +90,7 @@ const normalizeRole = (value) => {
     .trim()
     .toUpperCase();
   if (normalized === "ADMIN") return "ADMIN";
-  if (normalized === "TRANSFER_OPERATOR") return "TRANSFER_OPERATOR";
+  if (normalized === "TRANSFER_OFFICER") return "TRANSFER_OFFICER";
   return "DATA_OFFICER";
 };
 
