@@ -10,7 +10,7 @@ generator client {
 enum UserRole {
   ADMIN
   DATA_OFFICER
-  TRANSFER_OPERATOR
+  TRANSFER_OFFICER
 }
 
 enum AssignmentType {
