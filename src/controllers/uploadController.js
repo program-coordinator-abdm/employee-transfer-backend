@@ -1,5 +1,4 @@
 const asyncHandler = require("../utils/asyncHandler");
-const { AppError } = require("../utils/errors");
 const { uploadFileToS3 } = require("../services/s3Uploader");
 
 const getUploadRequestId = (req) =>
@@ -12,6 +11,12 @@ const getUploadRequestId = (req) =>
 
 const uploadFile = asyncHandler(async (req, res) => {
   const requestId = getUploadRequestId(req);
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: "File not received",
+    });
+  }
   console.info("[uploads] Request reached backend", {
     requestId,
     method: req.method,
@@ -35,10 +40,6 @@ const uploadFile = asyncHandler(async (req, res) => {
   });
 
   try {
-    if (!req.file) {
-      throw new Error("File not received");
-    }
-
     const result = await uploadFileToS3(req.file);
     const downloadUrl = result.url;
     const originalSize = result.originalSize || req.file.size;
@@ -60,6 +61,7 @@ const uploadFile = asyncHandler(async (req, res) => {
       processedBytes: processedSize,
       reductionPercent: reduction,
     });
+    console.log("[upload] success", { key: result.key, url: result.url });
 
     res.status(201).json({
       success: true,
@@ -83,21 +85,24 @@ const uploadFile = asyncHandler(async (req, res) => {
       name: error?.name,
       code: error?.code,
     });
-    const isAwsError =
-      Boolean(error?.$metadata) ||
-      String(error?.name || "").startsWith("S3") ||
-      String(error?.name || "").startsWith("Aws") ||
-      String(error?.name || "").startsWith("AWS");
-    if (isAwsError) {
-      return res.status(500).json({
+    if (error?.message === "File not received") {
+      return res.status(400).json({
         success: false,
-        message: error?.message,
+        message: "File not received",
       });
     }
-    if (error?.message === "File not received") {
-      throw new AppError(error.message, 400);
+
+    if (error?.message === "Missing AWS credentials or S3 configuration") {
+      return res.status(500).json({
+        success: false,
+        message: "Upload service is not configured on server",
+      });
     }
-    throw error;
+
+    return res.status(500).json({
+      success: false,
+      message: error?.message || "Upload failed",
+    });
   }
 });
 

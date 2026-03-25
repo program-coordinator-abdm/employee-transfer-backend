@@ -6,18 +6,36 @@ const sharp = require("sharp");
 const { S3Client } = require("@aws-sdk/client-s3");
 const { Upload } = require("@aws-sdk/lib-storage");
 
-const bucket = process.env.AWS_S3_BUCKET;
-const region = process.env.AWS_REGION;
 const publicBaseUrl = process.env.PUBLIC_UPLOAD_BASE_URL;
 const usePublicReadAcl =
   String(process.env.AWS_S3_PUBLIC_READ || "").toLowerCase() === "true";
-
-if (!bucket || !region) {
-  throw new Error("AWS_S3_BUCKET and AWS_REGION must be set for uploads");
-}
-
-const client = new S3Client({ region });
 const gzipAsync = promisify(gzip);
+
+const getS3RuntimeConfig = () => ({
+  region: process.env.AWS_REGION,
+  bucket: process.env.AWS_S3_BUCKET,
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+});
+
+const validateS3RuntimeConfig = () => {
+  const config = getS3RuntimeConfig();
+  const missing = [
+    ["AWS_REGION", config.region],
+    ["AWS_S3_BUCKET", config.bucket],
+    ["AWS_ACCESS_KEY_ID", config.accessKeyId],
+    ["AWS_SECRET_ACCESS_KEY", config.secretAccessKey],
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+  if (missing.length > 0) {
+    const error = new Error("Missing AWS credentials or S3 configuration");
+    error.code = "S3_CONFIG_MISSING";
+    error.missing = missing;
+    throw error;
+  }
+  return config;
+};
 
 const sanitizeFilename = (name) =>
   name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
@@ -33,7 +51,7 @@ const buildObjectKey = (filename) => {
   return `uploads/${year}/${month}/${id}-${safeBase}${ext}`;
 };
 
-const buildPublicUrl = (key) => {
+const buildPublicUrl = (key, bucket, region) => {
   if (publicBaseUrl) {
     return `${publicBaseUrl.replace(/\/$/, "")}/${key}`;
   }
@@ -139,6 +157,15 @@ const uploadFileToS3 = async (file) => {
   }
 
   try {
+    const { region, bucket, accessKeyId, secretAccessKey } =
+      validateS3RuntimeConfig();
+    const client = new S3Client({
+      region,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+    });
     const processedFile = await processUploadFile(file);
     const key = buildObjectKey(processedFile.filename);
     console.log("Uploading to S3:", { bucket, key });
@@ -166,7 +193,7 @@ const uploadFileToS3 = async (file) => {
     });
 
     await uploader.done();
-    const url = buildPublicUrl(key);
+    const url = buildPublicUrl(key, bucket, region);
     console.log("Upload success:", { key, url });
 
     return {
