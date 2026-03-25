@@ -27,12 +27,18 @@ const uploadFile = asyncHandler(async (req, res) => {
     size: req.file?.size ?? null,
   });
 
-  if (!req.file) {
-    console.warn("[uploads] Missing file in request", { requestId });
-    throw new AppError("File is required", 400);
-  }
+  console.log("REQ FILE:", {
+    exists: !!req.file,
+    name: req.file?.originalname,
+    size: req.file?.size,
+    mimetype: req.file?.mimetype,
+  });
 
   try {
+    if (!req.file) {
+      throw new Error("File not received");
+    }
+
     const result = await uploadFileToS3(req.file);
     const downloadUrl = result.url;
     const originalSize = result.originalSize || req.file.size;
@@ -69,12 +75,28 @@ const uploadFile = asyncHandler(async (req, res) => {
       downloadUrl,
     });
   } catch (error) {
+    console.error("UPLOAD ERROR:", error);
+    console.error("STACK:", error?.stack);
     console.error("[uploads] Upload failed", {
       requestId,
       message: error?.message,
       name: error?.name,
       code: error?.code,
     });
+    const isAwsError =
+      Boolean(error?.$metadata) ||
+      String(error?.name || "").startsWith("S3") ||
+      String(error?.name || "").startsWith("Aws") ||
+      String(error?.name || "").startsWith("AWS");
+    if (isAwsError) {
+      return res.status(500).json({
+        success: false,
+        message: error?.message,
+      });
+    }
+    if (error?.message === "File not received") {
+      throw new AppError(error.message, 400);
+    }
     throw error;
   }
 });

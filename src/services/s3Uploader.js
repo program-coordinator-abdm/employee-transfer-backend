@@ -138,41 +138,50 @@ const uploadFileToS3 = async (file) => {
     throw new Error("File buffer is missing");
   }
 
-  const processedFile = await processUploadFile(file);
-  const key = buildObjectKey(processedFile.filename);
-  const params = {
-    Bucket: bucket,
-    Key: key,
-    Body: processedFile.buffer,
-    ContentType: processedFile.contentType,
-    Metadata: {
-      originalname: file.originalname,
-    },
-  };
+  try {
+    const processedFile = await processUploadFile(file);
+    const key = buildObjectKey(processedFile.filename);
+    console.log("Uploading to S3:", { bucket, key });
+    const params = {
+      Bucket: bucket,
+      Key: key,
+      Body: processedFile.buffer,
+      ContentType: processedFile.contentType,
+      Metadata: {
+        originalname: file.originalname,
+      },
+    };
 
-  if (processedFile.contentEncoding) {
-    params.ContentEncoding = processedFile.contentEncoding;
+    if (processedFile.contentEncoding) {
+      params.ContentEncoding = processedFile.contentEncoding;
+    }
+
+    if (usePublicReadAcl) {
+      params.ACL = "public-read";
+    }
+
+    const uploader = new Upload({
+      client,
+      params,
+    });
+
+    await uploader.done();
+    const url = buildPublicUrl(key);
+    console.log("Upload success:", { key, url });
+
+    return {
+      key,
+      url,
+      filename: processedFile.filename,
+      originalSize: processedFile.originalSize,
+      processedSize: processedFile.processedSize,
+      processed: processedFile.processed,
+    };
+  } catch (error) {
+    console.error("UPLOAD ERROR:", error);
+    console.error("STACK:", error?.stack);
+    throw error;
   }
-
-  if (usePublicReadAcl) {
-    params.ACL = "public-read";
-  }
-
-  const uploader = new Upload({
-    client,
-    params,
-  });
-
-  await uploader.done();
-
-  return {
-    key,
-    url: buildPublicUrl(key),
-    filename: processedFile.filename,
-    originalSize: processedFile.originalSize,
-    processedSize: processedFile.processedSize,
-    processed: processedFile.processed,
-  };
 };
 
 module.exports = {
