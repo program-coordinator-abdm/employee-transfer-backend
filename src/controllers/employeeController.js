@@ -46,11 +46,83 @@ const normalizeUploadedDocumentReference = (value) => {
       toOptionalString(value.downloadUrl) ||
       toOptionalString(value.url) ||
       toOptionalString(value.key) ||
+      toOptionalString(value.s3Key) ||
+      toOptionalString(value.path) ||
+      toOptionalString(value.location) ||
       toOptionalString(value.fileUrl) ||
       undefined
     );
   }
   return undefined;
+};
+
+const pickDocumentReference = (source, keys = []) => {
+  for (const key of keys) {
+    const normalized = normalizeUploadedDocumentReference(source?.[key]);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return undefined;
+};
+
+const optionalDocumentReferenceSchema = () =>
+  z.preprocess(normalizeUploadedDocumentReference, z.string().optional());
+
+const deriveDocumentNameFromReference = (reference, fallback = "Document") => {
+  const normalized = toOptionalString(reference);
+  if (!normalized) return fallback;
+  const withoutQuery = normalized.split("?")[0].split("#")[0];
+  const lastPart = withoutQuery.split("/").filter(Boolean).pop();
+  return toOptionalString(lastPart) || fallback;
+};
+
+const normalizeDocumentSizeKb = (value) => {
+  if (value === undefined || value === null || value === "") return undefined;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return undefined;
+  // If frontend sends bytes (common `size`), convert to KB.
+  if (numeric > 2048) {
+    return Number((numeric / 1024).toFixed(2));
+  }
+  return Number(numeric.toFixed(2));
+};
+
+const normalizeDocuments = (body = {}) => {
+  if (!Array.isArray(body.documents)) {
+    return body.documents;
+  }
+  return body.documents
+    .map((entry, index) => {
+      if (typeof entry === "string" || typeof entry === "number") {
+        const downloadUrl = normalizeUploadedDocumentReference(entry);
+        if (!downloadUrl) return null;
+        return {
+          name: deriveDocumentNameFromReference(downloadUrl, `Document ${index + 1}`),
+          downloadUrl,
+        };
+      }
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        return null;
+      }
+      const downloadUrl = normalizeUploadedDocumentReference(entry);
+      const name =
+        toOptionalString(entry.name) ||
+        toOptionalString(entry.fileName) ||
+        toOptionalString(entry.filename) ||
+        toOptionalString(entry.documentName) ||
+        deriveDocumentNameFromReference(downloadUrl, `Document ${index + 1}`);
+      if (!name) return null;
+      return {
+        name,
+        sizeKB: normalizeDocumentSizeKb(entry.sizeKB ?? entry.size ?? entry.fileSize),
+        uploadedAt: toOptionalString(
+          entry.uploadedAt ?? entry.documentUploadedAt ?? entry.createdAt
+        ),
+        downloadUrl,
+      };
+    })
+    .filter(Boolean);
 };
 
 const permissiveIdSchema = () =>
@@ -329,7 +401,7 @@ const pastServiceSchema = z
     fromDate: requiredDateOnlySchema(),
     toDate: requiredDateOnlySchema(),
     tenure: z.string().optional().default(""),
-    joiningDocument: z.string().optional().default(""),
+    joiningDocument: optionalDocumentReferenceSchema(),
   })
   .superRefine((service, ctx) => {
     // Keep existing required validation (district) unless otherStateLocation is supplied.
@@ -368,7 +440,7 @@ const educationSchema = z
     gradePercentage: z.string().optional(),
     specialization: z.string().optional(),
     documentName: z.string().optional(),
-    documentUrl: z.string().optional(),
+    documentUrl: optionalDocumentReferenceSchema(),
     documentSizeKB: z.coerce.number().optional(),
     documentUploadedAt: z.string().optional(),
   })
@@ -444,10 +516,10 @@ const appointmentDetailsSchema = z.object({
 });
 
 const documentSchema = z.object({
-  name: z.string().min(1),
+  name: z.preprocess((value) => toOptionalString(value), z.string().min(1)),
   sizeKB: z.coerce.number().optional(),
   uploadedAt: z.string().optional(),
-  downloadUrl: z.string().optional(),
+  downloadUrl: optionalDocumentReferenceSchema(),
 });
 
 const employeeSchema = z
@@ -494,13 +566,10 @@ const employeeSchema = z
     currentWorkingSince: requiredDateSchema(),
     currentAreaType: z.string().optional(),
     probationaryPeriod: z.coerce.boolean().default(false),
-    probationaryPeriodDoc: z.preprocess(
-      normalizeUploadedDocumentReference,
-      z.string().optional()
-    ),
+    probationaryPeriodDoc: optionalDocumentReferenceSchema(),
     probationDeclarationDate: optionalDateSchema(),
     cltCompleted: z.coerce.boolean().optional().default(false),
-    cltCompletedDoc: z.string().optional(),
+    cltCompletedDoc: optionalDocumentReferenceSchema(),
     cltCompletionDate: optionalDateSchema(),
     isDoctorNursePharmacist: z.coerce.boolean().optional().default(false),
     hprId: permissiveIdSchema(),
@@ -508,66 +577,66 @@ const employeeSchema = z
     timeboundApplicable: z.coerce.boolean().optional().default(false),
     timeboundCategory: z.string().optional(),
     timeboundYears: z.string().optional(),
-    timeboundDoc: z.string().optional(),
+    timeboundDoc: optionalDocumentReferenceSchema(),
     timeboundDate: optionalDateSchema(),
     timebound6Years: z.coerce.boolean().optional().default(false),
-    timebound6YearsDoc: z.string().optional(),
+    timebound6YearsDoc: optionalDocumentReferenceSchema(),
     timebound6YearsDate: optionalDateSchema(),
     timebound13Years: z.coerce.boolean().optional().default(false),
-    timebound13YearsDoc: z.string().optional(),
+    timebound13YearsDoc: optionalDocumentReferenceSchema(),
     timebound13YearsDate: optionalDateSchema(),
     timebound20Years: z.coerce.boolean().optional().default(false),
-    timebound20YearsDoc: z.string().optional(),
+    timebound20YearsDoc: optionalDocumentReferenceSchema(),
     timebound20YearsDate: optionalDateSchema(),
     timebound10Years: z.coerce.boolean().optional().default(false),
-    timebound10YearsDoc: z.string().optional(),
+    timebound10YearsDoc: optionalDocumentReferenceSchema(),
     timebound10YearsDate: optionalDateSchema(),
     timebound15Years: z.coerce.boolean().optional().default(false),
-    timebound15YearsDoc: z.string().optional(),
+    timebound15YearsDoc: optionalDocumentReferenceSchema(),
     timebound15YearsDate: optionalDateSchema(),
     timebound25Years: z.coerce.boolean().optional().default(false),
-    timebound25YearsDoc: z.string().optional(),
+    timebound25YearsDoc: optionalDocumentReferenceSchema(),
     timebound25YearsDate: optionalDateSchema(),
     timebound30Years: z.coerce.boolean().optional().default(false),
-    timebound30YearsDoc: z.string().optional(),
+    timebound30YearsDoc: optionalDocumentReferenceSchema(),
     timebound30YearsDate: optionalDateSchema(),
-    currentServiceDoc: z.string().optional(),
+    currentServiceDoc: optionalDocumentReferenceSchema(),
     promotionRejected: z.coerce.boolean().optional().default(false),
     promotionRejectedDate: optionalDateSchema(),
     promotionRejectedDesignation: z.string().optional(),
     pgBond: z.coerce.boolean().optional().default(false),
-    pgBondDoc: z.string().optional(),
+    pgBondDoc: optionalDocumentReferenceSchema(),
     pgBondCompletionDate: optionalDateSchema(),
     educationLevel: z.string().optional(),
     mdSpecialization: z.string().optional(),
     departmentalExamCompleted: z.coerce.boolean().optional().default(false),
     departmentalExamInputName: z.string().optional(),
-    departmentalExamDocument: z.string().optional(),
+    departmentalExamDocument: optionalDocumentReferenceSchema(),
     recruitmentType: z.string().optional(),
     directRecruitmentMode: z.enum(DIRECT_RECRUITMENT_MODES).optional(),
     directRecruitmentOther: z.string().optional(),
     contractRegularised: z.coerce.boolean().optional().default(false),
-    contractRegularisedDoc: z.string().optional(),
+    contractRegularisedDoc: optionalDocumentReferenceSchema(),
     contractRegularisedDate: optionalDateSchema(),
     contractJoiningDate: optionalDateSchema(),
     terminallyIll: z.coerce.boolean().default(false),
-    terminallyIllDoc: z.string().optional(),
+    terminallyIllDoc: optionalDocumentReferenceSchema(),
     pregnantOrChildUnderOne: z.coerce.boolean().default(false),
-    pregnantOrChildUnderOneDoc: z.string().optional(),
+    pregnantOrChildUnderOneDoc: optionalDocumentReferenceSchema(),
     retiringWithinTwoYears: z.coerce.boolean().default(false),
-    retiringWithinTwoYearsDoc: z.string().optional(),
+    retiringWithinTwoYearsDoc: optionalDocumentReferenceSchema(),
     childSpouseDisability: z.coerce.boolean().default(false),
-    childSpouseDisabilityDoc: z.string().optional(),
+    childSpouseDisabilityDoc: optionalDocumentReferenceSchema(),
     divorceeWidowWithChild: z.coerce.boolean().default(false),
-    divorceeWidowWithChildDoc: z.string().optional(),
+    divorceeWidowWithChildDoc: optionalDocumentReferenceSchema(),
     spouseGovtServant: z.coerce.boolean().default(false),
-    spouseGovtServantDoc: z.string().optional(),
+    spouseGovtServantDoc: optionalDocumentReferenceSchema(),
     spouseDesignation: z.string().optional(),
     spouseDistrict: z.string().optional(),
     spouseTaluk: z.string().optional(),
     spouseCityTownVillage: z.string().optional(),
     ngoBenefits: z.coerce.boolean().optional().default(false),
-    ngoBenefitsDoc: z.string().optional(),
+    ngoBenefitsDoc: optionalDocumentReferenceSchema(),
     empDeclAgreed: z.coerce.boolean(),
     empDeclName: z.string().optional(),
     empDeclDate: optionalDateSchema(),
@@ -948,12 +1017,29 @@ const normalizeEducationEntries = (body) => {
         specialization: toOptionalString(entry.specialization),
         documentName: unschooled
           ? undefined
-          : toOptionalString(entry.documentName ?? entry.documentProof),
-        documentUrl: unschooled ? undefined : toOptionalString(entry.documentUrl),
-        documentSizeKB: unschooled ? undefined : entry.documentSizeKB,
+          : toOptionalString(
+              entry.documentName ??
+                entry.documentProof ??
+                entry.fileName ??
+                entry.filename
+            ),
+        documentUrl: unschooled
+          ? undefined
+          : normalizeUploadedDocumentReference(
+              entry.documentUrl ??
+                entry.documentProofUrl ??
+                entry.downloadUrl ??
+                entry.url ??
+                entry.key ??
+                entry.file
+            ),
+        documentSizeKB:
+          unschooled
+            ? undefined
+            : normalizeDocumentSizeKb(entry.documentSizeKB ?? entry.size),
         documentUploadedAt: unschooled
           ? undefined
-          : toOptionalString(entry.documentUploadedAt),
+          : toOptionalString(entry.documentUploadedAt ?? entry.uploadedAt),
       };
     })
     .filter((entry) =>
@@ -1002,7 +1088,15 @@ const normalizePastServices = (body) => {
           ? "NA"
           : normalizedCityTownVillage,
       otherStateLocation: normalizedOtherStateLocation,
-      joiningDocument: service.joiningDocument ?? docs[index] ?? "",
+      joiningDocument:
+        normalizeUploadedDocumentReference(
+          service.joiningDocument ??
+            service.joiningDocumentUrl ??
+            service.joiningDoc ??
+            service.documentUrl ??
+            service.document ??
+            docs[index]
+        ) || "",
     };
   });
 };
@@ -1115,7 +1209,11 @@ const normalizeEmployeePayload = (body) => {
     ),
     probationDeclarationDate: body.probationDeclarationDate || undefined,
     cltCompleted: body.cltCompleted,
-    cltCompletedDoc: body.cltCompletedDoc,
+    cltCompletedDoc: pickDocumentReference(body, [
+      "cltCompletedDoc",
+      "cltDocument",
+      "cltCompletedDocument",
+    ]),
     cltCompletionDate: body.cltCompletionDate || undefined,
     isDoctorNursePharmacist: normalizedHprControllerFlag,
     hprId: toOptionalString(
@@ -1129,67 +1227,125 @@ const normalizeEmployeePayload = (body) => {
     timeboundApplicable: body.timeboundApplicable,
     timeboundCategory: body.timeboundCategory,
     timeboundYears: body.timeboundYears,
-    timeboundDoc: body.timeboundDoc,
+    timeboundDoc: pickDocumentReference(body, [
+      "timeboundDoc",
+      "timeboundDocument",
+      "timeboundProof",
+    ]),
     timeboundDate: body.timeboundDate || undefined,
     timebound6Years: body.timebound6Years,
-    timebound6YearsDoc: body.timebound6YearsDoc,
+    timebound6YearsDoc: pickDocumentReference(body, [
+      "timebound6YearsDoc",
+      "timebound6YearsDocument",
+    ]),
     timebound6YearsDate: body.timebound6YearsDate || undefined,
     timebound13Years: body.timebound13Years,
-    timebound13YearsDoc: body.timebound13YearsDoc,
+    timebound13YearsDoc: pickDocumentReference(body, [
+      "timebound13YearsDoc",
+      "timebound13YearsDocument",
+    ]),
     timebound13YearsDate: body.timebound13YearsDate || undefined,
     timebound20Years: body.timebound20Years,
-    timebound20YearsDoc: body.timebound20YearsDoc,
+    timebound20YearsDoc: pickDocumentReference(body, [
+      "timebound20YearsDoc",
+      "timebound20YearsDocument",
+    ]),
     timebound20YearsDate: body.timebound20YearsDate || undefined,
     timebound10Years: body.timebound10Years,
-    timebound10YearsDoc: body.timebound10YearsDoc,
+    timebound10YearsDoc: pickDocumentReference(body, [
+      "timebound10YearsDoc",
+      "timebound10YearsDocument",
+    ]),
     timebound10YearsDate: body.timebound10YearsDate || undefined,
     timebound15Years: body.timebound15Years,
-    timebound15YearsDoc: body.timebound15YearsDoc,
+    timebound15YearsDoc: pickDocumentReference(body, [
+      "timebound15YearsDoc",
+      "timebound15YearsDocument",
+    ]),
     timebound15YearsDate: body.timebound15YearsDate || undefined,
     timebound25Years: body.timebound25Years,
-    timebound25YearsDoc: body.timebound25YearsDoc,
+    timebound25YearsDoc: pickDocumentReference(body, [
+      "timebound25YearsDoc",
+      "timebound25YearsDocument",
+    ]),
     timebound25YearsDate: body.timebound25YearsDate || undefined,
     timebound30Years: body.timebound30Years,
-    timebound30YearsDoc: body.timebound30YearsDoc,
+    timebound30YearsDoc: pickDocumentReference(body, [
+      "timebound30YearsDoc",
+      "timebound30YearsDocument",
+    ]),
     timebound30YearsDate: body.timebound30YearsDate || undefined,
-    currentServiceDoc: body.currentServiceDoc,
+    currentServiceDoc: pickDocumentReference(body, [
+      "currentServiceDoc",
+      "currentServiceDocument",
+    ]),
     promotionRejected: body.promotionRejected,
     promotionRejectedDate: body.promotionRejectedDate || undefined,
     promotionRejectedDesignation: body.promotionRejectedDesignation,
     pgBond: body.pgBond,
-    pgBondDoc: body.pgBondDoc,
+    pgBondDoc: pickDocumentReference(body, ["pgBondDoc", "pgBondDocument"]),
     pgBondCompletionDate: body.pgBondCompletionDate || undefined,
     educationLevel: body.educationLevel,
     mdSpecialization: body.mdSpecialization ?? body.mdSpeciality,
     departmentalExamCompleted: body.departmentalExamCompleted,
     departmentalExamInputName:
       body.departmentalExamInputName ?? body.departmentalExamName,
-    departmentalExamDocument: body.departmentalExamDocument,
+    departmentalExamDocument: pickDocumentReference(body, [
+      "departmentalExamDocument",
+      "departmentalExamDoc",
+    ]),
     recruitmentType: normalizedRecruitmentType,
     directRecruitmentMode: normalizedDirectRecruitmentMode,
     directRecruitmentOther: body.directRecruitmentOther,
     contractRegularised: body.contractRegularised,
-    contractRegularisedDoc: body.contractRegularisedDoc,
+    contractRegularisedDoc: pickDocumentReference(body, [
+      "contractRegularisedDoc",
+      "contractRegularisedDocument",
+      "contractRegularizationDoc",
+    ]),
     contractRegularisedDate: body.contractRegularisedDate || undefined,
     contractJoiningDate: body.contractJoiningDate || undefined,
     terminallyIll: body.terminallyIll,
-    terminallyIllDoc: body.terminallyIllDoc,
+    terminallyIllDoc: pickDocumentReference(body, [
+      "terminallyIllDoc",
+      "terminallyIllDocument",
+    ]),
     pregnantOrChildUnderOne: body.pregnantOrChildUnderOne,
-    pregnantOrChildUnderOneDoc: body.pregnantOrChildUnderOneDoc,
+    pregnantOrChildUnderOneDoc: pickDocumentReference(body, [
+      "pregnantOrChildUnderOneDoc",
+      "pregnantOrChildUnderOneDocument",
+    ]),
     retiringWithinTwoYears: body.retiringWithinTwoYears,
-    retiringWithinTwoYearsDoc: body.retiringWithinTwoYearsDoc,
+    retiringWithinTwoYearsDoc: pickDocumentReference(body, [
+      "retiringWithinTwoYearsDoc",
+      "retiringWithinTwoYearsDocument",
+    ]),
     childSpouseDisability: body.childSpouseDisability,
-    childSpouseDisabilityDoc: body.childSpouseDisabilityDoc,
+    childSpouseDisabilityDoc: pickDocumentReference(body, [
+      "childSpouseDisabilityDoc",
+      "childSpouseDisabilityDocument",
+    ]),
     divorceeWidowWithChild: body.divorceeWidowWithChild,
-    divorceeWidowWithChildDoc: body.divorceeWidowWithChildDoc,
+    divorceeWidowWithChildDoc: pickDocumentReference(body, [
+      "divorceeWidowWithChildDoc",
+      "divorceeWidowWithChildDocument",
+      "widowDivorceeDoc",
+    ]),
     spouseGovtServant: body.spouseGovtServant,
-    spouseGovtServantDoc: body.spouseGovtServantDoc,
+    spouseGovtServantDoc: pickDocumentReference(body, [
+      "spouseGovtServantDoc",
+      "spouseGovtServantDocument",
+      "spouseInGovtServiceDoc",
+    ]),
     spouseDesignation: body.spouseDesignation,
     spouseDistrict: body.spouseDistrict,
     spouseTaluk: body.spouseTaluk,
     spouseCityTownVillage: body.spouseCityTownVillage,
     ngoBenefits: body.ngoBenefits,
-    ngoBenefitsDoc: body.ngoBenefitsDoc,
+    ngoBenefitsDoc: pickDocumentReference(body, [
+      "ngoBenefitsDoc",
+      "ngoBenefitsDocument",
+    ]),
     empDeclAgreed: body.empDeclAgreed ?? declarationInput.empDeclAgreed,
     empDeclName: body.empDeclName ?? declarationInput.empDeclName,
     empDeclDate: body.empDeclDate ?? declarationInput.empDeclDate,
@@ -1211,7 +1367,7 @@ const normalizeEmployeePayload = (body) => {
     disciplinaryRecord: body.disciplinaryRecord,
     serviceInformation: body.serviceInformation,
     appointmentDetails: body.appointmentDetails,
-    documents: body.documents,
+    documents: normalizeDocuments(body),
   };
 };
 
