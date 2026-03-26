@@ -2,7 +2,11 @@ const express = require("express");
 const multer = require("multer");
 const authMiddleware = require("../middlewares/auth");
 const uploadController = require("../controllers/uploadController");
-const { AppError } = require("../utils/errors");
+const {
+  createUploadMulterError,
+  mapUploadMiddlewareError,
+  sendUploadErrorResponse,
+} = require("../utils/uploadErrors");
 
 const router = express.Router();
 
@@ -23,22 +27,20 @@ const upload = multer({
     if (allowedMimeTypes.includes(file.mimetype)) {
       return cb(null, true);
     }
-    return cb(new AppError("Unsupported file type", 400));
+    return cb(createUploadMulterError("UNSUPPORTED_FILE_TYPE"));
   },
 });
 
 const handleUpload = (req, res, next) => {
   upload.single("file")(req, res, (err) => {
     if (!err) return next();
-    if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
-      return next(
-        new AppError(`File too large. Max ${maxUploadMb} MB`, 413)
-      );
+    const mapped = mapUploadMiddlewareError(err);
+    if (mapped) {
+      // Proxy/load-balancer limits may reject large payloads before Express receives them.
+      // This branch standardizes responses for upload errors that do reach Express/multer.
+      return res.status(mapped.status).json(mapped.body);
     }
-    if (err instanceof AppError) {
-      return next(err);
-    }
-    return next(new AppError(err.message || "Upload failed", 400));
+    return sendUploadErrorResponse(res, "UNEXPECTED_UPLOAD_ERROR");
   });
 };
 

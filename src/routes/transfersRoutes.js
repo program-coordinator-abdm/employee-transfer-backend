@@ -3,7 +3,7 @@ const multer = require("multer");
 const authMiddleware = require("../middlewares/auth");
 const authorizeRoles = require("../middlewares/authorize");
 const transfersController = require("../controllers/transfersController");
-const { AppError } = require("../utils/errors");
+const { mapUploadMiddlewareError } = require("../utils/uploadErrors");
 
 const router = express.Router();
 
@@ -31,15 +31,11 @@ const upload = multer({
 const handleUpload = (req, res, next) => {
   upload.single("file")(req, res, (err) => {
     if (!err) return next();
-    if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
-      return next(
-        new AppError(`File too large. Max ${maxUploadMb} MB`, 413)
-      );
+    const mapped = mapUploadMiddlewareError(err);
+    if (mapped) {
+      return res.status(mapped.status).json(mapped.body);
     }
-    if (err instanceof AppError) {
-      return next(err);
-    }
-    return next(new AppError(err.message || "Upload failed", 400));
+    return next(err);
   });
 };
 

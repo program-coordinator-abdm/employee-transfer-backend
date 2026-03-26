@@ -3,6 +3,10 @@ const asyncHandler = require("../utils/asyncHandler");
 const { AppError } = require("../utils/errors");
 const transfersService = require("../services/transfersService");
 const { uploadFileToS3 } = require("../services/s3Uploader");
+const {
+  uploadErrorResponse,
+  isUploadStorageError,
+} = require("../utils/uploadErrors");
 
 const TRANSFER_GENDER_VALUES = ["MALE", "FEMALE"];
 const TRANSFER_GROUP_VALUES = ["A", "B", "C", "D"];
@@ -265,29 +269,52 @@ const submitTransferApplication = asyncHandler(async (req, res) => {
 
 const uploadTransferDocument = asyncHandler(async (req, res) => {
   if (!req.file) {
-    throw new AppError("File is required", 400);
+    return uploadErrorResponse(res, "MISSING_FILE");
   }
-  const id = idSchema.parse(req.params.id);
-  const parsed = documentTypeSchema.parse(req.body);
-  const data = await transfersService.uploadTransferDocument(
-    id,
-    parsed.documentType,
-    req.file,
-    req.user
-  );
-  res.status(201).json(data);
+  try {
+    const id = idSchema.parse(req.params.id);
+    const parsed = documentTypeSchema.parse(req.body);
+    const data = await transfersService.uploadTransferDocument(
+      id,
+      parsed.documentType,
+      req.file,
+      req.user
+    );
+    res.status(201).json(data);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return uploadErrorResponse(res, "VALIDATION_FAILED");
+    }
+    if (isUploadStorageError(error)) {
+      return uploadErrorResponse(res, "STORAGE_FAILED");
+    }
+    if (error instanceof AppError && error.status === 400) {
+      return uploadErrorResponse(res, "VALIDATION_FAILED");
+    }
+    if (error instanceof AppError) {
+      throw error;
+    }
+    return uploadErrorResponse(res, "UNEXPECTED_UPLOAD_ERROR");
+  }
 });
 
 const uploadTransferDocumentLegacy = asyncHandler(async (req, res) => {
   if (!req.file) {
-    throw new AppError("File is required", 400);
+    return uploadErrorResponse(res, "MISSING_FILE");
   }
-  const result = await uploadFileToS3(req.file);
-  res.status(201).json({
-    url: result.url,
-    fileName: result.filename || req.file.originalname,
-    key: result.key,
-  });
+  try {
+    const result = await uploadFileToS3(req.file);
+    res.status(201).json({
+      url: result.url,
+      fileName: result.filename || req.file.originalname,
+      key: result.key,
+    });
+  } catch (error) {
+    if (isUploadStorageError(error)) {
+      return uploadErrorResponse(res, "STORAGE_FAILED");
+    }
+    return uploadErrorResponse(res, "UNEXPECTED_UPLOAD_ERROR");
+  }
 });
 
 const getDistrictWiseTransferStats = asyncHandler(async (_req, res) => {

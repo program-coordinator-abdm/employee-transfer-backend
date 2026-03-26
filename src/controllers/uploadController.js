@@ -1,5 +1,9 @@
 const asyncHandler = require("../utils/asyncHandler");
 const { uploadFileToS3 } = require("../services/s3Uploader");
+const {
+  uploadErrorResponse,
+  isUploadStorageError,
+} = require("../utils/uploadErrors");
 
 const getUploadRequestId = (req) =>
   req.headers["x-request-id"] ||
@@ -12,10 +16,7 @@ const getUploadRequestId = (req) =>
 const uploadFile = asyncHandler(async (req, res) => {
   const requestId = getUploadRequestId(req);
   if (!req.file) {
-    return res.status(400).json({
-      success: false,
-      message: "File not received",
-    });
+    return uploadErrorResponse(res, "MISSING_FILE");
   }
   console.info("[uploads] Request reached backend", {
     requestId,
@@ -86,23 +87,14 @@ const uploadFile = asyncHandler(async (req, res) => {
       code: error?.code,
     });
     if (error?.message === "File not received") {
-      return res.status(400).json({
-        success: false,
-        message: "File not received",
-      });
+      return uploadErrorResponse(res, "MISSING_FILE");
     }
 
-    if (error?.message === "Missing AWS credentials or S3 configuration") {
-      return res.status(500).json({
-        success: false,
-        message: "Upload service is not configured on server",
-      });
+    if (isUploadStorageError(error)) {
+      return uploadErrorResponse(res, "STORAGE_FAILED");
     }
 
-    return res.status(500).json({
-      success: false,
-      message: error?.message || "Upload failed",
-    });
+    return uploadErrorResponse(res, "UNEXPECTED_SERVER_ERROR");
   }
 });
 
