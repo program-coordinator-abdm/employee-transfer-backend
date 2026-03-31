@@ -205,6 +205,35 @@ model Employee {
   @@index([createdByUsername])
 }
 
+model EmployeeImportStaging {
+  id                     Int      @id @default(autoincrement())
+  slNo                   String?
+  categorySerialNumber   String?
+  district               String?
+  kgid                   String?
+  applicationReference   String?
+  doctorName             String?
+  dateOfBirth            String?
+  dateOfEntryIntoService String?
+  presentWorkingPlace    String?
+  presentWorkingFromDate String?
+  bAreaCompletedYears    String?
+  bAreaMarks             String?
+  aAreaCompletedYears    String?
+  aAreaMarks             String?
+  cAreaCompletedYears    String?
+  cAreaMarks             String?
+  totalYears             String?
+  totalMarks             String?
+  category               String?
+  remarks                String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([kgid])
+  @@index([applicationReference])
+}
+
 model AssignmentHistory {
   id         Int            @id @default(autoincrement())
   employeeId Int
