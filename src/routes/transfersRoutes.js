@@ -3,7 +3,10 @@ const multer = require("multer");
 const authMiddleware = require("../middlewares/auth");
 const authorizeRoles = require("../middlewares/authorize");
 const transfersController = require("../controllers/transfersController");
-const { mapUploadMiddlewareError } = require("../utils/uploadErrors");
+const {
+  createUploadMulterError,
+  mapUploadMiddlewareError,
+} = require("../utils/uploadErrors");
 
 const router = express.Router();
 
@@ -24,7 +27,7 @@ const upload = multer({
     if (allowedMimeTypes.includes(file.mimetype)) {
       return cb(null, true);
     }
-    return cb(new AppError("Unsupported file type", 400));
+    return cb(createUploadMulterError("UNSUPPORTED_FILE_TYPE"));
   },
 });
 
