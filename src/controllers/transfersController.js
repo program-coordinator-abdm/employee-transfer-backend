@@ -6,6 +6,7 @@ const { uploadFileToS3 } = require("../services/s3Uploader");
 const {
   uploadErrorResponse,
   isUploadStorageError,
+  isUploadDbSaveError,
 } = require("../utils/uploadErrors");
 
 const TRANSFER_GENDER_VALUES = ["MALE", "FEMALE"];
@@ -287,6 +288,9 @@ const uploadTransferDocument = asyncHandler(async (req, res) => {
     }
     if (isUploadStorageError(error)) {
       return uploadErrorResponse(res, "STORAGE_FAILED");
+    }
+    if (isUploadDbSaveError(error)) {
+      return uploadErrorResponse(res, "DB_SAVE_FAILED");
     }
     if (error instanceof AppError && error.status === 400) {
       return uploadErrorResponse(res, "VALIDATION_FAILED");

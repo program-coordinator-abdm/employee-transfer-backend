@@ -6,6 +6,7 @@ const transfersController = require("../controllers/transfersController");
 const {
   createUploadMulterError,
   mapUploadMiddlewareError,
+  sendUploadErrorResponse,
 } = require("../utils/uploadErrors");
 
 const router = express.Router();
@@ -38,7 +39,7 @@ const handleUpload = (req, res, next) => {
     if (mapped) {
       return res.status(mapped.status).json(mapped.body);
     }
-    return next(err);
+    return sendUploadErrorResponse(res, "UNEXPECTED_UPLOAD_ERROR");
   });
 };
 

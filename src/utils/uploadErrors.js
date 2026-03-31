@@ -22,6 +22,11 @@ const UPLOAD_ERRORS = {
     code: "UPLOAD_STORAGE_FAILURE",
     message: "Document upload failed. Please try again.",
   },
+  DB_SAVE_FAILED: {
+    status: 500,
+    code: "UPLOAD_DB_SAVE_FAILED",
+    message: "Uploaded document could not be saved. Please try again.",
+  },
   VALIDATION_FAILED: {
     status: 400,
     code: "VALIDATION_FAILURE",
@@ -99,10 +104,21 @@ const isUploadStorageError = (error) => {
   );
 };
 
+const isUploadDbSaveError = (error) => {
+  const name = String(error?.name || "");
+  return (
+    name === "PrismaClientKnownRequestError" ||
+    name === "PrismaClientValidationError" ||
+    name === "PrismaClientUnknownRequestError" ||
+    name === "PrismaClientRustPanicError"
+  );
+};
+
 module.exports = {
   createUploadMulterError,
   uploadErrorResponse: sendUploadErrorResponse,
   sendUploadErrorResponse,
   mapUploadMiddlewareError,
   isUploadStorageError,
+  isUploadDbSaveError,
 };
