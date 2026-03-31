@@ -8,6 +8,9 @@ const {
   mapUploadMiddlewareError,
   sendUploadErrorResponse,
 } = require("../utils/uploadErrors");
+const {
+  SPECIAL_CATEGORY_UPLOAD_FIELDS,
+} = require("../utils/transferSpecialCategories");
 
 const router = express.Router();
 
@@ -43,10 +46,30 @@ const handleUpload = (req, res, next) => {
   });
 };
 
+const specialCategoryUploadFields = SPECIAL_CATEGORY_UPLOAD_FIELDS.map((name) => ({
+  name,
+  maxCount: 1,
+}));
+
+const handleSpecialCategoryUploads = (req, res, next) => {
+  upload.fields(specialCategoryUploadFields)(req, res, (err) => {
+    if (!err) return next();
+    const mapped = mapUploadMiddlewareError(err);
+    if (mapped) {
+      return res.status(mapped.status).json(mapped.body);
+    }
+    return sendUploadErrorResponse(res, "UNEXPECTED_UPLOAD_ERROR");
+  });
+};
+
 router.use(authMiddleware);
 router.use(authorizeRoles("ADMIN", "TRANSFER_OFFICER"));
 
-router.post("/", transfersController.createTransferApplication);
+router.post(
+  "/",
+  handleSpecialCategoryUploads,
+  transfersController.createTransferApplication
+);
 router.get("/", transfersController.listTransferApplications);
 router.get(
   "/stats/district-wise",
@@ -54,7 +77,11 @@ router.get(
 );
 router.post("/upload", handleUpload, transfersController.uploadTransferDocumentLegacy);
 router.get("/:id", transfersController.getTransferApplicationById);
-router.put("/:id", transfersController.updateTransferApplication);
+router.put(
+  "/:id",
+  handleSpecialCategoryUploads,
+  transfersController.updateTransferApplication
+);
 router.post("/:id/submit", transfersController.submitTransferApplication);
 router.post(
   "/:id/upload-document",

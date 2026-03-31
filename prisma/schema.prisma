@@ -408,31 +408,45 @@ model Transfer {
 }
 
 model TransferFlatRecord {
-  id                     Int      @id @default(autoincrement())
-  slNo                   String?
-  categorySlNo           String?
-  currentDistrict        String?
-  kgid                   String?
-  employeeName           String?
-  dateOfBirth            String?
-  dateOfEntryIntoService String?
-  presentPlaceOfWorking  String?
-  gbaYears               String?
-  gbaMarks               String?
-  aYears                 String?
-  aMarks                 String?
-  bYears                 String?
-  bMarks                 String?
-  cYears                 String?
-  cMarks                 String?
-  totalYears             String?
-  totalMarks             String?
-  categoryName           String?
-  remarks                String?
-  designation            String?
-  specialization         String?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id                                                        Int      @id @default(autoincrement())
+  slNo                                                      String?
+  categorySlNo                                              String?
+  currentDistrict                                           String?
+  kgid                                                      String?
+  employeeName                                              String?
+  dateOfBirth                                               String?
+  dateOfEntryIntoService                                    String?
+  presentPlaceOfWorking                                     String?
+  gbaYears                                                  String?
+  gbaMarks                                                  String?
+  aYears                                                    String?
+  aMarks                                                    String?
+  bYears                                                    String?
+  bMarks                                                    String?
+  cYears                                                    String?
+  cMarks                                                    String?
+  totalYears                                                String?
+  totalMarks                                                String?
+  categoryName                                              String?
+  remarks                                                   String?
+  designation                                               String?
+  specialization                                            String?
+  specialCatTerminalIllnessSelected                         Boolean  @default(false)
+  specialCatTerminalIllnessDocument                         String?
+  specialCatPregnantOrChildUnderOneSelected                 Boolean  @default(false)
+  specialCatPregnantOrChildUnderOneDocument                 String?
+  specialCatRetiringWithinTwoYearsSelected                  Boolean  @default(false)
+  specialCatRetiringWithinTwoYearsDocument                  String?
+  specialCatDisabilityFortyPercentSelected                  Boolean  @default(false)
+  specialCatDisabilityFortyPercentDocument                  String?
+  specialCatWidowWidowerDivorceeWithChildrenUnder12Selected Boolean  @default(false)
+  specialCatWidowWidowerDivorceeWithChildrenUnder12Document String?
+  specialCatSpouseGovtEmployeeSelected                      Boolean  @default(false)
+  specialCatSpouseGovtEmployeeDocument                      String?
+  specialCatKsgeaElectedMemberSelected                      Boolean  @default(false)
+  specialCatKsgeaElectedMemberDocument                      String?
+  createdAt                                                 DateTime @default(now())
+  updatedAt                                                 DateTime @updatedAt
 
   @@index([kgid])
   @@index([currentDistrict])
