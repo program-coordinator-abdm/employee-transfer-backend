@@ -6,6 +6,7 @@ const SPECIAL_CATEGORY_CONFIGS = [
     selectedField: "specialCatTerminalIllnessSelected",
     documentField: "specialCatTerminalIllnessDocument",
     uploadField: "specialCatTerminalIllnessDocument",
+    uploadFieldAliases: ["specialCategory1Doc"],
     legacyDocumentTypes: ["TERMINALLY_ILL"],
   },
   {
@@ -15,6 +16,7 @@ const SPECIAL_CATEGORY_CONFIGS = [
     selectedField: "specialCatPregnantOrChildUnderOneSelected",
     documentField: "specialCatPregnantOrChildUnderOneDocument",
     uploadField: "specialCatPregnantOrChildUnderOneDocument",
+    uploadFieldAliases: ["specialCategory2Doc"],
     legacyDocumentTypes: [],
   },
   {
@@ -24,6 +26,7 @@ const SPECIAL_CATEGORY_CONFIGS = [
     selectedField: "specialCatRetiringWithinTwoYearsSelected",
     documentField: "specialCatRetiringWithinTwoYearsDocument",
     uploadField: "specialCatRetiringWithinTwoYearsDocument",
+    uploadFieldAliases: ["specialCategory3Doc"],
     legacyDocumentTypes: [],
   },
   {
@@ -33,6 +36,7 @@ const SPECIAL_CATEGORY_CONFIGS = [
     selectedField: "specialCatDisabilityFortyPercentSelected",
     documentField: "specialCatDisabilityFortyPercentDocument",
     uploadField: "specialCatDisabilityFortyPercentDocument",
+    uploadFieldAliases: ["specialCategory4Doc"],
     legacyDocumentTypes: ["PHYSICALLY_CHALLENGED"],
   },
   {
@@ -42,6 +46,7 @@ const SPECIAL_CATEGORY_CONFIGS = [
     selectedField: "specialCatWidowWidowerDivorceeWithChildrenUnder12Selected",
     documentField: "specialCatWidowWidowerDivorceeWithChildrenUnder12Document",
     uploadField: "specialCatWidowWidowerDivorceeWithChildrenUnder12Document",
+    uploadFieldAliases: ["specialCategory5Doc"],
     legacyDocumentTypes: ["WIDOW"],
   },
   {
@@ -51,6 +56,7 @@ const SPECIAL_CATEGORY_CONFIGS = [
     selectedField: "specialCatSpouseGovtEmployeeSelected",
     documentField: "specialCatSpouseGovtEmployeeDocument",
     uploadField: "specialCatSpouseGovtEmployeeDocument",
+    uploadFieldAliases: ["specialCategory6Doc"],
     legacyDocumentTypes: ["SPOUSE_GOVT_SERVICE"],
   },
   {
@@ -63,13 +69,22 @@ const SPECIAL_CATEGORY_CONFIGS = [
     selectedField: "specialCatKsgeaElectedMemberSelected",
     documentField: "specialCatKsgeaElectedMemberDocument",
     uploadField: "specialCatKsgeaElectedMemberDocument",
+    uploadFieldAliases: ["specialCategory7Doc"],
     legacyDocumentTypes: [],
   },
 ];
 
 const SPECIAL_CATEGORY_CODES = SPECIAL_CATEGORY_CONFIGS.map((item) => item.code);
-const SPECIAL_CATEGORY_UPLOAD_FIELDS = SPECIAL_CATEGORY_CONFIGS.map(
-  (item) => item.uploadField
+const getUploadFieldNames = (category) => [
+  category.uploadField,
+  ...(Array.isArray(category.uploadFieldAliases)
+    ? category.uploadFieldAliases
+    : []),
+].filter(Boolean);
+const SPECIAL_CATEGORY_UPLOAD_FIELDS = Array.from(
+  new Set(
+    SPECIAL_CATEGORY_CONFIGS.flatMap((item) => getUploadFieldNames(item))
+  )
 );
 
 const SPECIAL_CATEGORY_BY_CODE = Object.fromEntries(
@@ -79,7 +94,9 @@ const SPECIAL_CATEGORY_BY_LABEL = Object.fromEntries(
   SPECIAL_CATEGORY_CONFIGS.map((item) => [item.label.trim().toLowerCase(), item])
 );
 const SPECIAL_CATEGORY_BY_UPLOAD_FIELD = Object.fromEntries(
-  SPECIAL_CATEGORY_CONFIGS.map((item) => [item.uploadField, item])
+  SPECIAL_CATEGORY_CONFIGS.flatMap((item) =>
+    getUploadFieldNames(item).map((fieldName) => [fieldName, item])
+  )
 );
 
 const DOCUMENT_TYPE_TO_SPECIAL_CATEGORY_CODE = (() => {

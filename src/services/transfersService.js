@@ -1,6 +1,10 @@
 const prisma = require("./prisma");
 const { AppError } = require("../utils/errors");
-const { uploadFileToS3 } = require("./s3Uploader");
+const {
+  uploadFileToS3,
+  ensureS3ObjectInPrefix,
+  extractS3KeyFromReference,
+} = require("./s3Uploader");
 const {
   SPECIAL_CATEGORY_CONFIGS,
   SPECIAL_CATEGORY_CODES,
@@ -9,8 +13,8 @@ const {
   KS_GEA_ELECTED_MEMBER_QUESTION,
   KS_GEA_ELECTED_MEMBER_DOCUMENT_DESCRIPTION,
 } = require("../utils/transferSpecialCategories");
-
 const TRANSFER_DOCUMENT_TYPES = [...SPECIAL_CATEGORY_CODES];
+const TRANSFER_SPECIAL_CATEGORY_S3_PREFIX = "uploads/transfers/special-categories";
 
 const BASE_TRANSFER_FIELDS = [
   "slNo",
@@ -73,34 +77,56 @@ const mapTransferFlatRecord = (entry) => ({
   specialization: entry.specialization,
   specialCatTerminalIllnessSelected: Boolean(entry.specialCatTerminalIllnessSelected),
   specialCatTerminalIllnessDocument: entry.specialCatTerminalIllnessDocument,
+  specialCatTerminalIllnessDocumentKey: extractS3KeyFromReference(
+    entry.specialCatTerminalIllnessDocument
+  ),
   specialCatPregnantOrChildUnderOneSelected: Boolean(
     entry.specialCatPregnantOrChildUnderOneSelected
   ),
   specialCatPregnantOrChildUnderOneDocument:
     entry.specialCatPregnantOrChildUnderOneDocument,
+  specialCatPregnantOrChildUnderOneDocumentKey: extractS3KeyFromReference(
+    entry.specialCatPregnantOrChildUnderOneDocument
+  ),
   specialCatRetiringWithinTwoYearsSelected: Boolean(
     entry.specialCatRetiringWithinTwoYearsSelected
   ),
   specialCatRetiringWithinTwoYearsDocument:
     entry.specialCatRetiringWithinTwoYearsDocument,
+  specialCatRetiringWithinTwoYearsDocumentKey: extractS3KeyFromReference(
+    entry.specialCatRetiringWithinTwoYearsDocument
+  ),
   specialCatDisabilityFortyPercentSelected: Boolean(
     entry.specialCatDisabilityFortyPercentSelected
   ),
   specialCatDisabilityFortyPercentDocument:
     entry.specialCatDisabilityFortyPercentDocument,
+  specialCatDisabilityFortyPercentDocumentKey: extractS3KeyFromReference(
+    entry.specialCatDisabilityFortyPercentDocument
+  ),
   specialCatWidowWidowerDivorceeWithChildrenUnder12Selected: Boolean(
     entry.specialCatWidowWidowerDivorceeWithChildrenUnder12Selected
   ),
   specialCatWidowWidowerDivorceeWithChildrenUnder12Document:
     entry.specialCatWidowWidowerDivorceeWithChildrenUnder12Document,
+  specialCatWidowWidowerDivorceeWithChildrenUnder12DocumentKey:
+    extractS3KeyFromReference(
+      entry.specialCatWidowWidowerDivorceeWithChildrenUnder12Document
+    ),
   specialCatSpouseGovtEmployeeSelected: Boolean(
     entry.specialCatSpouseGovtEmployeeSelected
   ),
   specialCatSpouseGovtEmployeeDocument: entry.specialCatSpouseGovtEmployeeDocument,
+  specialCatSpouseGovtEmployeeDocumentKey: extractS3KeyFromReference(
+    entry.specialCatSpouseGovtEmployeeDocument
+  ),
   specialCatKsgeaElectedMemberSelected: Boolean(
     entry.specialCatKsgeaElectedMemberSelected
   ),
   specialCatKsgeaElectedMemberDocument: entry.specialCatKsgeaElectedMemberDocument,
+  specialCatKsgeaElectedMemberDocumentKey: extractS3KeyFromReference(
+    entry.specialCatKsgeaElectedMemberDocument
+  ),
   selectedSpecialCategories: SPECIAL_CATEGORY_CONFIGS.filter((config) =>
     Boolean(entry[config.selectedField])
   ).map((config) => config.code),
@@ -109,6 +135,9 @@ const mapTransferFlatRecord = (entry) => ({
     label: config.label,
     selected: Boolean(entry[config.selectedField]),
     documentUrl: entry[config.documentField] || null,
+    documentKey: extractS3KeyFromReference(entry[config.documentField]),
+    document: entry[config.documentField] || null,
+    fileRef: entry[config.documentField] || null,
     uploadFieldName: config.uploadField,
     ...(config.code === "SPECIAL_CAT_KSGEA_ELECTED_MEMBER"
       ? {
@@ -186,20 +215,52 @@ const uploadSpecialCategoryDocuments = async (fileUploads = []) => {
     if (!entry?.file) {
       continue;
     }
-    const uploadResult = await uploadFileToS3(entry.file);
+    const uploadResult = await uploadFileToS3(entry.file, {
+      keyPrefix: TRANSFER_SPECIAL_CATEGORY_S3_PREFIX,
+    });
+    console.info("[transfers.upload] special category uploaded", {
+      categoryCode: specialCategory.code,
+      key: uploadResult.key,
+      url: uploadResult.url,
+    });
     uploadedData[specialCategory.selectedField] = true;
     uploadedData[specialCategory.documentField] = uploadResult.url;
   }
   return uploadedData;
 };
 
+const normalizeSpecialCategoryDocumentReferences = async (payload = {}) => {
+  const updates = {};
+  for (const category of SPECIAL_CATEGORY_CONFIGS) {
+    const hasDocument =
+      payload &&
+      Object.prototype.hasOwnProperty.call(payload, category.documentField);
+    if (!hasDocument) continue;
+    const rawReference = toOptionalString(payload[category.documentField]);
+    if (!rawReference) continue;
+    const ensured = await ensureS3ObjectInPrefix(
+      rawReference,
+      TRANSFER_SPECIAL_CATEGORY_S3_PREFIX
+    );
+    if (!ensured?.url) continue;
+    updates[category.documentField] = ensured.url;
+    updates[`${category.documentField}Key`] =
+      ensured.key || extractS3KeyFromReference(ensured.url) || null;
+  }
+  return updates;
+};
+
 const createTransferApplication = async (payload) => {
   const uploadedDocumentData = await uploadSpecialCategoryDocuments(
     payload.__specialCategoryFileUploads
   );
+  const normalizedDocumentReferences = await normalizeSpecialCategoryDocumentReferences(
+    payload
+  );
   const created = await prisma.transferFlatRecord.create({
     data: {
       ...buildTransferFlatData(payload),
+      ...normalizedDocumentReferences,
       ...uploadedDocumentData,
     },
   });
@@ -234,10 +295,14 @@ const updateTransferApplication = async (id, payload) => {
   const uploadedDocumentData = await uploadSpecialCategoryDocuments(
     payload.__specialCategoryFileUploads
   );
+  const normalizedDocumentReferences = await normalizeSpecialCategoryDocumentReferences(
+    payload
+  );
   const updated = await prisma.transferFlatRecord.update({
     where: { id },
     data: {
       ...buildTransferFlatData(payload, { existing }),
+      ...normalizedDocumentReferences,
       ...uploadedDocumentData,
     },
   });
@@ -270,7 +335,14 @@ const uploadTransferDocument = async (id, documentType, file) => {
     throw new AppError("Transfer record not found", 404);
   }
 
-  const uploadResult = await uploadFileToS3(file);
+  const uploadResult = await uploadFileToS3(file, {
+    keyPrefix: TRANSFER_SPECIAL_CATEGORY_S3_PREFIX,
+  });
+  console.info("[transfers.upload] special category uploaded", {
+    categoryCode: specialCategory.code,
+    key: uploadResult.key,
+    url: uploadResult.url,
+  });
   const updated = await prisma.transferFlatRecord.update({
     where: { id },
     data: {
@@ -324,6 +396,7 @@ module.exports = {
   TRANSFER_DOCUMENT_TYPES,
   SPECIAL_CATEGORY_CODES,
   SPECIAL_CATEGORY_CONFIGS,
+  TRANSFER_SPECIAL_CATEGORY_S3_PREFIX,
   KS_GEA_ELECTED_MEMBER_QUESTION,
   KS_GEA_ELECTED_MEMBER_DOCUMENT_DESCRIPTION,
 };

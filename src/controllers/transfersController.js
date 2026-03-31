@@ -93,6 +93,14 @@ const toSpecialCategoryCodeSchema = () =>
     z.array(z.enum(SPECIAL_CATEGORY_CODES)).default([])
   );
 
+const toOptionalSelectedSpecialCategoriesSchema = () =>
+  z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") {
+      return undefined;
+    }
+    return toSpecialCategoryCodeSchema().parse(value);
+  }, z.array(z.enum(SPECIAL_CATEGORY_CODES)).optional());
+
 const withDefaultArray = (value) => (Array.isArray(value) ? value : []);
 
 const normalizeSpecialCategoryDocumentAlias = (body, aliases = []) => {
@@ -150,6 +158,29 @@ const normalizeSpecialCategoryPayload = (body = {}) => {
     }
   }
 
+  // Frontend currently sends: specialCategories = { selected: boolean[], documents: string[] }
+  if (
+    body.specialCategories &&
+    typeof body.specialCategories === "object" &&
+    !Array.isArray(body.specialCategories)
+  ) {
+    const selectedArray = Array.isArray(body.specialCategories.selected)
+      ? body.specialCategories.selected
+      : [];
+    const documentsArray = Array.isArray(body.specialCategories.documents)
+      ? body.specialCategories.documents
+      : [];
+
+    SPECIAL_CATEGORY_CONFIGS.forEach((category, idx) => {
+      if (payload[category.selectedField] === undefined && idx < selectedArray.length) {
+        payload[category.selectedField] = selectedArray[idx];
+      }
+      if (payload[category.documentField] === undefined && idx < documentsArray.length) {
+        payload[category.documentField] = documentsArray[idx];
+      }
+    });
+  }
+
   return payload;
 };
 
@@ -204,7 +235,7 @@ const transferApplicationSchema = z.object({
   remarks: toOptionalFlatStringSchema(),
   designation: toOptionalFlatStringSchema(),
   specialization: toOptionalFlatStringSchema(),
-  selectedSpecialCategories: toSpecialCategoryCodeSchema(),
+  selectedSpecialCategories: toOptionalSelectedSpecialCategoriesSchema(),
   specialCatTerminalIllnessSelected: toOptionalBooleanSchema(),
   specialCatTerminalIllnessDocument: toOptionalFlatStringSchema(),
   specialCatPregnantOrChildUnderOneSelected: toOptionalBooleanSchema(),
@@ -254,7 +285,7 @@ const parseSpecialCategoryRequest = (body = {}) => {
     if (Object.prototype.hasOwnProperty.call(body, category.documentField)) {
       normalizedDocuments[category.documentField] = selected
         ? body[category.documentField]
-        : undefined;
+        : null;
     }
   }
   return {
@@ -280,6 +311,19 @@ const attachSpecialCategoryDocumentsFromFiles = (payload, files = {}) => {
     });
   }
   return nextPayload;
+};
+
+const buildSpecialCategoriesObjectForFrontend = (record = {}) => {
+  const selected = SPECIAL_CATEGORY_CONFIGS.map((category) =>
+    Boolean(record?.[category.selectedField])
+  );
+  const documents = SPECIAL_CATEGORY_CONFIGS.map(
+    (category) => record?.[category.documentField] || ""
+  );
+  return {
+    selected,
+    documents,
+  };
 };
 
 const toFrontendTransferRecord = (record = {}) => {
@@ -313,46 +357,67 @@ const toFrontendTransferRecord = (record = {}) => {
       remarks: record.remarks || "",
       designation: record.designation || "",
       specialization: record.specialization || "",
-      selectedSpecialCategories: Array.isArray(record.selectedSpecialCategories)
-        ? record.selectedSpecialCategories
-        : [],
-      specialCategories: Array.isArray(record.specialCategories)
-        ? record.specialCategories
-        : [],
+      selectedSpecialCategories:
+        Array.isArray(record.selectedSpecialCategories) &&
+        record.selectedSpecialCategories.length > 0
+          ? record.selectedSpecialCategories
+          : buildSpecialCategoriesObjectForFrontend(record).selected
+              .map((selected, idx) =>
+                selected ? SPECIAL_CATEGORY_CONFIGS[idx]?.code : null
+              )
+              .filter(Boolean),
+      // Frontend transfer form currently expects this object shape.
+      specialCategoriesObject: buildSpecialCategoriesObjectForFrontend(record),
+      specialCategoriesLegacy: buildSpecialCategoriesObjectForFrontend(record),
+      specialCategories: buildSpecialCategoriesObjectForFrontend(record),
       specialCatTerminalIllnessSelected: Boolean(
         record.specialCatTerminalIllnessSelected
       ),
       specialCatTerminalIllnessDocument: record.specialCatTerminalIllnessDocument || "",
+      specialCatTerminalIllnessDocumentKey:
+        record.specialCatTerminalIllnessDocumentKey || "",
       specialCatPregnantOrChildUnderOneSelected: Boolean(
         record.specialCatPregnantOrChildUnderOneSelected
       ),
       specialCatPregnantOrChildUnderOneDocument:
         record.specialCatPregnantOrChildUnderOneDocument || "",
+      specialCatPregnantOrChildUnderOneDocumentKey:
+        record.specialCatPregnantOrChildUnderOneDocumentKey || "",
       specialCatRetiringWithinTwoYearsSelected: Boolean(
         record.specialCatRetiringWithinTwoYearsSelected
       ),
       specialCatRetiringWithinTwoYearsDocument:
         record.specialCatRetiringWithinTwoYearsDocument || "",
+      specialCatRetiringWithinTwoYearsDocumentKey:
+        record.specialCatRetiringWithinTwoYearsDocumentKey || "",
       specialCatDisabilityFortyPercentSelected: Boolean(
         record.specialCatDisabilityFortyPercentSelected
       ),
       specialCatDisabilityFortyPercentDocument:
         record.specialCatDisabilityFortyPercentDocument || "",
+      specialCatDisabilityFortyPercentDocumentKey:
+        record.specialCatDisabilityFortyPercentDocumentKey || "",
       specialCatWidowWidowerDivorceeWithChildrenUnder12Selected: Boolean(
         record.specialCatWidowWidowerDivorceeWithChildrenUnder12Selected
       ),
       specialCatWidowWidowerDivorceeWithChildrenUnder12Document:
         record.specialCatWidowWidowerDivorceeWithChildrenUnder12Document || "",
+      specialCatWidowWidowerDivorceeWithChildrenUnder12DocumentKey:
+        record.specialCatWidowWidowerDivorceeWithChildrenUnder12DocumentKey || "",
       specialCatSpouseGovtEmployeeSelected: Boolean(
         record.specialCatSpouseGovtEmployeeSelected
       ),
       specialCatSpouseGovtEmployeeDocument:
         record.specialCatSpouseGovtEmployeeDocument || "",
+      specialCatSpouseGovtEmployeeDocumentKey:
+        record.specialCatSpouseGovtEmployeeDocumentKey || "",
       specialCatKsgeaElectedMemberSelected: Boolean(
         record.specialCatKsgeaElectedMemberSelected
       ),
       specialCatKsgeaElectedMemberDocument:
         record.specialCatKsgeaElectedMemberDocument || "",
+      specialCatKsgeaElectedMemberDocumentKey:
+        record.specialCatKsgeaElectedMemberDocumentKey || "",
       specialCatKsgeaElectedMemberQuestion: KS_GEA_ELECTED_MEMBER_QUESTION,
       specialCatKsgeaElectedMemberDocumentDescription:
         KS_GEA_ELECTED_MEMBER_DOCUMENT_DESCRIPTION,
@@ -458,7 +523,9 @@ const uploadTransferDocumentLegacy = asyncHandler(async (req, res) => {
     return uploadErrorResponse(res, "MISSING_FILE");
   }
   try {
-    const result = await uploadFileToS3(req.file);
+    const result = await uploadFileToS3(req.file, {
+      keyPrefix: "uploads/transfers/general",
+    });
     res.status(201).json({
       url: result.url,
       fileName: result.filename || req.file.originalname,

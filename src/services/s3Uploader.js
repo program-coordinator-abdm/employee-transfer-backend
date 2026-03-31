@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const { gzip } = require("zlib");
 const { promisify } = require("util");
 const sharp = require("sharp");
-const { S3Client } = require("@aws-sdk/client-s3");
+const { S3Client, CopyObjectCommand } = require("@aws-sdk/client-s3");
 const { Upload } = require("@aws-sdk/lib-storage");
 
 const publicBaseUrl = process.env.PUBLIC_UPLOAD_BASE_URL;
@@ -40,7 +40,13 @@ const validateS3RuntimeConfig = () => {
 const sanitizeFilename = (name) =>
   name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
 
-const buildObjectKey = (filename) => {
+const toOptionalString = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const buildObjectKey = (filename, keyPrefix = "uploads") => {
   const ext = path.extname(filename);
   const base = path.basename(filename, ext);
   const safeBase = sanitizeFilename(base) || "upload";
@@ -48,7 +54,8 @@ const buildObjectKey = (filename) => {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const id = crypto.randomUUID();
-  return `uploads/${year}/${month}/${id}-${safeBase}${ext}`;
+  const normalizedPrefix = String(keyPrefix || "uploads").replace(/\/+$/, "");
+  return `${normalizedPrefix}/${year}/${month}/${id}-${safeBase}${ext}`;
 };
 
 const buildPublicUrl = (key, bucket, region) => {
@@ -57,6 +64,27 @@ const buildPublicUrl = (key, bucket, region) => {
   }
   return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
 };
+
+const extractS3KeyFromReference = (reference) => {
+  const normalized = toOptionalString(reference);
+  if (!normalized) return null;
+  if (!/^https?:\/\//i.test(normalized)) {
+    return normalized.replace(/^\/+/, "");
+  }
+  try {
+    const parsed = new URL(normalized);
+    const pathname = String(parsed.pathname || "").replace(/^\/+/, "");
+    return pathname || null;
+  } catch (_error) {
+    return null;
+  }
+};
+
+const encodeCopySource = (bucket, key) =>
+  `${bucket}/${String(key)
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/")}`;
 
 const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
 const ALREADY_COMPRESSED_MIME_TYPES = new Set([
@@ -151,7 +179,7 @@ const processUploadFile = async (file) => {
   };
 };
 
-const uploadFileToS3 = async (file) => {
+const uploadFileToS3 = async (file, options = {}) => {
   if (!file || !file.buffer) {
     throw new Error("File buffer is missing");
   }
@@ -167,7 +195,8 @@ const uploadFileToS3 = async (file) => {
       },
     });
     const processedFile = await processUploadFile(file);
-    const key = buildObjectKey(processedFile.filename);
+    const keyPrefix = toOptionalString(options?.keyPrefix) || "uploads";
+    const key = buildObjectKey(processedFile.filename, keyPrefix);
     console.log("Uploading to S3:", { bucket, key });
     const params = {
       Bucket: bucket,
@@ -211,6 +240,51 @@ const uploadFileToS3 = async (file) => {
   }
 };
 
+const ensureS3ObjectInPrefix = async (reference, keyPrefix) => {
+  const sourceKey = extractS3KeyFromReference(reference);
+  if (!sourceKey) {
+    return null;
+  }
+  const normalizedPrefix = toOptionalString(keyPrefix) || "uploads";
+  if (sourceKey.startsWith(`${normalizedPrefix}/`)) {
+    return {
+      key: sourceKey,
+      url: reference,
+    };
+  }
+
+  const { region, bucket, accessKeyId, secretAccessKey } =
+    validateS3RuntimeConfig();
+  const client = new S3Client({
+    region,
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+    },
+  });
+
+  const destinationKey = buildObjectKey(path.basename(sourceKey), normalizedPrefix);
+  const command = new CopyObjectCommand({
+    Bucket: bucket,
+    Key: destinationKey,
+    CopySource: encodeCopySource(bucket, sourceKey),
+    ...(usePublicReadAcl ? { ACL: "public-read" } : {}),
+  });
+  await client.send(command);
+  const destinationUrl = buildPublicUrl(destinationKey, bucket, region);
+  console.info("[s3.copy] moved object to prefix", {
+    sourceKey,
+    destinationKey,
+    destinationUrl,
+  });
+  return {
+    key: destinationKey,
+    url: destinationUrl,
+  };
+};
+
 module.exports = {
   uploadFileToS3,
+  extractS3KeyFromReference,
+  ensureS3ObjectInPrefix,
 };
