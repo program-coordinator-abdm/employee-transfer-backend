@@ -2,18 +2,12 @@ const prisma = require("./prisma");
 const { AppError } = require("../utils/errors");
 const { uploadFileToS3 } = require("./s3Uploader");
 
-const TRANSFER_DOCUMENT_TYPE_TO_FIELD = {
-  TERMINALLY_ILL: "terminallyIllDocUrl",
-  PHYSICALLY_CHALLENGED: "physicallyChallengedDocUrl",
-  WIDOW: "widowDocUrl",
-  SPOUSE_GOVT_SERVICE: "spouseGovtServiceDocUrl",
-};
-
-const transferInclude = {
-  serviceDetails: {
-    orderBy: [{ orderIndex: "asc" }, { id: "asc" }],
-  },
-};
+const TRANSFER_DOCUMENT_TYPES = [
+  "TERMINALLY_ILL",
+  "PHYSICALLY_CHALLENGED",
+  "WIDOW",
+  "SPOUSE_GOVT_SERVICE",
+];
 
 const toOptionalString = (value) => {
   if (value === undefined || value === null) {
@@ -23,387 +17,140 @@ const toOptionalString = (value) => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
-const normalizeUserId = (value) => {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return null;
-  }
-  return parsed;
-};
+const toNullableString = (value) => toOptionalString(value) || null;
 
-const resolveActor = async (client, actor) => {
-  const userId = normalizeUserId(actor?.id ?? actor);
-  let username = toOptionalString(actor?.username);
-
-  if (!username && userId) {
-    const user = await client.user.findUnique({
-      where: { id: userId },
-      select: { username: true },
-    });
-    username = toOptionalString(user?.username);
-  }
-
-  return {
-    userId,
-    username: username || null,
-  };
-};
-
-const mapTransferServiceDetail = (entry) => ({
+const mapTransferFlatRecord = (entry) => ({
   id: entry.id,
-  postHeld: entry.postHeld,
-  postHeldSpeciality: entry.postHeldSpeciality,
-  institutionName: entry.institutionName,
-  district: entry.district,
-  taluka: entry.taluka,
-  cityTownVillage: entry.cityTownVillage,
-  zone: entry.zone,
-  workingSince: entry.workingSince,
-  orderIndex: entry.orderIndex,
-  createdAt: entry.createdAt,
-  updatedAt: entry.updatedAt,
-});
-
-const compareServiceDetailOrderForResponse = (left, right) => {
-  const leftHasOrder =
-    left.orderIndex !== undefined && left.orderIndex !== null;
-  const rightHasOrder =
-    right.orderIndex !== undefined && right.orderIndex !== null;
-
-  if (leftHasOrder && rightHasOrder && left.orderIndex !== right.orderIndex) {
-    return left.orderIndex - right.orderIndex;
-  }
-  if (leftHasOrder !== rightHasOrder) {
-    return leftHasOrder ? -1 : 1;
-  }
-
-  const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
-  const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0;
-  if (leftTime !== rightTime) {
-    return leftTime - rightTime;
-  }
-
-  return left.id - right.id;
-};
-
-const splitCurrentAndPastServiceDetails = (serviceDetails = []) => {
-  const ordered = [...serviceDetails].sort(compareServiceDetailOrderForResponse);
-  return {
-    currentServiceDetails: ordered.length > 0 ? [ordered[0]] : [],
-    pastServiceDetails: ordered.length > 1 ? ordered.slice(1) : [],
-  };
-};
-
-const mapTransferApplication = (entry) => {
-  const mappedServiceDetails = (entry.serviceDetails || []).map(
-    mapTransferServiceDetail
-  );
-  const splitServiceDetails =
-    splitCurrentAndPastServiceDetails(mappedServiceDetails);
-
-  return {
-  id: entry.id,
-  applicationNumber: entry.applicationNumber,
-  kgidNumber: entry.kgidNumber,
+  slNo: entry.slNo,
+  categorySlNo: entry.categorySlNo,
+  currentDistrict: entry.currentDistrict,
+  kgid: entry.kgid,
   employeeName: entry.employeeName,
-  gender: entry.gender,
   dateOfBirth: entry.dateOfBirth,
-  communicationAddress: entry.communicationAddress,
-  pinCode: entry.pinCode,
-  email: entry.email,
-  mobileNumber: entry.mobileNumber,
-  residenceNumber: entry.residenceNumber,
-  groupSelection: entry.groupSelection,
-  role: entry.role,
+  dateOfEntryIntoService: entry.dateOfEntryIntoService,
+  presentPlaceOfWorking: entry.presentPlaceOfWorking,
+  gbaYears: entry.gbaYears,
+  gbaMarks: entry.gbaMarks,
+  aYears: entry.aYears,
+  aMarks: entry.aMarks,
+  bYears: entry.bYears,
+  bMarks: entry.bMarks,
+  cYears: entry.cYears,
+  cMarks: entry.cMarks,
+  totalYears: entry.totalYears,
+  totalMarks: entry.totalMarks,
+  categoryName: entry.categoryName,
+  remarks: entry.remarks,
   designation: entry.designation,
   specialization: entry.specialization,
-  dateOfEntryIntoService: entry.dateOfEntryIntoService,
-  probationDeclared: entry.probationDeclared,
-  terminallyIll: entry.terminallyIll,
-  terminallyIllDocUrl: entry.terminallyIllDocUrl,
-  physicallyChallenged: entry.physicallyChallenged,
-  physicallyChallengedDocUrl: entry.physicallyChallengedDocUrl,
-  widow: entry.widow,
-  widowDocUrl: entry.widowDocUrl,
-  spouseInGovtService: entry.spouseInGovtService,
-  spouseGovtServiceDocUrl: entry.spouseGovtServiceDocUrl,
-  ngoBenefits: entry.ngoBenefits ?? false,
-  ngoBenefitsDoc: entry.ngoBenefitsDoc,
-  remarks: entry.remarks,
-  status: entry.status,
-  submittedAt: entry.submittedAt,
-  createdByUserId: entry.createdByUserId,
-  createdByUsername: entry.createdByUsername,
-  updatedByUserId: entry.updatedByUserId,
-  updatedByUsername: entry.updatedByUsername,
   createdAt: entry.createdAt,
   updatedAt: entry.updatedAt,
-  serviceDetails: mappedServiceDetails,
-  currentServiceDetails: splitServiceDetails.currentServiceDetails,
-  pastServiceDetails: splitServiceDetails.pastServiceDetails,
-  documentUrls: {
-    terminallyIllDocUrl: entry.terminallyIllDocUrl,
-    physicallyChallengedDocUrl: entry.physicallyChallengedDocUrl,
-    widowDocUrl: entry.widowDocUrl,
-    spouseGovtServiceDocUrl: entry.spouseGovtServiceDocUrl,
-    ngoBenefitsDoc: entry.ngoBenefitsDoc,
-  },
-  };
-};
-
-const buildTransferApplicationData = (payload) => ({
-    applicationNumber: payload.applicationNumber || null,
-    kgidNumber: payload.kgidNumber,
-    employeeName: payload.employeeName,
-    gender: payload.gender,
-    dateOfBirth: payload.dateOfBirth,
-    communicationAddress: payload.communicationAddress,
-    pinCode: payload.pinCode,
-    email: payload.email,
-    mobileNumber: payload.mobileNumber,
-    residenceNumber: payload.residenceNumber || null,
-    groupSelection: payload.groupSelection,
-    role: payload.role,
-    designation: payload.designation,
-    specialization: payload.specialization || null,
-    dateOfEntryIntoService: payload.dateOfEntryIntoService,
-    probationDeclared: payload.probationDeclared,
-    terminallyIll: payload.terminallyIll,
-    terminallyIllDocUrl: payload.terminallyIllDocUrl || null,
-    physicallyChallenged: payload.physicallyChallenged,
-    physicallyChallengedDocUrl: payload.physicallyChallengedDocUrl || null,
-    widow: payload.widow,
-    widowDocUrl: payload.widowDocUrl || null,
-    spouseInGovtService: payload.spouseInGovtService,
-    spouseGovtServiceDocUrl: payload.spouseGovtServiceDocUrl || null,
-    ngoBenefits: Boolean(payload.ngoBenefits),
-    ngoBenefitsDoc: payload.ngoBenefitsDoc || null,
-    remarks: payload.remarks || null,
 });
 
-const buildServiceDetailsData = (transferApplicationId, details = []) =>
-  details.map((entry, index) => ({
-    transferApplicationId,
-    postHeld: entry.postHeld,
-    postHeldSpeciality: entry.postHeldSpeciality || null,
-    institutionName: entry.institutionName,
-    district: entry.district,
-    taluka: entry.taluka,
-    cityTownVillage: entry.cityTownVillage,
-    zone: entry.zone,
-    workingSince: entry.workingSince,
-    orderIndex:
-      entry.orderIndex === undefined || entry.orderIndex === null
-        ? index + 1
-        : entry.orderIndex,
-  }));
+const buildTransferFlatData = (payload = {}) => ({
+  slNo: toNullableString(payload.slNo),
+  categorySlNo: toNullableString(payload.categorySlNo),
+  currentDistrict: toNullableString(payload.currentDistrict),
+  kgid: toNullableString(payload.kgid),
+  employeeName: toNullableString(payload.employeeName),
+  dateOfBirth: toNullableString(payload.dateOfBirth),
+  dateOfEntryIntoService: toNullableString(payload.dateOfEntryIntoService),
+  presentPlaceOfWorking: toNullableString(payload.presentPlaceOfWorking),
+  gbaYears: toNullableString(payload.gbaYears),
+  gbaMarks: toNullableString(payload.gbaMarks),
+  aYears: toNullableString(payload.aYears),
+  aMarks: toNullableString(payload.aMarks),
+  bYears: toNullableString(payload.bYears),
+  bMarks: toNullableString(payload.bMarks),
+  cYears: toNullableString(payload.cYears),
+  cMarks: toNullableString(payload.cMarks),
+  totalYears: toNullableString(payload.totalYears),
+  totalMarks: toNullableString(payload.totalMarks),
+  categoryName: toNullableString(payload.categoryName),
+  remarks: toNullableString(payload.remarks),
+  designation: toNullableString(payload.designation),
+  specialization: toNullableString(payload.specialization),
+});
 
-const createTransferApplication = async (payload, actor) =>
-  prisma.$transaction(async (tx) => {
-    const actorInfo = await resolveActor(tx, actor);
-    const created = await tx.transferApplication.create({
-      data: {
-        ...buildTransferApplicationData(payload),
-        status: "DRAFT",
-        createdByUserId: actorInfo.userId,
-        createdByUsername: actorInfo.username,
-        updatedByUserId: actorInfo.userId,
-        updatedByUsername: actorInfo.username,
-      },
-    });
-
-    await tx.transferServiceDetail.createMany({
-      data: buildServiceDetailsData(created.id, payload.serviceDetails),
-    });
-
-    const withDetails = await tx.transferApplication.findUnique({
-      where: { id: created.id },
-      include: transferInclude,
-    });
-    if (!withDetails) {
-      throw new AppError("Transfer application not found", 404);
-    }
-    return mapTransferApplication(withDetails);
+const createTransferApplication = async (payload) => {
+  const created = await prisma.transferFlatRecord.create({
+    data: buildTransferFlatData(payload),
   });
+  return mapTransferFlatRecord(created);
+};
 
 const listTransferApplications = async () => {
-  const applications = await prisma.transferApplication.findMany({
-    include: transferInclude,
+  const records = await prisma.transferFlatRecord.findMany({
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
-  return applications.map(mapTransferApplication);
+  return records.map(mapTransferFlatRecord);
 };
 
 const getTransferApplicationById = async (id) => {
-  const application = await prisma.transferApplication.findUnique({
+  const record = await prisma.transferFlatRecord.findUnique({
     where: { id },
-    include: transferInclude,
   });
-  if (!application) {
-    throw new AppError("Transfer application not found", 404);
+  if (!record) {
+    throw new AppError("Transfer record not found", 404);
   }
-  return mapTransferApplication(application);
+  return mapTransferFlatRecord(record);
 };
 
-const updateTransferApplication = async (id, payload, actor) =>
-  prisma.$transaction(async (tx) => {
-    const existing = await tx.transferApplication.findUnique({ where: { id } });
-    if (!existing) {
-      throw new AppError("Transfer application not found", 404);
-    }
-    if (existing.status === "SUBMITTED") {
-      throw new AppError("Submitted transfer application cannot be updated", 400);
-    }
-
-    const actorInfo = await resolveActor(tx, actor);
-    await tx.transferApplication.update({
-      where: { id },
-      data: {
-        ...buildTransferApplicationData(payload),
-        updatedByUserId: actorInfo.userId,
-        updatedByUsername: actorInfo.username,
-      },
-    });
-
-    await tx.transferServiceDetail.deleteMany({
-      where: { transferApplicationId: id },
-    });
-
-    await tx.transferServiceDetail.createMany({
-      data: buildServiceDetailsData(id, payload.serviceDetails),
-    });
-
-    const withDetails = await tx.transferApplication.findUnique({
-      where: { id },
-      include: transferInclude,
-    });
-    if (!withDetails) {
-      throw new AppError("Transfer application not found", 404);
-    }
-    return mapTransferApplication(withDetails);
-  });
-
-const submitTransferApplication = async (id, actor) =>
-  prisma.$transaction(async (tx) => {
-    const existing = await tx.transferApplication.findUnique({
-      where: { id },
-      include: transferInclude,
-    });
-    if (!existing) {
-      throw new AppError("Transfer application not found", 404);
-    }
-    if ((existing.serviceDetails || []).length === 0) {
-      throw new AppError("At least one service detail entry is required", 400, {
-        field: "serviceDetails",
-      });
-    }
-
-    const actorInfo = await resolveActor(tx, actor);
-
-    const updated = await tx.transferApplication.update({
-      where: { id },
-      data: {
-        status: "SUBMITTED",
-        submittedAt: new Date(),
-        updatedByUserId: actorInfo.userId,
-        updatedByUsername: actorInfo.username,
-      },
-      include: transferInclude,
-    });
-
-    return mapTransferApplication(updated);
-  });
-
-const uploadTransferDocument = async (id, documentType, file, actor) => {
-  const fieldName = TRANSFER_DOCUMENT_TYPE_TO_FIELD[documentType];
-  if (!fieldName) {
-    throw new AppError("Unsupported document type", 400, { field: "documentType" });
-  }
-
-  const existing = await prisma.transferApplication.findUnique({
+const updateTransferApplication = async (id, payload) => {
+  const existing = await prisma.transferFlatRecord.findUnique({
     where: { id },
     select: { id: true },
   });
   if (!existing) {
-    throw new AppError("Transfer application not found", 404);
+    throw new AppError("Transfer record not found", 404);
+  }
+
+  const updated = await prisma.transferFlatRecord.update({
+    where: { id },
+    data: buildTransferFlatData(payload),
+  });
+  return mapTransferFlatRecord(updated);
+};
+
+const submitTransferApplication = async (id) => {
+  return getTransferApplicationById(id);
+};
+
+const uploadTransferDocument = async (id, documentType, file) => {
+  if (
+    documentType &&
+    !TRANSFER_DOCUMENT_TYPES.includes(String(documentType).toUpperCase())
+  ) {
+    throw new AppError("Unsupported document type", 400, { field: "documentType" });
+  }
+
+  const existing = await prisma.transferFlatRecord.findUnique({
+    where: { id },
+  });
+  if (!existing) {
+    throw new AppError("Transfer record not found", 404);
   }
 
   const uploadResult = await uploadFileToS3(file);
-  const updated = await prisma.$transaction(async (tx) => {
-    const actorInfo = await resolveActor(tx, actor);
-    return tx.transferApplication.update({
-      where: { id },
-      data: {
-        [fieldName]: uploadResult.url,
-        updatedByUserId: actorInfo.userId,
-        updatedByUsername: actorInfo.username,
-      },
-      include: transferInclude,
-    });
-  });
-
   return {
-    data: mapTransferApplication(updated),
-    documentType,
+    data: mapTransferFlatRecord(existing),
+    documentType: documentType || null,
     documentUrl: uploadResult.url,
     documentKey: uploadResult.key,
   };
 };
 
-const comparePrimaryServiceDetails = (left, right) => {
-  const leftHasOrder =
-    left.orderIndex !== undefined && left.orderIndex !== null;
-  const rightHasOrder =
-    right.orderIndex !== undefined && right.orderIndex !== null;
-
-  if (leftHasOrder && rightHasOrder && left.orderIndex !== right.orderIndex) {
-    return left.orderIndex - right.orderIndex;
-  }
-  if (leftHasOrder !== rightHasOrder) {
-    return leftHasOrder ? -1 : 1;
-  }
-
-  const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
-  const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0;
-  if (leftTime !== rightTime) {
-    return leftTime - rightTime;
-  }
-
-  return left.id - right.id;
-};
-
-const getPrimaryServiceDetail = (serviceDetails = []) => {
-  if (serviceDetails.length === 0) {
-    return null;
-  }
-
-  const sorted = [...serviceDetails].sort(comparePrimaryServiceDetails);
-  return sorted[0] || null;
-};
-
 const getDistrictWiseTransferStats = async () => {
-  const applications = await prisma.transferApplication.findMany({
+  const rows = await prisma.transferFlatRecord.findMany({
     select: {
-      id: true,
-      serviceDetails: {
-        select: {
-          id: true,
-          district: true,
-          orderIndex: true,
-          createdAt: true,
-        },
-      },
+      currentDistrict: true,
     },
   });
-
   const districtCounts = new Map();
 
-  for (const application of applications) {
-    const primaryDetail = getPrimaryServiceDetail(application.serviceDetails || []);
-    const district = toOptionalString(primaryDetail?.district);
-    if (!district) {
-      continue;
-    }
+  for (const row of rows) {
+    const district = toOptionalString(row.currentDistrict);
+    if (!district) continue;
     districtCounts.set(district, (districtCounts.get(district) || 0) + 1);
   }
 
@@ -425,5 +172,5 @@ module.exports = {
   submitTransferApplication,
   uploadTransferDocument,
   getDistrictWiseTransferStats,
-  TRANSFER_DOCUMENT_TYPE_TO_FIELD,
+  TRANSFER_DOCUMENT_TYPES,
 };

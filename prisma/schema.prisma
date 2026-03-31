@@ -27,166 +27,139 @@ enum AchievementType {
   special
 }
 
-enum TransferGender {
-  MALE
-  FEMALE
-}
-
-enum TransferGroup {
-  A
-  B
-  C
-  D
-}
-
-enum TransferZone {
-  GBA
-  A
-  B
-  C
-}
-
-enum TransferStatus {
-  DRAFT
-  PREVIEWED
-  SUBMITTED
-}
-
 model User {
-  id                Int       @id @default(autoincrement())
-  username          String    @unique
-  email             String    @unique
+  id                Int        @id @default(autoincrement())
+  username          String     @unique
+  email             String     @unique
   phone             String?
   password          String
   role              UserRole
   profilePictureUrl String?
-  createdAt         DateTime  @default(now())
+  createdAt         DateTime   @default(now())
   transfersCreated  Transfer[] @relation("TransfersCreated")
   vacanciesCreated  Vacancy[]  @relation("VacanciesCreated")
-  transferApplicationsCreated TransferApplication[] @relation("TransferApplicationCreatedBy")
-  transferApplicationsUpdated TransferApplication[] @relation("TransferApplicationUpdatedBy")
 }
 
 model Employee {
-  id                     Int       @id @default(autoincrement())
-  empName                String
-  empKgid                String    @unique
-  designation            String
-  designationGroup       String
-  designationSubGroup    String
-  firstPostHeld          String?
-  dateOfEntry            DateTime
-  dateOfJoining          DateTime
-  gender                 String
-  dob                    DateTime
-  yearsOfWork            Int?
-  currentPostHeld        String
-  currentPostGroup       String
-  currentPostSubGroup    String
-  currentInstitution     String
-  currentInstitutionType String?
-  currentDistrict        String
-  currentTaluk           String
-  currentCityTownVillage String
-  otherStateLocation     String?
-  currentHfrId           String?
-  currentWorkingSince    DateTime
-  currentDesignation     String?
-  email                  String
-  phoneNumber            String
-  telephoneNumber        String?
-  address                String
-  pinCode                String
-  officeAddress          String
-  officePinCode          String
-  officeEmail            String
-  officePhoneNumber      String
-  officeTelephoneNumber  String?
-  postAppliedFor         String?
-  submittedOn            DateTime?
-  objections             String?
-  probationaryPeriod     Boolean
-  probationaryPeriodDoc  String?
-  probationDeclarationDate DateTime?
-  cltCompleted           Boolean   @default(false)
-  cltCompletedDoc        String?
-  cltCompletionDate      DateTime?
-  isDoctorNursePharmacist Boolean  @default(false)
-  hprId                  String?
-  hfrId                  String?
-  timeboundApplicable    Boolean   @default(false)
-  timeboundCategory      String?
-  timeboundYears         String?
-  timeboundDoc           String?
-  timeboundDate          DateTime?
-  timebound6Years        Boolean   @default(false)
-  timebound6YearsDoc     String?
-  timebound6YearsDate    DateTime?
-  timebound13Years       Boolean   @default(false)
-  timebound13YearsDoc    String?
-  timebound13YearsDate   DateTime?
-  timebound20Years       Boolean   @default(false)
-  timebound20YearsDoc    String?
-  timebound20YearsDate   DateTime?
-  timebound10Years       Boolean   @default(false)
-  timebound10YearsDoc    String?
-  timebound10YearsDate   DateTime?
-  timebound15Years       Boolean   @default(false)
-  timebound15YearsDoc    String?
-  timebound15YearsDate   DateTime?
-  timebound25Years       Boolean   @default(false)
-  timebound25YearsDoc    String?
-  timebound25YearsDate   DateTime?
-  timebound30Years       Boolean   @default(false)
-  timebound30YearsDoc    String?
-  timebound30YearsDate   DateTime?
-  currentServiceDoc      String?
-  promotionRejected      Boolean   @default(false)
-  promotionRejectedDate  DateTime?
+  id                           Int       @id @default(autoincrement())
+  empName                      String
+  empKgid                      String    @unique
+  designation                  String
+  designationGroup             String
+  designationSubGroup          String
+  firstPostHeld                String?
+  dateOfEntry                  DateTime
+  dateOfJoining                DateTime
+  gender                       String
+  dob                          DateTime
+  yearsOfWork                  Int?
+  currentPostHeld              String
+  currentPostGroup             String
+  currentPostSubGroup          String
+  currentInstitution           String
+  currentInstitutionType       String?
+  currentDistrict              String
+  currentTaluk                 String
+  currentCityTownVillage       String
+  otherStateLocation           String?
+  currentHfrId                 String?
+  currentWorkingSince          DateTime
+  currentDesignation           String?
+  email                        String
+  phoneNumber                  String
+  telephoneNumber              String?
+  address                      String
+  pinCode                      String
+  officeAddress                String
+  officePinCode                String
+  officeEmail                  String
+  officePhoneNumber            String
+  officeTelephoneNumber        String?
+  postAppliedFor               String?
+  submittedOn                  DateTime?
+  objections                   String?
+  probationaryPeriod           Boolean
+  probationaryPeriodDoc        String?
+  probationDeclarationDate     DateTime?
+  cltCompleted                 Boolean   @default(false)
+  cltCompletedDoc              String?
+  cltCompletionDate            DateTime?
+  isDoctorNursePharmacist      Boolean   @default(false)
+  hprId                        String?
+  hfrId                        String?
+  timeboundApplicable          Boolean   @default(false)
+  timeboundCategory            String?
+  timeboundYears               String?
+  timeboundDoc                 String?
+  timeboundDate                DateTime?
+  timebound6Years              Boolean   @default(false)
+  timebound6YearsDoc           String?
+  timebound6YearsDate          DateTime?
+  timebound13Years             Boolean   @default(false)
+  timebound13YearsDoc          String?
+  timebound13YearsDate         DateTime?
+  timebound20Years             Boolean   @default(false)
+  timebound20YearsDoc          String?
+  timebound20YearsDate         DateTime?
+  timebound10Years             Boolean   @default(false)
+  timebound10YearsDoc          String?
+  timebound10YearsDate         DateTime?
+  timebound15Years             Boolean   @default(false)
+  timebound15YearsDoc          String?
+  timebound15YearsDate         DateTime?
+  timebound25Years             Boolean   @default(false)
+  timebound25YearsDoc          String?
+  timebound25YearsDate         DateTime?
+  timebound30Years             Boolean   @default(false)
+  timebound30YearsDoc          String?
+  timebound30YearsDate         DateTime?
+  currentServiceDoc            String?
+  promotionRejected            Boolean   @default(false)
+  promotionRejectedDate        DateTime?
   promotionRejectedDesignation String?
-  pgBond                 Boolean   @default(false)
-  pgBondDoc              String?
-  pgBondCompletionDate   DateTime?
-  recruitmentType        String?
-  directRecruitmentMode  String?
-  directRecruitmentOther String?
-  educationLevel         String?
-  mdSpecialization       String?
-  departmentalExamCompleted Boolean @default(false)
-  departmentalExamInputName String?
-  departmentalExamDocument String?
-  contractRegularised    Boolean   @default(false)
-  contractRegularisedDoc String?
-  contractRegularisedDate DateTime?
-  contractJoiningDate    DateTime?
-  terminallyIll          Boolean
-  terminallyIllDoc       String?
-  pregnantOrChildUnderOne Boolean
-  pregnantOrChildUnderOneDoc String?
-  retiringWithinTwoYears Boolean
-  retiringWithinTwoYearsDoc String?
-  childSpouseDisability  Boolean
-  childSpouseDisabilityDoc String?
-  divorceeWidowWithChild Boolean
-  divorceeWidowWithChildDoc String?
-  spouseGovtServant      Boolean
-  spouseGovtServantDoc   String?
-  spouseDesignation      String?
-  spouseDistrict         String?
-  spouseTaluk            String?
-  spouseCityTownVillage  String?
-  ngoBenefits            Boolean   @default(false)
-  ngoBenefitsDoc         String?
-  permanentAddress       Json?
-  currentAddress         Json?
-  currentFirstPostHeld   String?
-  currentAreaType        String?
-  createdByUsername      String?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  pgBond                       Boolean   @default(false)
+  pgBondDoc                    String?
+  pgBondCompletionDate         DateTime?
+  recruitmentType              String?
+  directRecruitmentMode        String?
+  directRecruitmentOther       String?
+  educationLevel               String?
+  mdSpecialization             String?
+  departmentalExamCompleted    Boolean   @default(false)
+  departmentalExamInputName    String?
+  departmentalExamDocument     String?
+  contractRegularised          Boolean   @default(false)
+  contractRegularisedDoc       String?
+  contractRegularisedDate      DateTime?
+  contractJoiningDate          DateTime?
+  terminallyIll                Boolean
+  terminallyIllDoc             String?
+  pregnantOrChildUnderOne      Boolean
+  pregnantOrChildUnderOneDoc   String?
+  retiringWithinTwoYears       Boolean
+  retiringWithinTwoYearsDoc    String?
+  childSpouseDisability        Boolean
+  childSpouseDisabilityDoc     String?
+  divorceeWidowWithChild       Boolean
+  divorceeWidowWithChildDoc    String?
+  spouseGovtServant            Boolean
+  spouseGovtServantDoc         String?
+  spouseDesignation            String?
+  spouseDistrict               String?
+  spouseTaluk                  String?
+  spouseCityTownVillage        String?
+  ngoBenefits                  Boolean   @default(false)
+  ngoBenefitsDoc               String?
+  permanentAddress             Json?
+  currentAddress               Json?
+  currentFirstPostHeld         String?
+  currentAreaType              String?
+  createdByUsername            String?
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
 
-  assignmentHistory         AssignmentHistory[]
-  educations                Education[]
+  assignmentHistory          AssignmentHistory[]
+  educations                 Education[]
   postgraduateQualifications PostgraduateQualification[]
   timeboundPromotions        TimeboundPromotion[]
   administrativeRoles        AdministrativeRole[]
@@ -253,49 +226,49 @@ model AssignmentHistory {
 }
 
 model PastService {
-  id             Int      @id @default(autoincrement())
-  employeeId     Int
-  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  postHeld       String
-  postGroup      String
-  postSubGroup   String
-  firstPostHeld  String?
-  institutionType String?
-  hfrId          String?
-  institution    String
-  district       String
-  taluk          String?
-  cityTownVillage String?
+  id                 Int      @id @default(autoincrement())
+  employeeId         Int
+  employee           Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  postHeld           String
+  postGroup          String
+  postSubGroup       String
+  firstPostHeld      String?
+  institutionType    String?
+  hfrId              String?
+  institution        String
+  district           String
+  taluk              String?
+  cityTownVillage    String?
   otherStateLocation String?
-  fromDate       DateTime
-  toDate         DateTime
-  tenure         String?
-  joiningDocument String?
+  fromDate           DateTime
+  toDate             DateTime
+  tenure             String?
+  joiningDocument    String?
 
   @@index([employeeId])
 }
 
 model Education {
-  id             Int      @id @default(autoincrement())
-  employeeId     Int
-  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  type           String?
-  qualification  String?
-  degree         String?
-  institution    String?
-  level          String?
-  otherStateLocation String?
+  id                   Int      @id @default(autoincrement())
+  employeeId           Int
+  employee             Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type                 String?
+  qualification        String?
+  degree               String?
+  institution          String?
+  level                String?
+  otherStateLocation   String?
   customEducationLevel String?
-  institutionName String?
-  university     String?
-  year           String?
-  yearOfPassing  String?
-  gradePercentage String?
-  specialization String?
-  documentName   String?
-  documentUrl    String?
-  documentSizeKB Float?
-  documentUploadedAt String?
+  institutionName      String?
+  university           String?
+  year                 String?
+  yearOfPassing        String?
+  gradePercentage      String?
+  specialization       String?
+  documentName         String?
+  documentUrl          String?
+  documentSizeKB       Float?
+  documentUploadedAt   String?
 
   @@index([employeeId])
 }
@@ -315,9 +288,9 @@ model PostgraduateQualification {
 }
 
 model TimeboundPromotion {
-  id         Int      @id @default(autoincrement())
+  id         Int       @id @default(autoincrement())
   employeeId Int
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   label      String
   status     String
   order      String?
@@ -327,9 +300,9 @@ model TimeboundPromotion {
 }
 
 model AdministrativeRole {
-  id         Int      @id @default(autoincrement())
+  id         Int       @id @default(autoincrement())
   employeeId Int
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   role       String
   fromDate   DateTime?
   toDate     DateTime?
@@ -339,9 +312,9 @@ model AdministrativeRole {
 }
 
 model AdditionalCharge {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   employeeId  Int
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   designation String
   place       String?
   fromDate    DateTime?
@@ -351,9 +324,9 @@ model AdditionalCharge {
 }
 
 model Achievement {
-  id          Int            @id @default(autoincrement())
+  id          Int             @id @default(autoincrement())
   employeeId  Int
-  employee    Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee    Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   type        AchievementType
   description String
 
@@ -372,9 +345,9 @@ model DisciplinaryRecord {
 }
 
 model Declaration {
-  id                Int      @id @default(autoincrement())
-  employeeId        Int      @unique
-  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id                Int       @id @default(autoincrement())
+  employeeId        Int       @unique
+  employee          Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   empDeclAgreed     Boolean
   empDeclName       String?
   empDeclDate       DateTime?
@@ -385,34 +358,34 @@ model Declaration {
 }
 
 model Document {
-  id         Int      @id @default(autoincrement())
-  employeeId Int
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  name       String
-  sizeKB     Float?
-  uploadedAt DateTime?
+  id          Int       @id @default(autoincrement())
+  employeeId  Int
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name        String
+  sizeKB      Float?
+  uploadedAt  DateTime?
   downloadUrl String?
 
   @@index([employeeId])
 }
 
 model ServiceInformation {
-  id                     Int      @id @default(autoincrement())
-  employeeId             Int      @unique
-  employee               Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  deputedByGovernment    String?
-  specialistService      String?
+  id                      Int      @id @default(autoincrement())
+  employeeId              Int      @unique
+  employee                Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  deputedByGovernment     String?
+  specialistService       String?
   trainingInHospitalAdmin String?
-  spouseInGovtService    String?
-  spouseServiceDetails   String?
+  spouseInGovtService     String?
+  spouseServiceDetails    String?
 }
 
 model AppointmentDetails {
-  id                  Int      @id @default(autoincrement())
-  employeeId          Int      @unique
-  employee            Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  slNoInOrder         String?
-  orderNoAndDate      String?
+  id                       Int       @id @default(autoincrement())
+  employeeId               Int       @unique
+  employee                 Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  slNoInOrder              String?
+  orderNoAndDate           String?
   dateOfInitialAppointment DateTime?
 }
 
@@ -434,78 +407,36 @@ model Transfer {
   @@index([createdByUserId])
 }
 
-model TransferApplication {
-  id                            Int              @id @default(autoincrement())
-  applicationNumber             String?          @unique
-  kgidNumber                    String
-  employeeName                  String
-  gender                        TransferGender
-  dateOfBirth                   DateTime
-  communicationAddress          String
-  pinCode                       String
-  email                         String
-  mobileNumber                  String
-  residenceNumber               String?
-  groupSelection                TransferGroup
-  role                          String
-  designation                   String
-  specialization                String?
-  dateOfEntryIntoService        DateTime
-  probationDeclared             Boolean
-  terminallyIll                 Boolean          @default(false)
-  terminallyIllDocUrl           String?
-  physicallyChallenged          Boolean          @default(false)
-  physicallyChallengedDocUrl    String?
-  widow                         Boolean          @default(false)
-  widowDocUrl                   String?
-  spouseInGovtService           Boolean          @default(false)
-  spouseGovtServiceDocUrl       String?
-  ngoBenefits                   Boolean          @default(false)
-  ngoBenefitsDoc                String?
-  remarks                       String?
-  employeeDeclarationAccepted   Boolean          @default(false)
-  employeeSignatureName         String?
-  employeeDeclarationDate       DateTime?
-  headOfficeDeclarationAccepted Boolean          @default(false)
-  headOfficeSignatureName       String?
-  headOfficeDeclarationDate     DateTime?
-  dhoDeclarationAccepted        Boolean          @default(false)
-  dhoSignatureName              String?
-  dhoDeclarationDate            DateTime?
-  status                        TransferStatus   @default(DRAFT)
-  submittedAt                   DateTime?
-  createdByUserId               Int?
-  createdByUsername             String?
-  updatedByUserId               Int?
-  updatedByUsername             String?
-  createdByUser                 User?            @relation("TransferApplicationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  updatedByUser                 User?            @relation("TransferApplicationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
-  createdAt                     DateTime         @default(now())
-  updatedAt                     DateTime         @updatedAt
-  serviceDetails                TransferServiceDetail[]
+model TransferFlatRecord {
+  id                     Int      @id @default(autoincrement())
+  slNo                   String?
+  categorySlNo           String?
+  currentDistrict        String?
+  kgid                   String?
+  employeeName           String?
+  dateOfBirth            String?
+  dateOfEntryIntoService String?
+  presentPlaceOfWorking  String?
+  gbaYears               String?
+  gbaMarks               String?
+  aYears                 String?
+  aMarks                 String?
+  bYears                 String?
+  bMarks                 String?
+  cYears                 String?
+  cMarks                 String?
+  totalYears             String?
+  totalMarks             String?
+  categoryName           String?
+  remarks                String?
+  designation            String?
+  specialization         String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
-  @@index([status])
-  @@index([createdAt])
-  @@index([createdByUserId])
-}
-
-model TransferServiceDetail {
-  id                    Int                 @id @default(autoincrement())
-  transferApplicationId Int
-  transferApplication   TransferApplication @relation(fields: [transferApplicationId], references: [id], onDelete: Cascade)
-  postHeld              String
-  postHeldSpeciality    String?
-  institutionName       String
-  district              String
-  taluka                String
-  cityTownVillage       String
-  zone                  TransferZone
-  workingSince          DateTime
-  orderIndex            Int?
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-
-  @@index([transferApplicationId])
+  @@index([kgid])
+  @@index([currentDistrict])
+  @@index([categoryName])
 }
 
 model Vacancy {
