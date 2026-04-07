@@ -5,8 +5,12 @@ const authMiddleware = (req, _res, next) => {
   if (req.method === "OPTIONS") {
     return next();
   }
-  const authHeader = req.headers.authorization || "";
-  const [, token] = authHeader.split(" ");
+  const authHeader =
+    typeof req.headers.authorization === "string"
+      ? req.headers.authorization.trim()
+      : "";
+  const bearerMatch = authHeader.match(/^Bearer\s*(.+)$/i);
+  const token = bearerMatch?.[1]?.trim() || "";
 
   if (!token) {
     return next(new AppError("Unauthorized", 401));
