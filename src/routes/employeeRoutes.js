@@ -13,8 +13,16 @@ router.get("/filter", employeeController.filterEmployees);
 router.get("/export", employeeController.exportEmployees);
 router.get("/suggestions", employeeController.getSuggestions);
 router.get("/:id", employeeController.getEmployeeById);
-router.post("/", authorizeRoles("DATA_OFFICER"), employeeController.createEmployee);
-router.put("/:id", authorizeRoles("ADMIN"), employeeController.updateEmployee);
+router.post(
+  "/",
+  authorizeRoles("ADMIN", "DATA_OFFICER"),
+  employeeController.createEmployee
+);
+router.put(
+  "/:id",
+  authorizeRoles("ADMIN", "DATA_OFFICER"),
+  employeeController.updateEmployee
+);
 router.delete("/:id", authorizeRoles("ADMIN"), employeeController.deleteEmployee);
 router.post("/:id/transfers", authorizeRoles("ADMIN"), transferController.createTransfer);
 
