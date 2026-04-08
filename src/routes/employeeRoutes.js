@@ -11,6 +11,7 @@ router.use(authMiddleware);
 router.get("/", employeeController.listEmployees);
 router.get("/filter", employeeController.filterEmployees);
 router.get("/export", employeeController.exportEmployees);
+router.get("/export.xlsx", employeeController.exportEmployeesExcel);
 router.get("/suggestions", employeeController.getSuggestions);
 router.get("/:id", employeeController.getEmployeeById);
 router.post(

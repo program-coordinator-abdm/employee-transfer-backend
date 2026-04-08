@@ -1,6 +1,7 @@
 const prisma = require("./prisma");
 const { Prisma } = require("@prisma/client");
 const { AppError } = require("../utils/errors");
+const XLSX = require("xlsx");
 
 const formatPeriod = (startedOn, endedOn) => {
   if (!startedOn) return "-";
@@ -936,11 +937,36 @@ const csvEscape = (value) => {
   return stringValue;
 };
 
-const streamEmployeesCsv = async (res, { category, search }) => {
-  const baseWhere = combineWhereClauses(
-    buildListSearchWhere(search),
-    buildCategoryWhere(category)
-  );
+const EMPLOYEE_EXPORT_HEADERS = [
+  "empKgid",
+  "empName",
+  "currentDesignation",
+  "currentInstitution",
+  "currentDistrict",
+  "currentTaluk",
+];
+
+const toExportRow = (row) => ({
+  empKgid: row.empKgid ?? "",
+  empName: row.empName ?? "",
+  currentDesignation: row.currentDesignation ?? row.currentPostHeld ?? "",
+  currentInstitution: row.currentInstitution ?? "",
+  currentDistrict: row.currentDistrict ?? "",
+  currentTaluk: row.currentTaluk ?? "",
+});
+
+const EMPLOYEE_EXPORT_SELECT = {
+  id: true,
+  empKgid: true,
+  empName: true,
+  currentDesignation: true,
+  currentPostHeld: true,
+  currentInstitution: true,
+  currentDistrict: true,
+  currentTaluk: true,
+};
+
+const streamEmployeesCsv = async (res) => {
 
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", 'attachment; filename="employees.csv"');
@@ -949,36 +975,17 @@ const streamEmployeesCsv = async (res, { category, search }) => {
     res.flushHeaders();
   }
 
-  res.write(
-    "id,empKgid,empName,designation,designationGroup,currentPostHeld,currentInstitution,currentDistrict,email,phoneNumber,createdAt\n"
-  );
+  res.write(`${EMPLOYEE_EXPORT_HEADERS.join(",")}\n`);
 
   const batchSize = 500;
   let lastId = null;
 
   while (!res.destroyed) {
-    const batchWhere = combineWhereClauses(
-      baseWhere,
-      lastId !== null ? { id: { gt: lastId } } : {}
-    );
-
     const batch = await prisma.employee.findMany({
-      where: batchWhere,
+      where: lastId !== null ? { id: { gt: lastId } } : undefined,
       orderBy: { id: "asc" },
       take: batchSize,
-      select: {
-        id: true,
-        empKgid: true,
-        empName: true,
-        designation: true,
-        designationGroup: true,
-        currentPostHeld: true,
-        currentInstitution: true,
-        currentDistrict: true,
-        email: true,
-        phoneNumber: true,
-        createdAt: true,
-      },
+      select: EMPLOYEE_EXPORT_SELECT,
     });
 
     if (batch.length === 0) {
@@ -986,18 +993,14 @@ const streamEmployeesCsv = async (res, { category, search }) => {
     }
 
     for (const row of batch) {
+      const normalized = toExportRow(row);
       const csvRow = [
-        row.id,
-        row.empKgid,
-        row.empName,
-        row.designation,
-        row.designationGroup,
-        row.currentPostHeld,
-        row.currentInstitution,
-        row.currentDistrict,
-        row.email,
-        row.phoneNumber,
-        row.createdAt ? row.createdAt.toISOString() : "",
+        normalized.empKgid,
+        normalized.empName,
+        normalized.currentDesignation,
+        normalized.currentInstitution,
+        normalized.currentDistrict,
+        normalized.currentTaluk,
       ]
         .map(csvEscape)
         .join(",");
@@ -1010,6 +1013,41 @@ const streamEmployeesCsv = async (res, { category, search }) => {
   if (!res.writableEnded) {
     res.end();
   }
+};
+
+const streamEmployeesExcel = async (res) => {
+  const rows = [];
+  const batchSize = 500;
+  let lastId = null;
+
+  while (true) {
+    const batch = await prisma.employee.findMany({
+      where: lastId !== null ? { id: { gt: lastId } } : undefined,
+      orderBy: { id: "asc" },
+      take: batchSize,
+      select: EMPLOYEE_EXPORT_SELECT,
+    });
+    if (batch.length === 0) {
+      break;
+    }
+    rows.push(...batch.map(toExportRow));
+    lastId = batch[batch.length - 1].id;
+  }
+
+  const worksheet = XLSX.utils.json_to_sheet(rows, {
+    header: EMPLOYEE_EXPORT_HEADERS,
+  });
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
+  const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "buffer" });
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader("Content-Disposition", 'attachment; filename="employees.xlsx"');
+  res.setHeader("Cache-Control", "no-store");
+  res.send(buffer);
 };
 
 const EMPLOYEE_DETAIL_RELATION_TIMEOUT_MS = (() => {
@@ -2285,5 +2323,6 @@ module.exports = {
   deleteEmployee,
   createEmployee,
   updateEmployee,
+  streamEmployeesExcel,
   createTransfer,
 };

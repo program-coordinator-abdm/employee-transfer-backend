@@ -889,6 +889,8 @@ const employeeSchema = z
 const exportSchema = z.object({
   category: z.string().optional(),
   search: z.string().optional().default(""),
+  format: z.string().optional(),
+  type: z.string().optional(),
 });
 
 const normalizeSearchMode = (value) => {
@@ -1396,7 +1398,19 @@ const listEmployees = asyncHandler(async (req, res) => {
 const exportEmployees = asyncHandler(async (req, res) => {
   const query = exportSchema.parse(req.query);
   res.set("Cache-Control", "no-store");
-  await employeeService.streamEmployeesCsv(res, query);
+  const requestedFormat = String(query.format || query.type || "csv")
+    .trim()
+    .toLowerCase();
+  if (requestedFormat === "xlsx" || requestedFormat === "excel") {
+    await employeeService.streamEmployeesExcel(res);
+    return;
+  }
+  await employeeService.streamEmployeesCsv(res);
+});
+
+const exportEmployeesExcel = asyncHandler(async (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  await employeeService.streamEmployeesExcel(res);
 });
 
 const getSuggestions = asyncHandler(async (req, res) => {
@@ -1606,6 +1620,7 @@ module.exports = {
   listEmployees,
   filterEmployees,
   exportEmployees,
+  exportEmployeesExcel,
   getSuggestions,
   getEmployeeById,
   deleteEmployee,
