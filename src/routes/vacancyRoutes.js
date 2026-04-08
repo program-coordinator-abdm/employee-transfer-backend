@@ -21,7 +21,11 @@ router.get(
   vacancyController.getVacanciesByInstitution
 );
 router.get("/:id", vacancyController.getVacancyById);
-router.put("/:id", vacancyController.updateVacancy);
+router.put(
+  "/:id",
+  authorizeRoles("ADMIN", "DATA_OFFICER"),
+  vacancyController.updateVacancy
+);
 router.delete("/:id", vacancyController.deleteVacancy);
 
 module.exports = router;
