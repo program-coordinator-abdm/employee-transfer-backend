@@ -701,8 +701,13 @@ const resolveEmployeeAccessScope = async (
     }
   }
 
+  const isListVisibilityContext = new Set(["list", "filter", "suggestions"]).has(
+    context
+  );
   const unrestricted = Boolean(
-    username && ACCESS_UNRESTRICTED_USERNAMES.has(username)
+    (username && ACCESS_UNRESTRICTED_USERNAMES.has(username)) ||
+      (isListVisibilityContext &&
+        String(role || "").toUpperCase() === "DATA_OFFICER")
   );
   const mode = unrestricted ? "unrestricted" : "self-only";
 
