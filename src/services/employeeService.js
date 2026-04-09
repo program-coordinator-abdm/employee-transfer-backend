@@ -470,6 +470,7 @@ const mapEmployeeDetail = (employee) => {
     fromDate: toDateOnlyStringOrNull(entry.fromDate),
     toDate: toDateOnlyStringOrNull(entry.toDate),
   }));
+  const educationDetails = mapEducationDetails(education);
 
   return {
     id: String(employee.id),
@@ -604,9 +605,13 @@ const mapEmployeeDetail = (employee) => {
     declarationRemarks: employee.declaration?.remarks,
     assignmentHistory: assignments,
     pastServices,
+    // Backward-compatible alias used by some edit forms.
+    pastServiceDetails: pastServices,
     pastServiceDocs: pastServices.map((entry) => entry.joiningDocument || ""),
     education,
-    educationDetails: mapEducationDetails(education),
+    educationDetails,
+    // Backward-compatible alias used by some edit forms.
+    educationInformation: educationDetails,
     postgraduateQualifications: employee.postgraduateQualifications || [],
     timeboundPromotions: employee.timeboundPromotions || [],
     administrativeRoles: employee.administrativeRoles || [],
@@ -1355,7 +1360,8 @@ const fetchEmployeeWithRelations = async (client, id, options = {}) => {
           select: PAST_SERVICE_SELECT,
         }),
       fallbackValue: [],
-      allowPartialRelations,
+      // Edit mode depends on this relation; avoid silent empty fallback.
+      allowPartialRelations: false,
       timeoutMs,
     }),
     fetchRelationWithLogs({
@@ -1369,7 +1375,8 @@ const fetchEmployeeWithRelations = async (client, id, options = {}) => {
           select: EDUCATION_SELECT,
         }),
       fallbackValue: [],
-      allowPartialRelations,
+      // Edit mode depends on this relation; avoid silent empty fallback.
+      allowPartialRelations: false,
       timeoutMs,
     }),
     fetchRelationWithLogs({
@@ -1576,13 +1583,18 @@ const getEmployeeById = async (id, options = {}) => {
   console.info("[employees.getById] Service success", {
     employeeId: id,
     requestId: requestId || null,
+    responseKeys: Object.keys(mapped),
     assignmentHistoryCount: Array.isArray(mapped.assignmentHistory)
       ? mapped.assignmentHistory.length
       : 0,
     pastServicesCount: Array.isArray(mapped.pastServices)
       ? mapped.pastServices.length
       : 0,
+    pastServicesHasRecords:
+      Array.isArray(mapped.pastServices) && mapped.pastServices.length > 0,
     educationCount: Array.isArray(mapped.education) ? mapped.education.length : 0,
+    educationHasRecords:
+      Array.isArray(mapped.education) && mapped.education.length > 0,
   });
   return mapped;
 };
