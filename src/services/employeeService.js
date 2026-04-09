@@ -172,6 +172,8 @@ const mapEducationDetails = (entries = []) =>
     educationLevel: entry.level || "",
     // Backward-compatible alias for "Others" custom text in some forms.
     otherEducationLevel: entry.customEducationLevel || "",
+    educationOtherValue: entry.customEducationLevel || "",
+    otherEducationText: entry.customEducationLevel || "",
     otherStateLocation: entry.otherStateLocation || "",
     customEducationLevel: entry.customEducationLevel || "",
     effectiveEducationLevel:
@@ -230,6 +232,44 @@ const toNullableNumber = (value) => {
   const numeric = typeof value === "number" ? value : Number(value);
   return Number.isFinite(numeric) ? numeric : null;
 };
+
+const toNormalizedEducationWriteRow = (entry = {}) => ({
+  type: toNullableString(entry.type),
+  qualification: toNullableString(entry.qualification),
+  degree: toNullableString(entry.degree),
+  institution: toNullableString(entry.institution),
+  level: toNullableString(entry.level),
+  otherStateLocation: toNullableString(entry.otherStateLocation),
+  customEducationLevel: toNullableString(entry.customEducationLevel),
+  institutionName: toNullableString(entry.institutionName),
+  university: toNullableString(entry.university),
+  year: toNullableString(entry.year),
+  yearOfPassing: toNullableString(entry.yearOfPassing),
+  gradePercentage: toNullableString(entry.gradePercentage),
+  specialization: toNullableString(entry.specialization),
+  documentName: toNullableString(entry.documentName),
+  documentUrl: toNullableString(entry.documentUrl),
+  documentSizeKB: toNullableNumber(entry.documentSizeKB),
+  documentUploadedAt: toNullableString(entry.documentUploadedAt),
+});
+
+const toNormalizedPastServiceWriteRow = (service = {}) => ({
+  postHeld: service.postHeld,
+  postGroup: service.postGroup,
+  postSubGroup: service.postSubGroup,
+  firstPostHeld: toNullableString(service.firstPostHeld),
+  institutionType: toNullableString(service.institutionType),
+  hfrId: toNullableString(service.hfrId),
+  institution: service.institution,
+  district: service.district,
+  taluk: toNullableString(service.taluk),
+  cityTownVillage: toNullableString(service.cityTownVillage),
+  otherStateLocation: toNullableString(service.otherStateLocation),
+  fromDate: service.fromDate,
+  toDate: service.toDate,
+  tenure: toNullableString(service.tenure),
+  joiningDocument: toNullableString(service.joiningDocument),
+});
 
 const REQUIRED_CREATE_FIELDS = [
   "empKgid",
@@ -462,6 +502,10 @@ const mapEmployeeDetail = (employee) => {
   const totalExperienceYears = calculateTotalExperienceYears(assignments);
   const education = (employee.educations || []).map((entry) => ({
     ...entry,
+    // Backward-compatible aliases for custom "Others" mapping.
+    otherEducationLevel: entry.customEducationLevel || "",
+    educationOtherValue: entry.customEducationLevel || "",
+    otherEducationText: entry.customEducationLevel || "",
     educationLevel: entry.level || null,
     effectiveEducationLevel:
       String(entry.level || "").trim().toLowerCase() === "others"
@@ -473,6 +517,12 @@ const mapEmployeeDetail = (employee) => {
     // Backward-compatible aliases used in some edit mappers.
     typeOfInstitution: entry.institutionType || "",
     institution_category: entry.institutionType || "",
+    institutionTypeOther: entry.institutionType || "",
+    otherInstitutionType: entry.institutionType || "",
+    customInstitutionType: entry.institutionType || "",
+    typeOfInstitutionOther: entry.institutionType || "",
+    otherInstitutionTypeName: entry.institutionType || "",
+    effectiveInstitutionType: entry.institutionType || "",
     fromDate: toDateOnlyStringOrNull(entry.fromDate),
     toDate: toDateOnlyStringOrNull(entry.toDate),
   }));
@@ -1831,6 +1881,28 @@ const createEmployee = async (payload, options = {}) => {
       const achievements = toArray(payload.achievements);
       const documents = toArray(payload.documents);
 
+      const sampleEducationOthersPayload = education.find(
+        (entry) =>
+          String(entry.level || "").trim().toLowerCase() === "others" ||
+          String(entry.educationLevel || "").trim().toLowerCase() === "others"
+      );
+      const samplePastServiceOthersPayload = pastServices.find(
+        (entry) =>
+          String(
+            entry.institutionType ||
+              entry.typeOfInstitution ||
+              entry.institution_category ||
+              ""
+          )
+            .trim()
+            .toLowerCase() === "others"
+      );
+      console.info("[employees.create] Others payload snapshot", {
+        requestId: requestId || null,
+        sampleEducationOthersPayload: sampleEducationOthersPayload || null,
+        samplePastServiceOthersPayload: samplePastServiceOthersPayload || null,
+      });
+
       await validateEmployeeUniqueness(tx, {
         empKgid: payload.empKgid,
       });
@@ -1854,8 +1926,22 @@ const createEmployee = async (payload, options = {}) => {
       }
 
       if (pastServices.length > 0) {
+        const normalizedPastServiceRows = pastServices.map(
+          toNormalizedPastServiceWriteRow
+        );
+        const samplePastServiceOthersWrite = normalizedPastServiceRows.find(
+          (entry) => String(entry.institutionType || "").trim().toLowerCase() !== ""
+        );
+        console.info("[employees.create] Others past service DB write snapshot", {
+          requestId: requestId || null,
+          samplePastServiceOthersWrite: {
+            institutionType: samplePastServiceOthersWrite?.institutionType || null,
+            otherStateLocation:
+              samplePastServiceOthersWrite?.otherStateLocation || null,
+          },
+        });
         await tx.pastService.createMany({
-          data: pastServices.map((service) => ({
+          data: normalizedPastServiceRows.map((service) => ({
             ...service,
             employeeId: employee.id,
           })),
@@ -1863,8 +1949,19 @@ const createEmployee = async (payload, options = {}) => {
       }
 
       if (education.length > 0) {
+        const normalizedEducationRows = education.map(toNormalizedEducationWriteRow);
+        const sampleEducationOthersWrite = normalizedEducationRows.find(
+          (entry) => String(entry.level || "").trim().toLowerCase() === "others"
+        );
+        console.info("[employees.create] Others education DB write snapshot", {
+          requestId: requestId || null,
+          sampleEducationOthersWrite: sampleEducationOthersWrite || null,
+        });
         await tx.education.createMany({
-          data: education.map((entry) => ({ ...entry, employeeId: employee.id })),
+          data: normalizedEducationRows.map((entry) => ({
+            ...entry,
+            employeeId: employee.id,
+          })),
         });
       }
 
@@ -2023,6 +2120,25 @@ const updateEmployee = async (id, payload) => {
     const additionalCharges = toArray(payload.additionalCharges);
     const achievements = toArray(payload.achievements);
     const documents = toArray(payload.documents);
+
+    const sampleEducationOthersPayload = education.find(
+      (entry) =>
+        String(entry.level || "").trim().toLowerCase() === "others" ||
+        String(entry.educationLevel || "").trim().toLowerCase() === "others"
+    );
+    const samplePastServiceOthersPayload = pastServices.find(
+      (entry) =>
+        String(
+          entry.institutionType || entry.typeOfInstitution || entry.institution_category || ""
+        )
+          .trim()
+          .toLowerCase() === "others"
+    );
+    console.info("[employees.update] Others payload snapshot", {
+      employeeId: id,
+      sampleEducationOthersPayload: sampleEducationOthersPayload || null,
+      samplePastServiceOthersPayload: samplePastServiceOthersPayload || null,
+    });
     const declarationOwnerName = resolveEmployeeCreatorUsername(payload);
 
     await validateEmployeeUniqueness(tx, {
@@ -2180,8 +2296,25 @@ const updateEmployee = async (id, payload) => {
       }
 
       if (pastServices.length > 0) {
+        const normalizedPastServiceRows = pastServices.map(
+          toNormalizedPastServiceWriteRow
+        );
+        const samplePastServiceOthersWrite = normalizedPastServiceRows.find(
+          (entry) => String(entry.institutionType || "").trim().length > 0
+        );
+        console.info("[employees.update] Others past service DB write snapshot", {
+          employeeId: id,
+          samplePastServiceOthersWrite: {
+            institutionType: samplePastServiceOthersWrite?.institutionType || null,
+            otherStateLocation:
+              samplePastServiceOthersWrite?.otherStateLocation || null,
+          },
+        });
         await tx.pastService.createMany({
-          data: pastServices.map((service) => ({ ...service, employeeId: id })),
+          data: normalizedPastServiceRows.map((service) => ({
+            ...service,
+            employeeId: id,
+          })),
         });
       }
     }
@@ -2189,8 +2322,19 @@ const updateEmployee = async (id, payload) => {
     if (hasEducation) {
       await tx.education.deleteMany({ where: { employeeId: id } });
       if (education.length > 0) {
+        const normalizedEducationRows = education.map(toNormalizedEducationWriteRow);
+        const sampleEducationOthersWrite = normalizedEducationRows.find(
+          (entry) => String(entry.level || "").trim().toLowerCase() === "others"
+        );
+        console.info("[employees.update] Others education DB write snapshot", {
+          employeeId: id,
+          sampleEducationOthersWrite: sampleEducationOthersWrite || null,
+        });
         await tx.education.createMany({
-          data: education.map((entry) => ({ ...entry, employeeId: id })),
+          data: normalizedEducationRows.map((entry) => ({
+            ...entry,
+            employeeId: id,
+          })),
         });
       }
     }
@@ -2312,6 +2456,25 @@ const updateEmployee = async (id, payload) => {
     if (!detailed) {
       throw new AppError("Employee not found", 404);
     }
+    const sampleSavedEducationOthers = Array.isArray(detailed.educations)
+      ? detailed.educations.find(
+          (entry) => String(entry.level || "").trim().toLowerCase() === "others"
+        )
+      : null;
+    const sampleSavedPastServiceOthers = Array.isArray(detailed.pastServices)
+      ? detailed.pastServices.find(
+          (entry) =>
+            String(entry.institutionType || "").trim().toLowerCase() !== ""
+        )
+      : null;
+    console.info("[employees.update] Others persisted snapshot", {
+      employeeId: id,
+      sampleSavedEducationOthers: sampleSavedEducationOthers || null,
+      sampleSavedPastServiceOthers: {
+        institutionType: sampleSavedPastServiceOthers?.institutionType || null,
+        otherStateLocation: sampleSavedPastServiceOthers?.otherStateLocation || null,
+      },
+    });
     console.info("[employees.update] Service update branch completed", {
       employeeId: id,
     });

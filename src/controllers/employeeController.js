@@ -991,11 +991,20 @@ const normalizeEducationEntries = (body) => {
       );
       const isOthersEducationLevel =
         String(normalizedEducationLevel || "").trim().toLowerCase() === "others";
+      const effectiveEducationLevel = toOptionalString(entry.effectiveEducationLevel);
+      const effectiveEducationLevelCustom =
+        isOthersEducationLevel &&
+        String(effectiveEducationLevel || "").trim().toLowerCase() !== "others"
+          ? effectiveEducationLevel
+          : undefined;
       const customEducationLevel = toOptionalString(
         entry.customEducationLevel ??
           entry.otherEducationLevel ??
           entry.customEducation ??
-          entry.educationLevelOther
+          entry.educationLevelOther ??
+          entry.educationOtherValue ??
+          entry.otherEducationText ??
+          effectiveEducationLevelCustom
       );
       return {
         type: unschooled
@@ -1062,18 +1071,37 @@ const normalizePastServices = (body) => {
   const docs = Array.isArray(body.pastServiceDocs) ? body.pastServiceDocs : [];
 
   return body.pastServices.map((service = {}, index) => {
+    const dropdownInstitutionType = toOptionalString(
+      service.typeOfInstitution ?? service.institution_category ?? service.institutionType
+    );
+    const effectiveInstitutionType = toOptionalString(
+      service.effectiveInstitutionType ??
+        service.institutionTypeDisplay ??
+        service.typeOfInstitutionDisplay
+    );
+    const effectiveInstitutionTypeCustom =
+      String(dropdownInstitutionType || "").trim().toLowerCase() === "others" &&
+      String(effectiveInstitutionType || "").trim().toLowerCase() !== "others"
+        ? effectiveInstitutionType
+        : undefined;
     const normalizedInstitutionTypeOther = toOptionalString(
       service.institutionTypeOther ??
         service.otherInstitutionType ??
         service.customInstitutionType ??
-        service.otherTypeOfInstitution
+        service.otherTypeOfInstitution ??
+        service.typeOfInstitutionOther ??
+        service.institutionTypeCustom ??
+        service.customTypeOfInstitution ??
+        service.otherInstitutionTypeName ??
+        effectiveInstitutionTypeCustom
     );
-    const rawInstitutionType = toOptionalString(
+    const candidateInstitutionType = toOptionalString(
       service.institutionType ??
         service.typeOfInstitution ??
         service.institution_category ??
         normalizedInstitutionTypeOther
     );
+    const rawInstitutionType = candidateInstitutionType;
     const institutionTypeForSave =
       String(rawInstitutionType || "").trim().toLowerCase() === "others" &&
       normalizedInstitutionTypeOther
@@ -1112,8 +1140,14 @@ const normalizePastServices = (body) => {
           : normalizedCityTownVillage,
       otherStateLocation: normalizedOtherStateLocation,
       // Backward-compatible aliases for edit-mode dynamic mapping.
-      typeOfInstitution: normalizedInstitutionType ?? "",
-      institution_category: normalizedInstitutionType ?? "",
+      typeOfInstitution:
+        String(rawInstitutionType || "").trim().toLowerCase() === "others"
+          ? "Others"
+          : normalizedInstitutionType ?? "",
+      institution_category:
+        String(rawInstitutionType || "").trim().toLowerCase() === "others"
+          ? "Others"
+          : normalizedInstitutionType ?? "",
       institutionTypeOther:
         normalizedInstitutionTypeOther ||
         (String(normalizedInstitutionType || "").trim().toLowerCase() === "others"
@@ -1413,6 +1447,43 @@ const normalizeEmployeePayload = (body) => {
   };
 };
 
+const sampleOthersSnapshotFromPayload = (payload = {}) => {
+  const educationEntries = Array.isArray(payload.educationDetails)
+    ? payload.educationDetails
+    : Array.isArray(payload.education)
+      ? payload.education
+      : [];
+  const pastServiceEntries = Array.isArray(payload.pastServices)
+    ? payload.pastServices
+    : Array.isArray(payload.pastServiceDetails)
+      ? payload.pastServiceDetails
+      : [];
+
+  const educationOthers = educationEntries.find((entry = {}) => {
+    const levelValue = String(entry.educationLevel ?? entry.level ?? "")
+      .trim()
+      .toLowerCase();
+    return levelValue === "others";
+  });
+
+  const pastServiceOthers = pastServiceEntries.find((entry = {}) => {
+    const institutionTypeValue = String(
+      entry.typeOfInstitution ??
+        entry.institutionType ??
+        entry.institution_category ??
+        ""
+    )
+      .trim()
+      .toLowerCase();
+    return institutionTypeValue === "others";
+  });
+
+  return {
+    educationOthers: educationOthers || null,
+    pastServiceOthers: pastServiceOthers || null,
+  };
+};
+
 const formatValidationIssues = (issues = []) =>
   issues.map((item) => ({
     path: item.path?.join("."),
@@ -1562,9 +1633,14 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 
 const createEmployee = asyncHandler(async (req, res) => {
   const requestId = getApiGatewayRequestId(req);
+  const othersPayloadSnapshot = sampleOthersSnapshotFromPayload(req.body);
   console.info("[employees.submit] request.isDraft", {
     requestId: requestId || null,
     isDraft: req.body?.isDraft,
+  });
+  console.info("[employees.submit] Others payload snapshot", {
+    requestId: requestId || null,
+    ...othersPayloadSnapshot,
   });
   const normalized = normalizeEmployeePayload(req.body);
   normalized.submittedOn = normalized.submittedOn || new Date();
@@ -1619,12 +1695,18 @@ const updateEmployee = asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const requestId = getApiGatewayRequestId(req);
   const role = req.user?.role || null;
+  const othersPayloadSnapshot = sampleOthersSnapshotFromPayload(req.body);
   console.info("[employees.update] Route entry", {
     method: req.method,
     path: req.originalUrl,
     paramsId: req.params?.id,
     role,
     requestId: requestId || null,
+  });
+  console.info("[employees.update] Others payload snapshot", {
+    requestId: requestId || null,
+    employeeId: id,
+    ...othersPayloadSnapshot,
   });
   if (Number.isNaN(id)) {
     return res.status(400).json({ message: "Invalid employee id" });
