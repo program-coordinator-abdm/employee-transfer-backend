@@ -1862,6 +1862,10 @@ const buildEmployeeCreateData = ({
 
 const createEmployee = async (payload, options = {}) => {
   const requestId = toNullableString(options.requestId);
+  console.info("[employees.create] Incoming normalized payload snapshot", {
+    requestId: requestId || null,
+    payload,
+  });
   validateRequiredCreateFields(payload, requestId);
 
   try {
@@ -1909,6 +1913,16 @@ const createEmployee = async (payload, options = {}) => {
 
       const employee = await tx.employee.create({
         data: buildEmployeeCreateData({
+          payload,
+          empName,
+          dateOfEntry,
+          dateOfJoining,
+          yearsOfWork,
+        }),
+      });
+      console.info("[employees.create] Employee DB write object", {
+        requestId: requestId || null,
+        employeeWriteData: buildEmployeeCreateData({
           payload,
           empName,
           dateOfEntry,
@@ -2084,6 +2098,10 @@ const updateEmployee = async (id, payload) => {
   console.info("[employees.update] Service update branch start", {
     employeeId: id,
   });
+  console.info("[employees.update] Incoming normalized payload snapshot", {
+    employeeId: id,
+    payload,
+  });
   return prisma.$transaction(async (tx) => {
     const existing = await tx.employee.findUnique({ where: { id } });
     if (!existing) {
@@ -2146,9 +2164,7 @@ const updateEmployee = async (id, payload) => {
       excludeEmployeeId: id,
     });
 
-    await tx.employee.update({
-      where: { id },
-      data: {
+    const employeeUpdateData = {
         empName,
         empKgid: payload.empKgid,
         designation: payload.designation,
@@ -2276,7 +2292,14 @@ const updateEmployee = async (id, payload) => {
         ngoBenefits: payload.ngoBenefits,
         ngoBenefitsDoc: payload.ngoBenefitsDoc || null,
         createdByUsername: declarationOwnerName ?? existing.createdByUsername,
-      },
+      };
+    console.info("[employees.update] Employee DB write object", {
+      employeeId: id,
+      employeeUpdateData,
+    });
+    await tx.employee.update({
+      where: { id },
+      data: employeeUpdateData,
     });
 
     if (hasPastServices) {

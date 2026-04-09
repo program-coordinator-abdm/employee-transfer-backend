@@ -89,10 +89,17 @@ const normalizeDocumentSizeKb = (value) => {
 };
 
 const normalizeDocuments = (body = {}) => {
-  if (!Array.isArray(body.documents)) {
-    return body.documents;
+  const rawDocuments = Array.isArray(body.documents)
+    ? body.documents
+    : Array.isArray(body.documentList)
+      ? body.documentList
+      : Array.isArray(body.uploadedDocuments)
+        ? body.uploadedDocuments
+        : body.documents;
+  if (!Array.isArray(rawDocuments)) {
+    return rawDocuments;
   }
-  return body.documents
+  return rawDocuments
     .map((entry, index) => {
       if (typeof entry === "string" || typeof entry === "number") {
         const downloadUrl = normalizeUploadedDocumentReference(entry);
@@ -968,6 +975,8 @@ const normalizeEducationEntries = (body) => {
   const rawEntries =
     Array.isArray(body.educationDetails) && body.educationDetails.length > 0
       ? body.educationDetails
+      : Array.isArray(body.educationInformation) && body.educationInformation.length > 0
+        ? body.educationInformation
       : Array.isArray(body.education)
         ? body.education
         : typeof body.education === "string" ||
@@ -1064,13 +1073,20 @@ const normalizeEducationEntries = (body) => {
 };
 
 const normalizePastServices = (body) => {
-  if (!Array.isArray(body.pastServices)) {
-    return body.pastServices;
+  const rawPastServices = Array.isArray(body.pastServices)
+    ? body.pastServices
+    : Array.isArray(body.pastService)
+      ? body.pastService
+      : Array.isArray(body.pastServiceDetails)
+        ? body.pastServiceDetails
+        : body.pastServices;
+  if (!Array.isArray(rawPastServices)) {
+    return rawPastServices;
   }
 
   const docs = Array.isArray(body.pastServiceDocs) ? body.pastServiceDocs : [];
 
-  return body.pastServices.map((service = {}, index) => {
+  return rawPastServices.map((service = {}, index) => {
     const dropdownInstitutionType = toOptionalString(
       service.typeOfInstitution ?? service.institution_category ?? service.institutionType
     );
@@ -1276,7 +1292,12 @@ const normalizeEmployeePayload = (body) => {
         ? normalizedEmployeeHfrId
         : undefined),
     currentWorkingSince: body.currentWorkingSince,
-    currentAreaType: body.currentAreaType,
+    currentAreaType:
+      body.currentAreaType ??
+      body.zone ??
+      body.zoneType ??
+      body.zoneName ??
+      body.zoneCategory,
     probationaryPeriod: body.probationaryPeriod,
     probationaryPeriodDoc: normalizeUploadedDocumentReference(
       body.probationaryPeriodDoc ??
@@ -1634,6 +1655,10 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 const createEmployee = asyncHandler(async (req, res) => {
   const requestId = getApiGatewayRequestId(req);
   const othersPayloadSnapshot = sampleOthersSnapshotFromPayload(req.body);
+  console.info("[employees.submit] Incoming payload", {
+    requestId: requestId || null,
+    payload: req.body,
+  });
   console.info("[employees.submit] request.isDraft", {
     requestId: requestId || null,
     isDraft: req.body?.isDraft,
@@ -1702,6 +1727,11 @@ const updateEmployee = asyncHandler(async (req, res) => {
     paramsId: req.params?.id,
     role,
     requestId: requestId || null,
+  });
+  console.info("[employees.update] Incoming payload", {
+    requestId: requestId || null,
+    employeeId: id,
+    payload: req.body,
   });
   console.info("[employees.update] Others payload snapshot", {
     requestId: requestId || null,
