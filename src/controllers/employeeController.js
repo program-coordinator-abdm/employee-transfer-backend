@@ -992,7 +992,10 @@ const normalizeEducationEntries = (body) => {
       const isOthersEducationLevel =
         String(normalizedEducationLevel || "").trim().toLowerCase() === "others";
       const customEducationLevel = toOptionalString(
-        entry.customEducationLevel ?? entry.otherEducationLevel
+        entry.customEducationLevel ??
+          entry.otherEducationLevel ??
+          entry.customEducation ??
+          entry.educationLevelOther
       );
       return {
         type: unschooled
@@ -1059,16 +1062,34 @@ const normalizePastServices = (body) => {
   const docs = Array.isArray(body.pastServiceDocs) ? body.pastServiceDocs : [];
 
   return body.pastServices.map((service = {}, index) => {
-    const normalizedInstitutionType = normalizeInstitutionType(
+    const normalizedInstitutionTypeOther = toOptionalString(
+      service.institutionTypeOther ??
+        service.otherInstitutionType ??
+        service.customInstitutionType ??
+        service.otherTypeOfInstitution
+    );
+    const rawInstitutionType = toOptionalString(
       service.institutionType ??
         service.typeOfInstitution ??
-        service.institution_category
+        service.institution_category ??
+        normalizedInstitutionTypeOther
+    );
+    const institutionTypeForSave =
+      String(rawInstitutionType || "").trim().toLowerCase() === "others" &&
+      normalizedInstitutionTypeOther
+        ? normalizedInstitutionTypeOther
+        : rawInstitutionType;
+    const normalizedInstitutionType = normalizeInstitutionType(
+      institutionTypeForSave
     );
     const normalizedHfrId = toOptionalString(
       service.hfrId ?? service.hfrID ?? service.hfr_id
     );
     const normalizedOtherStateLocation = toOptionalString(
-      service.otherStateLocation
+      service.otherStateLocation ??
+        service.cityOtherName ??
+        service.otherCityTownVillage ??
+        service.otherLocation
     );
     const normalizedDistrict = toOptionalString(service.district);
     const normalizedTaluk = toOptionalString(service.taluk);
@@ -1090,6 +1111,25 @@ const normalizePastServices = (body) => {
           ? "NA"
           : normalizedCityTownVillage,
       otherStateLocation: normalizedOtherStateLocation,
+      // Backward-compatible aliases for edit-mode dynamic mapping.
+      typeOfInstitution: normalizedInstitutionType ?? "",
+      institution_category: normalizedInstitutionType ?? "",
+      institutionTypeOther:
+        normalizedInstitutionTypeOther ||
+        (String(normalizedInstitutionType || "").trim().toLowerCase() === "others"
+          ? normalizedInstitutionType
+          : ""),
+      otherInstitutionType:
+        normalizedInstitutionTypeOther ||
+        (String(normalizedInstitutionType || "").trim().toLowerCase() === "others"
+          ? normalizedInstitutionType
+          : ""),
+      customInstitutionType:
+        normalizedInstitutionTypeOther ||
+        (String(normalizedInstitutionType || "").trim().toLowerCase() === "others"
+          ? normalizedInstitutionType
+          : ""),
+      cityOtherName: normalizedOtherStateLocation,
       joiningDocument:
         normalizeUploadedDocumentReference(
           service.joiningDocument ??

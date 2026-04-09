@@ -168,9 +168,12 @@ const mapAssignment = (entry) => {
 const mapEducationDetails = (entries = []) =>
   entries.map((entry) => ({
     level: entry.level || "",
+    // Backward-compatible alias for "Others" option in some forms.
+    educationLevel: entry.level || "",
+    // Backward-compatible alias for "Others" custom text in some forms.
+    otherEducationLevel: entry.customEducationLevel || "",
     otherStateLocation: entry.otherStateLocation || "",
     customEducationLevel: entry.customEducationLevel || "",
-    educationLevel: entry.level || "",
     effectiveEducationLevel:
       String(entry.level || "").trim().toLowerCase() === "others"
         ? entry.customEducationLevel || ""
@@ -467,6 +470,9 @@ const mapEmployeeDetail = (employee) => {
   }));
   const pastServices = (employee.pastServices || []).map((entry) => ({
     ...entry,
+    // Backward-compatible aliases used in some edit mappers.
+    typeOfInstitution: entry.institutionType || "",
+    institution_category: entry.institutionType || "",
     fromDate: toDateOnlyStringOrNull(entry.fromDate),
     toDate: toDateOnlyStringOrNull(entry.toDate),
   }));
@@ -1580,6 +1586,26 @@ const getEmployeeById = async (id, options = {}) => {
     });
   }
   const mapped = mapEmployeeDetail(employee);
+  const sampleEducationOthers = Array.isArray(mapped.educationDetails)
+    ? mapped.educationDetails.find(
+        (entry) =>
+          String(entry.educationLevel || "").trim().toLowerCase() === "others" ||
+          String(entry.level || "").trim().toLowerCase() === "others"
+      )
+    : null;
+  const samplePastServiceOthers = Array.isArray(mapped.pastServices)
+    ? mapped.pastServices.find(
+        (entry) =>
+          String(
+            entry.institutionType ||
+              entry.typeOfInstitution ||
+              entry.institution_category ||
+              ""
+          )
+            .trim()
+            .toLowerCase() === "others"
+      )
+    : null;
   console.info("[employees.getById] Service success", {
     employeeId: id,
     requestId: requestId || null,
@@ -1595,6 +1621,9 @@ const getEmployeeById = async (id, options = {}) => {
     educationCount: Array.isArray(mapped.education) ? mapped.education.length : 0,
     educationHasRecords:
       Array.isArray(mapped.education) && mapped.education.length > 0,
+    // Minimal debug snapshot for Others-mapping diagnostics.
+    sampleEducationOthers,
+    samplePastServiceOthers,
   });
   return mapped;
 };
