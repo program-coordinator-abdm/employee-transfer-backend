@@ -297,12 +297,22 @@ const createVacancy = async (payload, createdByUserId) => {
 };
 
 const listVacancies = async (filters = {}) =>
-  prisma.vacancy.findMany({
-    where: buildListWhere(filters),
-    include: { lines: true },
-    orderBy: { createdAt: "desc" },
-    take: MAX_LIST_LIMIT,
-  });
+  prisma.vacancy
+    .findMany({
+      where: buildListWhere(filters),
+      include: { lines: true },
+      orderBy: { createdAt: "desc" },
+      take: MAX_LIST_LIMIT,
+    })
+    .then((rows) => {
+      console.info("[vacancies.list] Query filters and result", {
+        district: filters.district || "",
+        taluk: filters.taluk || "",
+        institutionName: filters.institutionName || "",
+        resultCount: rows.length,
+      });
+      return rows;
+    });
 
 const mapVacancyLinesForInstitution = (lines = []) =>
   lines.map((line) => ({
@@ -356,6 +366,13 @@ const listVacancyInstitutions = async () => {
 
 const getVacanciesByInstitution = async (institutionKey) => {
   const parsedKey = parseInstitutionKey(institutionKey);
+  console.info("[vacancies.byInstitution] Query key", {
+    institutionTypeName: parsedKey.institutionTypeName,
+    institutionName: parsedKey.institutionName,
+    district: parsedKey.district,
+    taluk: parsedKey.taluk,
+    cityOrTownOrVillage: parsedKey.cityOrTownOrVillage,
+  });
 
   const submissions = await prisma.vacancy.findMany({
     where: {
@@ -371,6 +388,9 @@ const getVacanciesByInstitution = async (institutionKey) => {
       },
     },
     orderBy: { createdAt: "desc" },
+  });
+  console.info("[vacancies.byInstitution] Query result", {
+    submissionsCount: submissions.length,
   });
 
   return {

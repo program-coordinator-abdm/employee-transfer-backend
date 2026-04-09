@@ -646,8 +646,6 @@ const toOptionalString = (value) => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
-const ACCESS_UNRESTRICTED_USERNAMES = new Set(["admin", "dataofficer"]);
-
 const normalizeUsername = (value) => {
   const normalized = toOptionalString(value);
   return normalized ? normalized.toLowerCase() : null;
@@ -709,9 +707,8 @@ const resolveEmployeeAccessScope = async (
   ]).has(context);
   const normalizedRole = String(role || "").toUpperCase();
   const unrestricted = Boolean(
-    (username && ACCESS_UNRESTRICTED_USERNAMES.has(username)) ||
-      (isPrivilegedRoleContext &&
-        (normalizedRole === "ADMIN" || normalizedRole === "DATA_OFFICER"))
+    isPrivilegedRoleContext &&
+      (normalizedRole === "ADMIN" || normalizedRole === "DATA_OFFICER")
   );
   const mode = unrestricted ? "unrestricted" : "self-only";
 
@@ -732,31 +729,15 @@ const resolveEmployeeAccessScope = async (
   };
 };
 
-const buildEmployeeAccessWhere = (scope) => {
-  if (!scope || scope.unrestricted) {
-    return {};
-  }
-  if (scope.username) {
-    return {
-      createdByUsername: {
-        equals: scope.username,
-        mode: "insensitive",
-      },
-    };
-  }
-  return { id: -1 };
+const buildEmployeeAccessWhere = (_scope) => {
+  // Privacy/ownership-based visibility is intentionally disabled:
+  // employee list/filter/suggestions should not be restricted by creator.
+  return {};
 };
 
-const canAccessEmployeeRecord = (scope, employee) => {
-  if (!scope || scope.unrestricted) return true;
-  if (!employee) return false;
-
-  const employeeCreatorUsername = normalizeUsername(employee.createdByUsername);
-  if (scope.username && employeeCreatorUsername && scope.username === employeeCreatorUsername) {
-    return true;
-  }
-
-  return false;
+const canAccessEmployeeRecord = (_scope, _employee) => {
+  // Privacy/ownership-based detail restrictions are intentionally disabled.
+  return true;
 };
 
 const toInsensitiveEqualsFilter = (value) => {
@@ -782,6 +763,16 @@ const listEmployees = async ({
     buildListSearchWhere(search),
     buildCategoryWhere(category)
   );
+  console.info("[employees.list] Query scope and filters", {
+    requestId: requestId || null,
+    role: accessScope.role || null,
+    username: accessScope.username || null,
+    mode: accessScope.unrestricted ? "unrestricted" : "self-only",
+    category: category || "",
+    search: search || "",
+    page,
+    pageSize,
+  });
 
   const [total, data] = await prisma.$transaction([
     prisma.employee.count({ where }),
@@ -883,6 +874,14 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
       otherStateLocation: true,
     },
   });
+  console.info("[employees.filter] Query scope and filters", {
+    requestId: options.requestId || null,
+    role: accessScope.role || null,
+    username: accessScope.username || null,
+    mode: accessScope.unrestricted ? "unrestricted" : "self-only",
+    filters,
+    resultCount: rows.length,
+  });
 
   return rows.map((row) => ({
     id: String(row.id),
@@ -915,6 +914,16 @@ const getSuggestions = async ({
     buildSearchWhere(searchMode, query),
     buildCategoryWhere(category)
   );
+  console.info("[employees.suggestions] Query scope and filters", {
+    requestId: requestId || null,
+    role: accessScope.role || null,
+    username: accessScope.username || null,
+    mode: accessScope.unrestricted ? "unrestricted" : "self-only",
+    searchMode,
+    query,
+    category: category || "",
+    limit,
+  });
   const results = await prisma.employee.findMany({
     where,
     select: {
