@@ -17,6 +17,13 @@ const listVacancies = asyncHandler(async (req, res) => {
 });
 
 const getVacancyById = asyncHandler(async (req, res) => {
+  console.info("[vacancies.getById] Route entry", {
+    method: req.method,
+    path: req.originalUrl,
+    vacancyId: req.params?.id || null,
+    role: req.user?.role || null,
+    userId: req.user?.id || null,
+  });
   const data = await vacancyService.getVacancyById(req.params.id);
   res.json({ data });
 });
@@ -45,7 +52,18 @@ const getVacanciesByInstitution = asyncHandler(async (req, res) => {
 });
 
 const updateVacancy = asyncHandler(async (req, res) => {
+  console.info("[vacancies.update] Route entry", {
+    method: req.method,
+    path: req.originalUrl,
+    vacancyId: req.params?.id || null,
+    role: req.user?.role || null,
+    userId: req.user?.id || null,
+  });
   const data = await vacancyService.updateVacancy(req.params.id, req.body);
+  console.info("[vacancies.update] Update completed", {
+    vacancyId: req.params?.id || null,
+    role: req.user?.role || null,
+  });
   res.json({ data });
 });
 

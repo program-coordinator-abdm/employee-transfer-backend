@@ -20,9 +20,19 @@ router.get(
   authorizeRoles("ADMIN", "DATA_OFFICER"),
   vacancyController.getVacanciesByInstitution
 );
+router.get(
+  "/edit/:id",
+  authorizeRoles("ADMIN", "DATA_OFFICER"),
+  vacancyController.getVacancyById
+);
 router.get("/:id", vacancyController.getVacancyById);
 router.put(
   "/:id",
+  authorizeRoles("ADMIN", "DATA_OFFICER"),
+  vacancyController.updateVacancy
+);
+router.put(
+  "/edit/:id",
   authorizeRoles("ADMIN", "DATA_OFFICER"),
   vacancyController.updateVacancy
 );

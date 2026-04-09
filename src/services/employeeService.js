@@ -701,13 +701,17 @@ const resolveEmployeeAccessScope = async (
     }
   }
 
-  const isListVisibilityContext = new Set(["list", "filter", "suggestions"]).has(
-    context
-  );
+  const isPrivilegedRoleContext = new Set([
+    "list",
+    "filter",
+    "suggestions",
+    "detail",
+  ]).has(context);
+  const normalizedRole = String(role || "").toUpperCase();
   const unrestricted = Boolean(
     (username && ACCESS_UNRESTRICTED_USERNAMES.has(username)) ||
-      (isListVisibilityContext &&
-        String(role || "").toUpperCase() === "DATA_OFFICER")
+      (isPrivilegedRoleContext &&
+        (normalizedRole === "ADMIN" || normalizedRole === "DATA_OFFICER"))
   );
   const mode = unrestricted ? "unrestricted" : "self-only";
 
@@ -1930,11 +1934,20 @@ const createEmployee = async (payload, options = {}) => {
 };
 
 const updateEmployee = async (id, payload) => {
+  console.info("[employees.update] Service update branch start", {
+    employeeId: id,
+  });
   return prisma.$transaction(async (tx) => {
     const existing = await tx.employee.findUnique({ where: { id } });
     if (!existing) {
+      console.warn("[employees.update] Employee not found for update branch", {
+        employeeId: id,
+      });
       throw new AppError("Employee not found", 404);
     }
+    console.info("[employees.update] Existing employee found", {
+      employeeId: id,
+    });
 
     const empName = payload.empName.trim().toUpperCase();
     const dateOfEntry = payload.dateOfEntry;
@@ -2249,6 +2262,9 @@ const updateEmployee = async (id, payload) => {
     if (!detailed) {
       throw new AppError("Employee not found", 404);
     }
+    console.info("[employees.update] Service update branch completed", {
+      employeeId: id,
+    });
     return mapEmployeeDetail(detailed);
   });
 };

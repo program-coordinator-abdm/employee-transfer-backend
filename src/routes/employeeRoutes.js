@@ -13,6 +13,7 @@ router.get("/filter", employeeController.filterEmployees);
 router.get("/export", employeeController.exportEmployees);
 router.get("/export.xlsx", employeeController.exportEmployeesExcel);
 router.get("/suggestions", employeeController.getSuggestions);
+router.get("/edit/:id", employeeController.getEmployeeById);
 router.get("/:id", employeeController.getEmployeeById);
 router.post(
   "/",
@@ -21,6 +22,11 @@ router.post(
 );
 router.put(
   "/:id",
+  authorizeRoles("ADMIN", "DATA_OFFICER"),
+  employeeController.updateEmployee
+);
+router.put(
+  "/edit/:id",
   authorizeRoles("ADMIN", "DATA_OFFICER"),
   employeeController.updateEmployee
 );

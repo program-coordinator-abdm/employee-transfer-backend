@@ -1437,10 +1437,12 @@ const filterEmployees = asyncHandler(async (req, res) => {
 
 const getEmployeeById = asyncHandler(async (req, res) => {
   const requestId = getApiGatewayRequestId(req);
+  const role = req.user?.role || null;
   console.info("[employees.getById] Route entry", {
     method: req.method,
     path: req.originalUrl,
     paramsId: req.params?.id,
+    role,
     requestId: requestId || null,
   });
   const id = Number.parseInt(String(req.params.id), 10);
@@ -1575,10 +1577,18 @@ const createEmployee = asyncHandler(async (req, res) => {
 
 const updateEmployee = asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
+  const requestId = getApiGatewayRequestId(req);
+  const role = req.user?.role || null;
+  console.info("[employees.update] Route entry", {
+    method: req.method,
+    path: req.originalUrl,
+    paramsId: req.params?.id,
+    role,
+    requestId: requestId || null,
+  });
   if (Number.isNaN(id)) {
     return res.status(400).json({ message: "Invalid employee id" });
   }
-  const requestId = getApiGatewayRequestId(req);
   console.info("[employees.submit] request.isDraft", {
     requestId: requestId || null,
     employeeId: id,

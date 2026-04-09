@@ -395,14 +395,26 @@ const getVacancyById = async (id) => {
     throw new AppError("Vacancy id is required", 400, { field: "id" });
   }
 
+  console.info("[vacancies.getById] Service lookup start", {
+    vacancyId,
+  });
+
   const vacancy = await prisma.vacancy.findUnique({
     where: { id: vacancyId },
     include: { lines: true },
   });
 
   if (!vacancy) {
+    console.warn("[vacancies.getById] Service vacancy not found", {
+      vacancyId,
+    });
     throw new AppError("Vacancy not found", 404, { field: "id" });
   }
+
+  console.info("[vacancies.getById] Service lookup success", {
+    vacancyId,
+    linesCount: Array.isArray(vacancy.lines) ? vacancy.lines.length : 0,
+  });
 
   return vacancy;
 };
@@ -416,8 +428,14 @@ const updateVacancy = async (id, payload) => {
   const normalized = normalizeVacancyPayload(payload);
 
   return prisma.$transaction(async (tx) => {
+    console.info("[vacancies.update] Service update branch start", {
+      vacancyId,
+    });
     const existing = await tx.vacancy.findUnique({ where: { id: vacancyId } });
     if (!existing) {
+      console.warn("[vacancies.update] Service existing vacancy not found", {
+        vacancyId,
+      });
       throw new AppError("Vacancy not found", 404, { field: "id" });
     }
 
@@ -448,10 +466,16 @@ const updateVacancy = async (id, payload) => {
       })),
     });
 
-    return tx.vacancy.findUnique({
+    const updated = await tx.vacancy.findUnique({
       where: { id: vacancyId },
       include: { lines: true },
     });
+
+    console.info("[vacancies.update] Service update branch success", {
+      vacancyId,
+      linesCount: Array.isArray(updated?.lines) ? updated.lines.length : 0,
+    });
+    return updated;
   });
 };
 
