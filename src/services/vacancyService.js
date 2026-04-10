@@ -322,6 +322,21 @@ const mapVacancyLinesForInstitution = (lines = []) =>
     vacant: toRequiredInteger(line.vacant),
   }));
 
+const mapVacancyLineForEdit = (line = {}) => {
+  const sanctioned = toRequiredInteger(line.sanctionedPositions);
+  const working = toRequiredInteger(line.filled);
+  return {
+    id: line.id,
+    designationName: line.designationName,
+    sanctioned,
+    working,
+    vacant: toRequiredInteger(line.vacant),
+    // Backward-compatible aliases for existing create/update payload format.
+    sanctionedPositions: sanctioned,
+    filled: working,
+  };
+};
+
 const mapInstitutionHeader = (vacancy) => ({
   institutionTypeName: vacancy.institutionTypeName,
   institutionName: vacancy.institutionName,
@@ -431,12 +446,36 @@ const getVacancyById = async (id) => {
     throw new AppError("Vacancy not found", 404, { field: "id" });
   }
 
+  const normalizedResponse = {
+    id: vacancy.id,
+    institutionTypeName: vacancy.institutionTypeName,
+    institutionName: vacancy.institutionName,
+    district: vacancy.district,
+    taluk: vacancy.taluk,
+    cityOrTownOrVillage: vacancy.cityOrTownOrVillage,
+    submittedOn: vacancy.createdAt ? vacancy.createdAt.toISOString() : null,
+    vacancyLines: Array.isArray(vacancy.lines)
+      ? vacancy.lines.map(mapVacancyLineForEdit)
+      : [],
+    // Keep existing key for backward compatibility.
+    lines: Array.isArray(vacancy.lines) ? vacancy.lines : [],
+  };
+
   console.info("[vacancies.getById] Service lookup success", {
     vacancyId,
+    vacancyRow: {
+      id: vacancy.id,
+      institutionTypeName: vacancy.institutionTypeName,
+      institutionName: vacancy.institutionName,
+      district: vacancy.district,
+      taluk: vacancy.taluk,
+      cityOrTownOrVillage: vacancy.cityOrTownOrVillage,
+    },
     linesCount: Array.isArray(vacancy.lines) ? vacancy.lines.length : 0,
+    responseShapeKeys: Object.keys(normalizedResponse),
   });
 
-  return vacancy;
+  return normalizedResponse;
 };
 
 const updateVacancy = async (id, payload) => {
