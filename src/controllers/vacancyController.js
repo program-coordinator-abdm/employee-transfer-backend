@@ -25,7 +25,8 @@ const getVacancyById = asyncHandler(async (req, res) => {
     userId: req.user?.id || null,
   });
   const data = await vacancyService.getVacancyById(req.params.id);
-  res.json({ data });
+  // Return both flat and wrapped forms for compatibility with edit clients.
+  res.json({ ...data, data });
 });
 
 const listVacancyInstitutions = asyncHandler(async (req, res) => {

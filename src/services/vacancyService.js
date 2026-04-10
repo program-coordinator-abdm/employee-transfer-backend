@@ -142,10 +142,13 @@ const normalizeLines = (lines) => {
     }
 
     const sanctionedPositions = parseNonNegativeInteger(
-      line.sanctionedPositions,
+      line.sanctionedPositions ?? line.sanctioned,
       `lines[${index}].sanctionedPositions`
     );
-    const filled = parseNonNegativeInteger(line.filled, `lines[${index}].filled`);
+    const filled = parseNonNegativeInteger(
+      line.filled ?? line.working,
+      `lines[${index}].filled`
+    );
 
     if (filled > sanctionedPositions) {
       throw new AppError(
@@ -180,15 +183,26 @@ const normalizeLines = (lines) => {
 };
 
 const normalizeVacancyPayload = (payload = {}) => {
+  const source =
+    payload && typeof payload === "object" && payload.data && typeof payload.data === "object"
+      ? payload.data
+      : payload;
   const institutionTypeName = toOptionalString(
-    payload.institutionTypeName ?? payload.institutionTypeId
+    source.institutionTypeName ?? source.institutionTypeId
   );
-  const institutionName = toOptionalString(payload.institutionName);
-  const district = toOptionalString(payload.district);
-  const taluk = toOptionalString(payload.taluk);
-  const cityOrTownOrVillage = toOptionalString(payload.cityOrTownOrVillage);
-  const cityIsOther = parseBoolean(payload.cityIsOther, "cityIsOther", false);
-  const cityOtherName = toOptionalString(payload.cityOtherName);
+  const institutionName = toOptionalString(source.institutionName);
+  const district = toOptionalString(source.district);
+  const taluk = toOptionalString(source.taluk);
+  const cityOrTownOrVillage = toOptionalString(
+    source.cityOrTownOrVillage ??
+      source.cityOrTownOrVillageName ??
+      source.cityTownVillage ??
+      source.city
+  );
+  const cityIsOther = parseBoolean(source.cityIsOther, "cityIsOther", false);
+  const cityOtherName = toOptionalString(
+    source.cityOtherName ?? source.otherCity ?? source.otherCityName
+  );
 
   if (!institutionTypeName) {
     throw new AppError("institutionTypeName is required", 400, {
@@ -218,7 +232,14 @@ const normalizeVacancyPayload = (payload = {}) => {
     });
   }
 
-  const normalizedLines = normalizeLines(payload.lines);
+  const rawLines = Array.isArray(source.lines)
+    ? source.lines
+    : Array.isArray(source.vacancyLines)
+      ? source.vacancyLines
+      : Array.isArray(source.lineItems)
+        ? source.lineItems
+        : source.lines;
+  const normalizedLines = normalizeLines(rawLines);
 
   return {
     institutionTypeName,
@@ -453,6 +474,9 @@ const getVacancyById = async (id) => {
     district: vacancy.district,
     taluk: vacancy.taluk,
     cityOrTownOrVillage: vacancy.cityOrTownOrVillage,
+    cityOrTownOrVillageName: vacancy.cityOrTownOrVillage,
+    cityOtherName: vacancy.cityOtherName || null,
+    cityIsOther: Boolean(vacancy.cityIsOther),
     submittedOn: vacancy.createdAt ? vacancy.createdAt.toISOString() : null,
     vacancyLines: Array.isArray(vacancy.lines)
       ? vacancy.lines.map(mapVacancyLineForEdit)
