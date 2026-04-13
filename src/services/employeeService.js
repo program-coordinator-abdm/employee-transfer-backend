@@ -829,6 +829,54 @@ const CATEGORY_SUBGROUP_LABEL_MAPPING = new Map([
   ["group d grade 2", { group: "Group D", subGroup: "Grade 2" }],
 ]);
 
+const normalizeFilterToken = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const normalizePositionAlias = (value) => {
+  const normalized = normalizeFilterToken(value);
+  if (!normalized) return "";
+  if (normalized === "sda") return "second division assistant";
+  if (normalized === "second division asst") return "second division assistant";
+  if (normalized === "second division asstt") return "second division assistant";
+  if (normalized === "fda") return "first division assistant";
+  if (normalized === "first division asst") return "first division assistant";
+  return normalized;
+};
+
+const POSITION_FILTER_VARIANTS = new Map([
+  [
+    "second division assistant",
+    [
+      "Second Division Assistant",
+      "Second Division Asst",
+      "Second Division Asstt",
+      "SDA",
+    ],
+  ],
+  [
+    "first division assistant",
+    [
+      "First Division Assistant",
+      "First Division Asst",
+      "First Division Asstt",
+      "FDA",
+    ],
+  ],
+]);
+
+const resolvePositionCandidates = (value) => {
+  const normalized = toOptionalString(value);
+  if (!normalized) return [];
+  const canonical = normalizePositionAlias(normalized);
+  const variants = POSITION_FILTER_VARIANTS.get(canonical) || [];
+  return Array.from(
+    new Set([normalized, canonical, ...variants].filter((item) => toOptionalString(item)))
+  );
+};
+
 const normalizeLabelForLookup = (value) =>
   String(value || "")
     .toLowerCase()
@@ -1035,6 +1083,18 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
     where.designation = designationFilter;
   }
 
+  const positionCandidates = resolvePositionCandidates(
+    filters.position ?? filters.currentPostHeld
+  );
+  if (positionCandidates.length > 0) {
+    where.OR = positionCandidates.flatMap((candidate) => [
+      { designation: { equals: candidate, mode: "insensitive" } },
+      { currentPostHeld: { equals: candidate, mode: "insensitive" } },
+      { designation: { contains: candidate, mode: "insensitive" } },
+      { currentPostHeld: { contains: candidate, mode: "insensitive" } },
+    ]);
+  }
+
   const institutionTypeFilter = toInsensitiveEqualsFilter(
     filters.institutionType
   );
@@ -1072,21 +1132,34 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
       empName: true,
       empKgid: true,
       designation: true,
+      designationSubGroup: true,
       designationGroup: true,
+      currentPostHeld: true,
+      currentPostSubGroup: true,
       currentInstitution: true,
       currentDistrict: true,
       currentTaluk: true,
       otherStateLocation: true,
     },
   });
+  const sampleMatchedValues = rows.slice(0, 5).map((row) => ({
+    id: row.id,
+    designationGroup: row.designationGroup,
+    designationSubGroup: row.designationSubGroup,
+    designation: row.designation,
+    currentPostHeld: row.currentPostHeld,
+    currentPostSubGroup: row.currentPostSubGroup,
+  }));
   console.info("[employees.filter] Query scope and filters", {
     requestId: options.requestId || null,
     role: accessScope.role || null,
     username: accessScope.username || null,
     mode: accessScope.unrestricted ? "unrestricted" : "self-only",
     filters: resolvedFilters,
+    positionCandidates,
     prismaWhere,
     resultCount: rows.length,
+    sampleMatchedValues,
   });
 
   return rows.map((row) => ({
@@ -1095,6 +1168,9 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
     empKgid: row.empKgid,
     designation: row.designation,
     designationGroup: row.designationGroup,
+    designationSubGroup: row.designationSubGroup,
+    currentPostHeld: row.currentPostHeld,
+    currentPostSubGroup: row.currentPostSubGroup,
     currentInstitution: row.currentInstitution,
     currentDistrict: row.currentDistrict,
     currentTaluk: row.currentTaluk || null,

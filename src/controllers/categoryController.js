@@ -22,6 +22,14 @@ const parseCategoryEmployeeQuery = (query = {}) => ({
   currentPostGroup: toOptionalString(query.currentPostGroup),
   currentPostSubGroup: toOptionalString(query.currentPostSubGroup),
   designation: toOptionalString(query.designation),
+  currentPostHeld: toOptionalString(query.currentPostHeld ?? query.currentPosition),
+  position: toOptionalString(
+    query.position ??
+      query.selectedPosition ??
+      query.selectPosition ??
+      query.post ??
+      query.role
+  ),
   currentDistrict: toOptionalString(query.currentDistrict ?? query.district),
   taluk: toOptionalString(query.taluk),
 });
@@ -50,6 +58,17 @@ const searchCategoryEmployees = asyncHandler(async (req, res) => {
   console.info("[categories.employees] Incoming query params", {
     requestId,
     query: req.query,
+    selectedGroup:
+      filters.category ||
+      filters.designationGroup ||
+      filters.currentPostGroup ||
+      null,
+    selectedPosition:
+      filters.position ||
+      filters.currentPostHeld ||
+      filters.categorySubLabel ||
+      filters.designation ||
+      null,
     filters,
   });
   const data = await employeeService.listEmployeesByFilters(filters, {
