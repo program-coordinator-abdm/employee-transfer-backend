@@ -927,7 +927,18 @@ const parseBoundedInteger = (value, { min, max, defaultValue }) => {
 };
 
 const parseListQuery = (query = {}) => ({
-  category: toOptionalString(query.category),
+  category: toOptionalString(query.category ?? query.staffCategory ?? query.categoryName),
+  categorySubLabel: toOptionalString(
+    query.categorySubLabel ??
+      query.subcategory ??
+      query.staffSubCategory ??
+      query.subGroup ??
+      query.categorySubGroup
+  ),
+  designationGroup: toOptionalString(query.designationGroup),
+  designationSubGroup: toOptionalString(query.designationSubGroup),
+  currentPostGroup: toOptionalString(query.currentPostGroup),
+  currentPostSubGroup: toOptionalString(query.currentPostSubGroup),
   searchMode: normalizeSearchMode(query.searchMode),
   query: toOptionalString(query.query) ?? "",
   search: toOptionalString(query.search) ?? "",
@@ -1524,15 +1535,34 @@ const listEmployees = asyncHandler(async (req, res) => {
   const parsed = parseListQuery(req.query);
   const pageSize = parsed.pageSize ?? parsed.limit ?? 50;
   const search = parsed.search || parsed.query || "";
-  const result = await employeeService.listEmployees({
-    ...parsed,
+  console.info("[employees.list] Incoming query params", {
+    requestId: requestId || null,
+    query: req.query,
+    parsed,
+    page: parsed.page,
     pageSize,
-    search,
-    actor: req.user,
-    requestId,
   });
-  res.set("Cache-Control", "no-store");
-  res.json(result);
+  try {
+    const result = await employeeService.listEmployees({
+      ...parsed,
+      pageSize,
+      search,
+      actor: req.user,
+      requestId,
+    });
+    res.set("Cache-Control", "no-store");
+    res.json(result);
+  } catch (error) {
+    console.error("[employees.list] Request failed", {
+      requestId: requestId || null,
+      page: parsed.page,
+      pageSize,
+      query: req.query,
+      errorMessage: error?.message || "Unknown error",
+      errorStack: error?.stack || null,
+    });
+    throw error;
+  }
 });
 
 const exportEmployees = asyncHandler(async (req, res) => {

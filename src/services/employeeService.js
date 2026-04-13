@@ -829,6 +829,12 @@ const CATEGORY_SUBGROUP_LABEL_MAPPING = new Map([
   ["group d grade 2", { group: "Group D", subGroup: "Grade 2" }],
 ]);
 
+const normalizeLabelForLookup = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
 const resolveCategoryFilters = (rawFilters = {}) => {
   const designationGroup = normalizeFilterLabel(rawFilters.designationGroup);
   const designationSubGroup = normalizeFilterLabel(rawFilters.designationSubGroup);
@@ -839,9 +845,10 @@ const resolveCategoryFilters = (rawFilters = {}) => {
       rawFilters.staffCategory ??
       rawFilters.categoryName
   );
-  const mappedCategory = CATEGORY_SUBGROUP_LABEL_MAPPING.get(
-    String(categoryLabel || "").toLowerCase()
-  );
+  const categorySubLabel = normalizeFilterLabel(rawFilters.categorySubLabel);
+  const mappedCategory =
+    CATEGORY_SUBGROUP_LABEL_MAPPING.get(normalizeLabelForLookup(categoryLabel)) ||
+    CATEGORY_SUBGROUP_LABEL_MAPPING.get(normalizeLabelForLookup(categorySubLabel));
 
   const canonicalGroup =
     mappedCategory?.group ||
@@ -849,11 +856,13 @@ const resolveCategoryFilters = (rawFilters = {}) => {
     extractCanonicalGroup(designationSubGroup) ||
     extractCanonicalGroup(currentPostGroup) ||
     extractCanonicalGroup(currentPostSubGroup) ||
-    extractCanonicalGroup(categoryLabel);
+    extractCanonicalGroup(categoryLabel) ||
+    extractCanonicalGroup(categorySubLabel);
 
   return {
     ...rawFilters,
     categoryLabel,
+    categorySubLabel,
     designationGroup: designationGroup || canonicalGroup,
     designationSubGroup: designationSubGroup || mappedCategory?.subGroup,
     currentPostGroup: currentPostGroup || canonicalGroup,
@@ -864,6 +873,11 @@ const resolveCategoryFilters = (rawFilters = {}) => {
 
 const listEmployees = async ({
   category,
+  categorySubLabel,
+  designationGroup,
+  designationSubGroup,
+  currentPostGroup,
+  currentPostSubGroup,
   page,
   pageSize,
   search,
@@ -874,20 +888,60 @@ const listEmployees = async ({
     requestId,
     context: "list",
   });
+  const resolvedCategoryFilters = resolveCategoryFilters({
+    category,
+    categorySubLabel,
+    designationGroup,
+    designationSubGroup,
+    currentPostGroup,
+    currentPostSubGroup,
+  });
+  const baseWhere = {};
+  const designationGroupFilter = toInsensitiveEqualsFilter(
+    resolvedCategoryFilters.designationGroup
+  );
+  if (designationGroupFilter) {
+    baseWhere.designationGroup = designationGroupFilter;
+  }
+  const designationSubGroupFilter = toInsensitiveEqualsFilter(
+    resolvedCategoryFilters.designationSubGroup
+  );
+  if (designationSubGroupFilter) {
+    baseWhere.designationSubGroup = designationSubGroupFilter;
+  }
+  const currentPostGroupFilter = toInsensitiveEqualsFilter(
+    resolvedCategoryFilters.currentPostGroup
+  );
+  if (currentPostGroupFilter) {
+    baseWhere.currentPostGroup = currentPostGroupFilter;
+  }
+  const currentPostSubGroupFilter = toInsensitiveEqualsFilter(
+    resolvedCategoryFilters.currentPostSubGroup
+  );
+  if (currentPostSubGroupFilter) {
+    baseWhere.currentPostSubGroup = currentPostSubGroupFilter;
+  }
   const where = combineWhereClauses(
+    baseWhere,
     buildEmployeeAccessWhere(accessScope),
     buildListSearchWhere(search),
-    buildCategoryWhere(category)
+    buildCategoryWhere(resolvedCategoryFilters.categoryLabel)
   );
   console.info("[employees.list] Query scope and filters", {
     requestId: requestId || null,
     role: accessScope.role || null,
     username: accessScope.username || null,
     mode: accessScope.unrestricted ? "unrestricted" : "self-only",
-    category: category || "",
+    category: resolvedCategoryFilters.categoryLabel || "",
+    categorySubLabel: resolvedCategoryFilters.categorySubLabel || "",
+    designationGroup: resolvedCategoryFilters.designationGroup || "",
+    designationSubGroup: resolvedCategoryFilters.designationSubGroup || "",
+    currentPostGroup: resolvedCategoryFilters.currentPostGroup || "",
+    currentPostSubGroup: resolvedCategoryFilters.currentPostSubGroup || "",
     search: search || "",
     page,
     pageSize,
+    where,
   });
 
   const [total, data] = await prisma.$transaction([
@@ -900,6 +954,17 @@ const listEmployees = async ({
       take: pageSize,
     }),
   ]);
+  const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
+  const hasNextPage = page * pageSize < total;
+  console.info("[employees.list] Page summary", {
+    requestId: requestId || null,
+    page,
+    pageSize,
+    returnedCount: data.length,
+    total,
+    totalPages,
+    hasNextPage,
+  });
 
   return {
     data: data.map(mapEmployeeList),
@@ -907,7 +972,8 @@ const listEmployees = async ({
     pageSize,
     limit: pageSize,
     total,
-    totalPages: total === 0 ? 0 : Math.ceil(total / pageSize),
+    totalPages,
+    hasNextPage,
   };
 };
 
@@ -981,8 +1047,9 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
     where.currentDistrict = currentDistrictFilter;
   }
 
+  const prismaWhere = combineWhereClauses(where, buildEmployeeAccessWhere(accessScope));
   const rows = await prisma.employee.findMany({
-    where: combineWhereClauses(where, buildEmployeeAccessWhere(accessScope)),
+    where: prismaWhere,
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
       id: true,
@@ -1002,7 +1069,7 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
     username: accessScope.username || null,
     mode: accessScope.unrestricted ? "unrestricted" : "self-only",
     filters: resolvedFilters,
-    prismaWhere: combineWhereClauses(where, buildEmployeeAccessWhere(accessScope)),
+    prismaWhere,
     resultCount: rows.length,
   });
 
