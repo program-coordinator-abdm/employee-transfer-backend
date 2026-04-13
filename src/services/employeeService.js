@@ -944,17 +944,33 @@ const listEmployees = async ({
     where,
   });
 
-  const [total, data] = await prisma.$transaction([
-    prisma.employee.count({ where }),
-    prisma.employee.findMany({
-      where,
-      select: LIST_EMPLOYEE_SELECT,
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-  ]);
+  const total = await prisma.employee.count({ where });
   const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
+  if (totalPages > 0 && page > totalPages) {
+    console.warn("[employees.list] Requested page exceeds total pages", {
+      requestId: requestId || null,
+      page,
+      pageSize,
+      total,
+      totalPages,
+    });
+    return {
+      data: [],
+      page,
+      pageSize,
+      limit: pageSize,
+      total,
+      totalPages,
+      hasNextPage: false,
+    };
+  }
+  const data = await prisma.employee.findMany({
+    where,
+    select: LIST_EMPLOYEE_SELECT,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
   const hasNextPage = page * pageSize < total;
   console.info("[employees.list] Page summary", {
     requestId: requestId || null,
