@@ -962,6 +962,14 @@ const parseSuggestionsQuery = (query = {}) => ({
 const parseEmployeeFilterQuery = (query = {}) => ({
   district: toOptionalString(query.district),
   taluk: toOptionalString(query.taluk),
+  category: toOptionalString(query.category ?? query.staffCategory ?? query.categoryName),
+  categorySubLabel: toOptionalString(
+    query.categorySubLabel ??
+      query.subcategory ??
+      query.staffSubCategory ??
+      query.subGroup ??
+      query.categorySubGroup
+  ),
   designationGroup: toOptionalString(query.designationGroup),
   designationSubGroup: toOptionalString(query.designationSubGroup),
   designation: toOptionalString(query.designation),

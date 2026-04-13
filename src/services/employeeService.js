@@ -807,6 +807,61 @@ const toInsensitiveEqualsFilter = (value) => {
   return { equals: normalized, mode: "insensitive" };
 };
 
+const extractCanonicalGroup = (value) => {
+  const normalized = toOptionalString(value);
+  if (!normalized) return undefined;
+  const match = normalized.match(/\bGroup\s*([A-D])\b/i);
+  return match ? `Group ${match[1].toUpperCase()}` : undefined;
+};
+
+const normalizeFilterLabel = (value) => {
+  const normalized = toOptionalString(value);
+  if (!normalized) return undefined;
+  return normalized.replace(/\s+/g, " ").trim();
+};
+
+const CATEGORY_SUBGROUP_LABEL_MAPPING = new Map([
+  ["group a officers (lro)", { group: "Group A", subGroup: "Officers (LRO)" }],
+  ["group a doctors (jro & lro)", { group: "Group A", subGroup: "Doctors (JRO & LRO)" }],
+  ["group b officers", { group: "Group B", subGroup: "Officers" }],
+  ["group c employees", { group: "Group C", subGroup: "Employees" }],
+  ["group d grade 1", { group: "Group D", subGroup: "Grade 1" }],
+  ["group d grade 2", { group: "Group D", subGroup: "Grade 2" }],
+]);
+
+const resolveCategoryFilters = (rawFilters = {}) => {
+  const designationGroup = normalizeFilterLabel(rawFilters.designationGroup);
+  const designationSubGroup = normalizeFilterLabel(rawFilters.designationSubGroup);
+  const currentPostGroup = normalizeFilterLabel(rawFilters.currentPostGroup);
+  const currentPostSubGroup = normalizeFilterLabel(rawFilters.currentPostSubGroup);
+  const categoryLabel = normalizeFilterLabel(
+    rawFilters.category ??
+      rawFilters.staffCategory ??
+      rawFilters.categoryName
+  );
+  const mappedCategory = CATEGORY_SUBGROUP_LABEL_MAPPING.get(
+    String(categoryLabel || "").toLowerCase()
+  );
+
+  const canonicalGroup =
+    mappedCategory?.group ||
+    extractCanonicalGroup(designationGroup) ||
+    extractCanonicalGroup(designationSubGroup) ||
+    extractCanonicalGroup(currentPostGroup) ||
+    extractCanonicalGroup(currentPostSubGroup) ||
+    extractCanonicalGroup(categoryLabel);
+
+  return {
+    ...rawFilters,
+    categoryLabel,
+    designationGroup: designationGroup || canonicalGroup,
+    designationSubGroup: designationSubGroup || mappedCategory?.subGroup,
+    currentPostGroup: currentPostGroup || canonicalGroup,
+    currentPostSubGroup: currentPostSubGroup || mappedCategory?.subGroup,
+    _canonicalGroup: canonicalGroup,
+  };
+};
+
 const listEmployees = async ({
   category,
   page,
@@ -861,6 +916,12 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
     requestId: options.requestId,
     context: "filter",
   });
+  const resolvedFilters = resolveCategoryFilters(filters);
+  console.info("[employees.filter] Incoming and resolved category filters", {
+    requestId: options.requestId || null,
+    incoming: filters,
+    resolved: resolvedFilters,
+  });
   const where = {};
 
   const districtFilter = toInsensitiveEqualsFilter(filters.district);
@@ -874,14 +935,14 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
   }
 
   const designationGroupFilter = toInsensitiveEqualsFilter(
-    filters.designationGroup
+    resolvedFilters.designationGroup
   );
   if (designationGroupFilter) {
     where.designationGroup = designationGroupFilter;
   }
 
   const designationSubGroupFilter = toInsensitiveEqualsFilter(
-    filters.designationSubGroup
+    resolvedFilters.designationSubGroup
   );
   if (designationSubGroupFilter) {
     where.designationSubGroup = designationSubGroupFilter;
@@ -900,14 +961,14 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
   }
 
   const currentPostGroupFilter = toInsensitiveEqualsFilter(
-    filters.currentPostGroup
+    resolvedFilters.currentPostGroup
   );
   if (currentPostGroupFilter) {
     where.currentPostGroup = currentPostGroupFilter;
   }
 
   const currentPostSubGroupFilter = toInsensitiveEqualsFilter(
-    filters.currentPostSubGroup
+    resolvedFilters.currentPostSubGroup
   );
   if (currentPostSubGroupFilter) {
     where.currentPostSubGroup = currentPostSubGroupFilter;
@@ -940,7 +1001,8 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
     role: accessScope.role || null,
     username: accessScope.username || null,
     mode: accessScope.unrestricted ? "unrestricted" : "self-only",
-    filters,
+    filters: resolvedFilters,
+    prismaWhere: combineWhereClauses(where, buildEmployeeAccessWhere(accessScope)),
     resultCount: rows.length,
   });
 
