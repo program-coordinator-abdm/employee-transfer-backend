@@ -120,17 +120,6 @@ const combineWhereClauses = (...clauses) => {
   return { AND: activeClauses };
 };
 
-const buildCategoryWhere = (category) => {
-  if (!category) return {};
-  return {
-    OR: [
-      { designationGroup: { equals: category, mode: "insensitive" } },
-      { designation: { equals: category, mode: "insensitive" } },
-      { currentPostHeld: { equals: category, mode: "insensitive" } },
-    ],
-  };
-};
-
 const DESIGNATION_READ_ALIASES = new Map([
   ["supudent", "Superintendent"],
   ["tb", "Tuberculosis/chest medicine"],
@@ -807,185 +796,20 @@ const toInsensitiveEqualsFilter = (value) => {
   return { equals: normalized, mode: "insensitive" };
 };
 
-const extractCanonicalGroup = (value) => {
-  const normalized = toOptionalString(value);
-  if (!normalized) return undefined;
-  const match = normalized.match(/\bGroup\s*([A-D])\b/i);
-  return match ? `Group ${match[1].toUpperCase()}` : undefined;
-};
-
-const normalizeFilterLabel = (value) => {
-  const normalized = toOptionalString(value);
-  if (!normalized) return undefined;
-  return normalized.replace(/\s+/g, " ").trim();
-};
-
-const CATEGORY_SUBGROUP_LABEL_MAPPING = new Map([
-  ["group a officers (lro)", { group: "Group A", subGroup: "Officers (LRO)" }],
-  ["group a doctors (jro & lro)", { group: "Group A", subGroup: "Doctors (JRO & LRO)" }],
-  ["group b officers", { group: "Group B", subGroup: "Officers" }],
-  ["group c employees", { group: "Group C", subGroup: "Employees" }],
-  ["group d grade 1", { group: "Group D", subGroup: "Grade 1" }],
-  ["group d grade 2", { group: "Group D", subGroup: "Grade 2" }],
-]);
-
-const normalizeFilterToken = (value) =>
-  String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-
-const normalizePositionAlias = (value) => {
-  const normalized = normalizeFilterToken(value);
-  if (!normalized) return "";
-  if (normalized === "sda") return "second division assistant";
-  if (normalized === "second division asst") return "second division assistant";
-  if (normalized === "second division asstt") return "second division assistant";
-  if (normalized === "fda") return "first division assistant";
-  if (normalized === "first division asst") return "first division assistant";
-  return normalized;
-};
-
-const POSITION_FILTER_VARIANTS = new Map([
-  [
-    "second division assistant",
-    [
-      "Second Division Assistant",
-      "Second Division Asst",
-      "Second Division Asstt",
-      "SDA",
-    ],
-  ],
-  [
-    "first division assistant",
-    [
-      "First Division Assistant",
-      "First Division Asst",
-      "First Division Asstt",
-      "FDA",
-    ],
-  ],
-]);
-
-const resolvePositionCandidates = (value) => {
-  const normalized = toOptionalString(value);
-  if (!normalized) return [];
-  const canonical = normalizePositionAlias(normalized);
-  const variants = POSITION_FILTER_VARIANTS.get(canonical) || [];
-  return Array.from(
-    new Set([normalized, canonical, ...variants].filter((item) => toOptionalString(item)))
-  );
-};
-
-const normalizeLabelForLookup = (value) =>
-  String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-
-const resolveCategoryFilters = (rawFilters = {}) => {
-  const designationGroup = normalizeFilterLabel(rawFilters.designationGroup);
-  const designationSubGroup = normalizeFilterLabel(rawFilters.designationSubGroup);
-  const currentPostGroup = normalizeFilterLabel(rawFilters.currentPostGroup);
-  const currentPostSubGroup = normalizeFilterLabel(rawFilters.currentPostSubGroup);
-  const categoryLabel = normalizeFilterLabel(
-    rawFilters.category ??
-      rawFilters.staffCategory ??
-      rawFilters.categoryName
-  );
-  const categorySubLabel = normalizeFilterLabel(rawFilters.categorySubLabel);
-  const mappedCategory =
-    CATEGORY_SUBGROUP_LABEL_MAPPING.get(normalizeLabelForLookup(categoryLabel)) ||
-    CATEGORY_SUBGROUP_LABEL_MAPPING.get(normalizeLabelForLookup(categorySubLabel));
-
-  const canonicalGroup =
-    mappedCategory?.group ||
-    extractCanonicalGroup(designationGroup) ||
-    extractCanonicalGroup(designationSubGroup) ||
-    extractCanonicalGroup(currentPostGroup) ||
-    extractCanonicalGroup(currentPostSubGroup) ||
-    extractCanonicalGroup(categoryLabel) ||
-    extractCanonicalGroup(categorySubLabel);
-
-  return {
-    ...rawFilters,
-    categoryLabel,
-    categorySubLabel,
-    designationGroup: designationGroup || canonicalGroup,
-    designationSubGroup: designationSubGroup || mappedCategory?.subGroup,
-    currentPostGroup: currentPostGroup || canonicalGroup,
-    currentPostSubGroup: currentPostSubGroup || mappedCategory?.subGroup,
-    _canonicalGroup: canonicalGroup,
-  };
-};
-
-const listEmployees = async ({
-  category,
-  categorySubLabel,
-  designationGroup,
-  designationSubGroup,
-  currentPostGroup,
-  currentPostSubGroup,
-  page,
-  pageSize,
-  search,
-  actor,
-  requestId,
-}) => {
+const listEmployees = async ({ page, pageSize, search, actor, requestId }) => {
   const accessScope = await resolveEmployeeAccessScope(prisma, actor, {
     requestId,
     context: "list",
   });
-  const resolvedCategoryFilters = resolveCategoryFilters({
-    category,
-    categorySubLabel,
-    designationGroup,
-    designationSubGroup,
-    currentPostGroup,
-    currentPostSubGroup,
-  });
-  const baseWhere = {};
-  const designationGroupFilter = toInsensitiveEqualsFilter(
-    resolvedCategoryFilters.designationGroup
-  );
-  if (designationGroupFilter) {
-    baseWhere.designationGroup = designationGroupFilter;
-  }
-  const designationSubGroupFilter = toInsensitiveEqualsFilter(
-    resolvedCategoryFilters.designationSubGroup
-  );
-  if (designationSubGroupFilter) {
-    baseWhere.designationSubGroup = designationSubGroupFilter;
-  }
-  const currentPostGroupFilter = toInsensitiveEqualsFilter(
-    resolvedCategoryFilters.currentPostGroup
-  );
-  if (currentPostGroupFilter) {
-    baseWhere.currentPostGroup = currentPostGroupFilter;
-  }
-  const currentPostSubGroupFilter = toInsensitiveEqualsFilter(
-    resolvedCategoryFilters.currentPostSubGroup
-  );
-  if (currentPostSubGroupFilter) {
-    baseWhere.currentPostSubGroup = currentPostSubGroupFilter;
-  }
   const where = combineWhereClauses(
-    baseWhere,
     buildEmployeeAccessWhere(accessScope),
-    buildListSearchWhere(search),
-    buildCategoryWhere(resolvedCategoryFilters.categoryLabel)
+    buildListSearchWhere(search)
   );
   console.info("[employees.list] Query scope and filters", {
     requestId: requestId || null,
     role: accessScope.role || null,
     username: accessScope.username || null,
     mode: accessScope.unrestricted ? "unrestricted" : "self-only",
-    category: resolvedCategoryFilters.categoryLabel || "",
-    categorySubLabel: resolvedCategoryFilters.categorySubLabel || "",
-    designationGroup: resolvedCategoryFilters.designationGroup || "",
-    designationSubGroup: resolvedCategoryFilters.designationSubGroup || "",
-    currentPostGroup: resolvedCategoryFilters.currentPostGroup || "",
-    currentPostSubGroup: resolvedCategoryFilters.currentPostSubGroup || "",
     search: search || "",
     page,
     pageSize,
@@ -1046,11 +870,9 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
     requestId: options.requestId,
     context: "filter",
   });
-  const resolvedFilters = resolveCategoryFilters(filters);
-  console.info("[employees.filter] Incoming and resolved category filters", {
+  console.info("[employees.filter] Incoming filters", {
     requestId: options.requestId || null,
-    incoming: filters,
-    resolved: resolvedFilters,
+    filters,
   });
   const where = {};
 
@@ -1064,15 +886,13 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
     where.currentTaluk = talukFilter;
   }
 
-  const designationGroupFilter = toInsensitiveEqualsFilter(
-    resolvedFilters.designationGroup
-  );
+  const designationGroupFilter = toInsensitiveEqualsFilter(filters.designationGroup);
   if (designationGroupFilter) {
     where.designationGroup = designationGroupFilter;
   }
 
   const designationSubGroupFilter = toInsensitiveEqualsFilter(
-    resolvedFilters.designationSubGroup
+    filters.designationSubGroup
   );
   if (designationSubGroupFilter) {
     where.designationSubGroup = designationSubGroupFilter;
@@ -1083,18 +903,6 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
     where.designation = designationFilter;
   }
 
-  const positionCandidates = resolvePositionCandidates(
-    filters.position ?? filters.currentPostHeld
-  );
-  if (positionCandidates.length > 0) {
-    where.OR = positionCandidates.flatMap((candidate) => [
-      { designation: { equals: candidate, mode: "insensitive" } },
-      { currentPostHeld: { equals: candidate, mode: "insensitive" } },
-      { designation: { contains: candidate, mode: "insensitive" } },
-      { currentPostHeld: { contains: candidate, mode: "insensitive" } },
-    ]);
-  }
-
   const institutionTypeFilter = toInsensitiveEqualsFilter(
     filters.institutionType
   );
@@ -1102,15 +910,13 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
     where.currentInstitutionType = institutionTypeFilter;
   }
 
-  const currentPostGroupFilter = toInsensitiveEqualsFilter(
-    resolvedFilters.currentPostGroup
-  );
+  const currentPostGroupFilter = toInsensitiveEqualsFilter(filters.currentPostGroup);
   if (currentPostGroupFilter) {
     where.currentPostGroup = currentPostGroupFilter;
   }
 
   const currentPostSubGroupFilter = toInsensitiveEqualsFilter(
-    resolvedFilters.currentPostSubGroup
+    filters.currentPostSubGroup
   );
   if (currentPostSubGroupFilter) {
     where.currentPostSubGroup = currentPostSubGroupFilter;
@@ -1132,34 +938,21 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
       empName: true,
       empKgid: true,
       designation: true,
-      designationSubGroup: true,
       designationGroup: true,
-      currentPostHeld: true,
-      currentPostSubGroup: true,
       currentInstitution: true,
       currentDistrict: true,
       currentTaluk: true,
       otherStateLocation: true,
     },
   });
-  const sampleMatchedValues = rows.slice(0, 5).map((row) => ({
-    id: row.id,
-    designationGroup: row.designationGroup,
-    designationSubGroup: row.designationSubGroup,
-    designation: row.designation,
-    currentPostHeld: row.currentPostHeld,
-    currentPostSubGroup: row.currentPostSubGroup,
-  }));
   console.info("[employees.filter] Query scope and filters", {
     requestId: options.requestId || null,
     role: accessScope.role || null,
     username: accessScope.username || null,
     mode: accessScope.unrestricted ? "unrestricted" : "self-only",
-    filters: resolvedFilters,
-    positionCandidates,
+    filters,
     prismaWhere,
     resultCount: rows.length,
-    sampleMatchedValues,
   });
 
   return rows.map((row) => ({
@@ -1168,9 +961,6 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
     empKgid: row.empKgid,
     designation: row.designation,
     designationGroup: row.designationGroup,
-    designationSubGroup: row.designationSubGroup,
-    currentPostHeld: row.currentPostHeld,
-    currentPostSubGroup: row.currentPostSubGroup,
     currentInstitution: row.currentInstitution,
     currentDistrict: row.currentDistrict,
     currentTaluk: row.currentTaluk || null,
@@ -1179,7 +969,6 @@ const listEmployeesByFilters = async (filters = {}, options = {}) => {
 };
 
 const getSuggestions = async ({
-  category,
   searchMode,
   query,
   limit,
@@ -1193,8 +982,7 @@ const getSuggestions = async ({
   });
   const where = combineWhereClauses(
     buildEmployeeAccessWhere(accessScope),
-    buildSearchWhere(searchMode, query),
-    buildCategoryWhere(category)
+    buildSearchWhere(searchMode, query)
   );
   console.info("[employees.suggestions] Query scope and filters", {
     requestId: requestId || null,
@@ -1203,7 +991,6 @@ const getSuggestions = async ({
     mode: accessScope.unrestricted ? "unrestricted" : "self-only",
     searchMode,
     query,
-    category: category || "",
     limit,
   });
   const results = await prisma.employee.findMany({

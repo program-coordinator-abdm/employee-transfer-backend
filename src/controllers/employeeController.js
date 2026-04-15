@@ -927,18 +927,6 @@ const parseBoundedInteger = (value, { min, max, defaultValue }) => {
 };
 
 const parseListQuery = (query = {}) => ({
-  category: toOptionalString(query.category ?? query.staffCategory ?? query.categoryName),
-  categorySubLabel: toOptionalString(
-    query.categorySubLabel ??
-      query.subcategory ??
-      query.staffSubCategory ??
-      query.subGroup ??
-      query.categorySubGroup
-  ),
-  designationGroup: toOptionalString(query.designationGroup),
-  designationSubGroup: toOptionalString(query.designationSubGroup),
-  currentPostGroup: toOptionalString(query.currentPostGroup),
-  currentPostSubGroup: toOptionalString(query.currentPostSubGroup),
   searchMode: normalizeSearchMode(query.searchMode),
   query: toOptionalString(query.query) ?? "",
   search: toOptionalString(query.search) ?? "",
@@ -960,7 +948,6 @@ const parseListQuery = (query = {}) => ({
 });
 
 const parseSuggestionsQuery = (query = {}) => ({
-  category: toOptionalString(query.category),
   searchMode: normalizeSearchMode(query.searchMode),
   query: toOptionalString(query.query) ?? "",
   limit: parseBoundedInteger(query.limit, {
@@ -973,14 +960,6 @@ const parseSuggestionsQuery = (query = {}) => ({
 const parseEmployeeFilterQuery = (query = {}) => ({
   district: toOptionalString(query.district),
   taluk: toOptionalString(query.taluk),
-  category: toOptionalString(query.category ?? query.staffCategory ?? query.categoryName),
-  categorySubLabel: toOptionalString(
-    query.categorySubLabel ??
-      query.subcategory ??
-      query.staffSubCategory ??
-      query.subGroup ??
-      query.categorySubGroup
-  ),
   designationGroup: toOptionalString(query.designationGroup),
   designationSubGroup: toOptionalString(query.designationSubGroup),
   designation: toOptionalString(query.designation),

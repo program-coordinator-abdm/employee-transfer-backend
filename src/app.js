@@ -2,7 +2,6 @@ const express = require("express");
 const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const employeeRoutes = require("./routes/employeeRoutes");
-const categoryRoutes = require("./routes/categoryRoutes");
 const exportRoutes = require("./routes/exportRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const vacancyRoutes = require("./routes/vacancyRoutes");
@@ -79,7 +78,6 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/auth", authRoutes);
-app.use("/categories", categoryRoutes);
 app.use("/employees", employeeRoutes);
 app.use("/exports", exportRoutes);
 app.use("/uploads", uploadRoutes);
