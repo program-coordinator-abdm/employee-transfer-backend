@@ -796,14 +796,37 @@ const toInsensitiveEqualsFilter = (value) => {
   return { equals: normalized, mode: "insensitive" };
 };
 
-const listEmployees = async ({ page, pageSize, search, actor, requestId }) => {
+const listEmployees = async ({
+  page,
+  pageSize,
+  search,
+  designation,
+  district,
+  taluk,
+  actor,
+  requestId,
+}) => {
   const accessScope = await resolveEmployeeAccessScope(prisma, actor, {
     requestId,
     context: "list",
   });
+  const designationFilter = toInsensitiveEqualsFilter(designation);
+  const districtFilter = toInsensitiveEqualsFilter(district);
+  const talukFilter = toInsensitiveEqualsFilter(taluk);
+  const filterWhere = {};
+  if (designationFilter) {
+    filterWhere.currentDesignation = designationFilter;
+  }
+  if (districtFilter) {
+    filterWhere.currentDistrict = districtFilter;
+  }
+  if (talukFilter) {
+    filterWhere.currentTaluk = talukFilter;
+  }
   const where = combineWhereClauses(
     buildEmployeeAccessWhere(accessScope),
-    buildListSearchWhere(search)
+    buildListSearchWhere(search),
+    filterWhere
   );
   console.info("[employees.list] Query scope and filters", {
     requestId: requestId || null,
@@ -811,6 +834,9 @@ const listEmployees = async ({ page, pageSize, search, actor, requestId }) => {
     username: accessScope.username || null,
     mode: accessScope.unrestricted ? "unrestricted" : "self-only",
     search: search || "",
+    designation: designation || "",
+    district: district || "",
+    taluk: taluk || "",
     page,
     pageSize,
     where,
@@ -868,6 +894,50 @@ const listEmployees = async ({ page, pageSize, search, actor, requestId }) => {
     currentPageCount: data.length,
     totalPages,
     hasNextPage,
+  };
+};
+
+const getEmployeeFilterOptions = async ({ actor, requestId }) => {
+  const accessScope = await resolveEmployeeAccessScope(prisma, actor, {
+    requestId,
+    context: "list",
+  });
+  const where = buildEmployeeAccessWhere(accessScope);
+
+  const [designationRows, districtRows, talukRows] = await Promise.all([
+    prisma.employee.findMany({
+      where,
+      distinct: ["currentDesignation"],
+      select: { currentDesignation: true },
+      orderBy: { currentDesignation: "asc" },
+    }),
+    prisma.employee.findMany({
+      where,
+      distinct: ["currentDistrict"],
+      select: { currentDistrict: true },
+      orderBy: { currentDistrict: "asc" },
+    }),
+    prisma.employee.findMany({
+      where,
+      distinct: ["currentTaluk"],
+      select: { currentTaluk: true },
+      orderBy: { currentTaluk: "asc" },
+    }),
+  ]);
+
+  const toSortedDistinctValues = (rows, key) =>
+    Array.from(
+      new Set(
+        rows
+          .map((row) => toOptionalString(row?.[key]))
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+
+  return {
+    designations: toSortedDistinctValues(designationRows, "currentDesignation"),
+    districts: toSortedDistinctValues(districtRows, "currentDistrict"),
+    taluks: toSortedDistinctValues(talukRows, "currentTaluk"),
   };
 };
 
@@ -2588,6 +2658,7 @@ const createTransfer = async (employeeId, payload, userId) => {
 module.exports = {
   listEmployees,
   listEmployeesByFilters,
+  getEmployeeFilterOptions,
   streamEmployeesCsv,
   getSuggestions,
   getEmployeeById,

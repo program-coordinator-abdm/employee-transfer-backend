@@ -930,6 +930,9 @@ const parseListQuery = (query = {}) => ({
   searchMode: normalizeSearchMode(query.searchMode),
   query: toOptionalString(query.query) ?? "",
   search: toOptionalString(query.search) ?? "",
+  designation: toOptionalString(query.designation),
+  district: toOptionalString(query.district),
+  taluk: toOptionalString(query.taluk),
   page: parseBoundedInteger(query.page, {
     min: 1,
     max: 1_000_000,
@@ -1584,6 +1587,16 @@ const filterEmployees = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
+const getEmployeeFilterOptions = asyncHandler(async (req, res) => {
+  const requestId = getApiGatewayRequestId(req);
+  const result = await employeeService.getEmployeeFilterOptions({
+    actor: req.user,
+    requestId,
+  });
+  res.set("Cache-Control", "no-store");
+  res.json(result);
+});
+
 const getEmployeeById = asyncHandler(async (req, res) => {
   const requestId = getApiGatewayRequestId(req);
   const role = req.user?.role || null;
@@ -1797,6 +1810,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
 
 module.exports = {
   listEmployees,
+  getEmployeeFilterOptions,
   filterEmployees,
   exportEmployees,
   exportEmployeesExcel,
