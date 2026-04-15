@@ -832,6 +832,9 @@ const listEmployees = async ({ page, pageSize, search, actor, requestId }) => {
       pageSize,
       limit: pageSize,
       total,
+      totalCount: total,
+      count: total,
+      currentPageCount: 0,
       totalPages,
       hasNextPage: false,
     };
@@ -860,6 +863,9 @@ const listEmployees = async ({ page, pageSize, search, actor, requestId }) => {
     pageSize,
     limit: pageSize,
     total,
+    totalCount: total,
+    count: total,
+    currentPageCount: data.length,
     totalPages,
     hasNextPage,
   };
