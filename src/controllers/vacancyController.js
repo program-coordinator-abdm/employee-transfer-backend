@@ -3,7 +3,8 @@ const { AppError } = require("../utils/errors");
 const vacancyService = require("../services/vacancyService");
 
 const createVacancy = asyncHandler(async (req, res) => {
-  const data = await vacancyService.createVacancy(req.body, req.user?.id);
+  const userId = req.user?.userId ?? req.user?.id;
+  const data = await vacancyService.createVacancy(req.body, userId);
   res.status(201).json({ data });
 });
 
@@ -22,7 +23,7 @@ const getVacancyById = asyncHandler(async (req, res) => {
     path: req.originalUrl,
     vacancyId: req.params?.id || null,
     role: req.user?.role || null,
-    userId: req.user?.id || null,
+    userId: req.user?.userId ?? req.user?.id ?? null,
   });
   const data = await vacancyService.getVacancyById(req.params.id);
   // Return both flat and wrapped forms for compatibility with edit clients.
@@ -53,14 +54,15 @@ const getVacanciesByInstitution = asyncHandler(async (req, res) => {
 });
 
 const updateVacancy = asyncHandler(async (req, res) => {
+  const userId = req.user?.userId ?? req.user?.id;
   console.info("[vacancies.update] Route entry", {
     method: req.method,
     path: req.originalUrl,
     vacancyId: req.params?.id || null,
     role: req.user?.role || null,
-    userId: req.user?.id || null,
+    userId: userId ?? null,
   });
-  const data = await vacancyService.updateVacancy(req.params.id, req.body);
+  const data = await vacancyService.updateVacancy(req.params.id, req.body, userId);
   console.info("[vacancies.update] Update completed", {
     vacancyId: req.params?.id || null,
     role: req.user?.role || null,

@@ -118,6 +118,40 @@ const parseNonNegativeInteger = (value, fieldName) => {
   return parsed;
 };
 
+const parseUserId = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+};
+
+const getAuditUserOrThrow = async (tx, userId) => {
+  const normalizedUserId = parseUserId(userId);
+  if (!normalizedUserId) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  const user = await tx.user.findUnique({
+    where: { id: normalizedUserId },
+    select: {
+      id: true,
+      username: true,
+    },
+  });
+
+  if (!user) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  return user;
+};
+
 const normalizeLines = (lines) => {
   if (!Array.isArray(lines) || lines.length === 0) {
     throw new AppError("lines must be a non-empty array", 400, {
@@ -183,6 +217,7 @@ const normalizeLines = (lines) => {
 };
 
 const normalizeVacancyPayload = (payload = {}) => {
+  // Audit fields are backend-controlled; ignore any similarly named body fields.
   const source =
     payload && typeof payload === "object" && payload.data && typeof payload.data === "object"
       ? payload.data
@@ -277,12 +312,10 @@ const buildListWhere = ({ district, taluk, institutionName }) => {
 
 const createVacancy = async (payload, createdByUserId) => {
   const normalized = normalizeVacancyPayload(payload);
-  const normalizedCreatedByUserId =
-    createdByUserId === undefined || createdByUserId === null
-      ? null
-      : Number(createdByUserId);
 
   return prisma.$transaction(async (tx) => {
+    const auditUser = await getAuditUserOrThrow(tx, createdByUserId);
+
     const vacancy = await tx.vacancy.create({
       data: {
         institutionTypeName: normalized.institutionTypeName,
@@ -292,11 +325,10 @@ const createVacancy = async (payload, createdByUserId) => {
         cityOrTownOrVillage: normalized.cityOrTownOrVillage,
         cityIsOther: normalized.cityIsOther,
         cityOtherName: normalized.cityOtherName,
-        createdByUserId:
-          Number.isInteger(normalizedCreatedByUserId) &&
-          normalizedCreatedByUserId > 0
-            ? normalizedCreatedByUserId
-            : null,
+        createdByUserId: auditUser.id,
+        createdBy: auditUser.username,
+        updatedByUserId: auditUser.id,
+        updatedBy: auditUser.username,
       },
     });
 
@@ -502,7 +534,7 @@ const getVacancyById = async (id) => {
   return normalizedResponse;
 };
 
-const updateVacancy = async (id, payload) => {
+const updateVacancy = async (id, payload, updatedByUserId) => {
   const vacancyId = toOptionalString(id);
   if (!vacancyId) {
     throw new AppError("Vacancy id is required", 400, { field: "id" });
@@ -511,6 +543,8 @@ const updateVacancy = async (id, payload) => {
   const normalized = normalizeVacancyPayload(payload);
 
   return prisma.$transaction(async (tx) => {
+    const auditUser = await getAuditUserOrThrow(tx, updatedByUserId);
+
     console.info("[vacancies.update] Service update branch start", {
       vacancyId,
     });
@@ -532,6 +566,8 @@ const updateVacancy = async (id, payload) => {
         cityOrTownOrVillage: normalized.cityOrTownOrVillage,
         cityIsOther: normalized.cityIsOther,
         cityOtherName: normalized.cityOtherName,
+        updatedByUserId: auditUser.id,
+        updatedBy: auditUser.username,
       },
     });
 

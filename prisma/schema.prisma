@@ -463,6 +463,9 @@ model Vacancy {
   cityIsOther         Boolean       @default(false)
   cityOtherName       String?
   createdByUserId     Int?
+  createdBy           String?
+  updatedByUserId     Int?
+  updatedBy           String?
   createdByUser       User?         @relation("VacanciesCreated", fields: [createdByUserId], references: [id], onDelete: SetNull)
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
@@ -472,6 +475,7 @@ model Vacancy {
   @@index([taluk])
   @@index([institutionName])
   @@index([createdByUserId])
+  @@index([updatedByUserId])
   @@index([createdAt])
 }
 
