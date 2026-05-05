@@ -442,18 +442,13 @@ model Vacancy {
   cityOrTownOrVillage String
   cityIsOther         Boolean       @default(false)
   cityOtherName       String?
-<<<<<<< Updated upstream
   createdByUserId     Int?
   createdBy           String?
   updatedByUserId     Int?
   updatedBy           String?
   createdByUser       User?         @relation("VacanciesCreated", fields: [createdByUserId], references: [id], onDelete: SetNull)
-=======
->>>>>>> Stashed changes
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
-  createdByUserId     Int?
-  createdByUser       User?         @relation("VacanciesCreated", fields: [createdByUserId], references: [id])
   lines               VacancyLine[]
 
   @@index([district])
