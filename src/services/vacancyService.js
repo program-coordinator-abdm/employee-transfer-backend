@@ -3,6 +3,8 @@ const { AppError } = require("../utils/errors");
 
 const MAX_LIST_LIMIT = 50;
 const INSTITUTION_KEY_SEPARATOR = "||";
+const UUID_V4_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const toOptionalString = (value) => {
   if (value === undefined || value === null) {
@@ -13,6 +15,15 @@ const toOptionalString = (value) => {
 };
 
 const toRequiredInteger = (value) => Number.parseInt(String(value), 10);
+
+const parseUuidOrThrow = (value, fieldName, label) => {
+  const normalized = toOptionalString(value);
+  if (!normalized || !UUID_V4_PATTERN.test(normalized)) {
+    throw new AppError(`${label} is invalid`, 400, { field: fieldName });
+  }
+
+  return normalized;
+};
 
 const buildInstitutionKey = (vacancy) =>
   [
@@ -599,20 +610,49 @@ const updateVacancy = async (id, payload, updatedByUserId) => {
 };
 
 const deleteVacancy = async (id) => {
-  const vacancyId = toOptionalString(id);
-  if (!vacancyId) {
-    throw new AppError("Vacancy id is required", 400, { field: "id" });
-  }
+  const vacancyId = parseUuidOrThrow(id, "id", "Vacancy id");
 
-  const result = await prisma.vacancy.deleteMany({
-    where: { id: vacancyId },
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.vacancy.findUnique({
+      where: { id: vacancyId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new AppError("Vacancy not found", 404, { field: "id" });
+    }
+
+    await tx.vacancyLine.deleteMany({
+      where: { vacancyId },
+    });
+
+    await tx.vacancy.delete({
+      where: { id: vacancyId },
+    });
+
+    return { message: "Institution vacancy deleted successfully" };
   });
+};
 
-  if (result.count === 0) {
-    throw new AppError("Vacancy not found", 404, { field: "id" });
-  }
+const deleteVacancyLine = async (lineId) => {
+  const normalizedLineId = parseUuidOrThrow(lineId, "lineId", "Vacancy line id");
 
-  return { id: vacancyId, deleted: true };
+  return prisma.$transaction(async (tx) => {
+    const existingLine = await tx.vacancyLine.findUnique({
+      where: { id: normalizedLineId },
+      select: { id: true },
+    });
+
+    if (!existingLine) {
+      throw new AppError("Vacancy line not found", 404, { field: "lineId" });
+    }
+
+    await tx.vacancyLine.delete({
+      where: { id: normalizedLineId },
+    });
+
+    return { message: "Vacancy line deleted successfully" };
+  });
 };
 
 module.exports = {
@@ -623,4 +663,5 @@ module.exports = {
   getVacancyById,
   updateVacancy,
   deleteVacancy,
+  deleteVacancyLine,
 };

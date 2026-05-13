@@ -71,8 +71,13 @@ const updateVacancy = asyncHandler(async (req, res) => {
 });
 
 const deleteVacancy = asyncHandler(async (req, res) => {
-  const data = await vacancyService.deleteVacancy(req.params.id);
-  res.json({ data });
+  const result = await vacancyService.deleteVacancy(req.params.id);
+  res.json(result);
+});
+
+const deleteVacancyLine = asyncHandler(async (req, res) => {
+  const result = await vacancyService.deleteVacancyLine(req.params.lineId);
+  res.json(result);
 });
 
 module.exports = {
@@ -83,4 +88,5 @@ module.exports = {
   getVacancyById,
   updateVacancy,
   deleteVacancy,
+  deleteVacancyLine,
 };

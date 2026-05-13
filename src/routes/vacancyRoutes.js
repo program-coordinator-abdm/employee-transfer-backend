@@ -36,6 +36,11 @@ router.put(
   authorizeRoles("ADMIN", "DATA_OFFICER"),
   vacancyController.updateVacancy
 );
-router.delete("/:id", vacancyController.deleteVacancy);
+router.delete(
+  "/lines/:lineId",
+  authorizeRoles("ADMIN", "DATA_OFFICER"),
+  vacancyController.deleteVacancyLine
+);
+router.delete("/:id", authorizeRoles("ADMIN"), vacancyController.deleteVacancy);
 
 module.exports = router;
