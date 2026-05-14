@@ -97,6 +97,51 @@ Uploads are pre-compressed before S3 when possible:
 - JPEG/PNG images are resized/compressed to JPEG.
 - Other non-image documents are gzipped only when meaningful size reduction is achieved.
 
+## EC2 Production deploy (with DELETE/OPTIONS CORS-safe proxy)
+Use these commands on the EC2 host where the backend is running:
+
+```bash
+cd /opt/employee-transfer-backend
+git fetch origin main
+git checkout main
+git reset --hard origin/main
+npm ci --omit=dev
+npx prisma generate
+npx prisma migrate deploy
+pm2 restart etms-backend --update-env
+pm2 save
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Recommended Nginx reverse proxy settings (critical for browser preflight):
+
+```nginx
+location / {
+  proxy_pass http://127.0.0.1:4000;
+  proxy_http_version 1.1;
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Do not block `OPTIONS` in Nginx or API gateway rules. After deploy, verify preflight:
+
+```bash
+curl -i -X OPTIONS "https://api.your-domain.com/api/vacancies/institution/<VACANCY_ID>" \
+  -H "Origin: https://www.hfwgeneralpost.com" \
+  -H "Access-Control-Request-Method: DELETE" \
+  -H "Access-Control-Request-Headers: Authorization,Content-Type"
+```
+
+Expected:
+- `HTTP/1.1 200` (or 204)
+- `Access-Control-Allow-Origin: https://www.hfwgeneralpost.com`
+- `Access-Control-Allow-Methods` contains `DELETE,OPTIONS`
+- `Access-Control-Allow-Headers` contains `Authorization,Content-Type`
+
 ### Upload smoke test (SSM-friendly)
 Use the script below to validate auth + `/uploads` end-to-end:
 

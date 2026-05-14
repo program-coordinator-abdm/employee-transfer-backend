@@ -60,15 +60,19 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
+// Regex-based global OPTIONS handler (compatible with Express 5/path-to-regexp)
+// to ensure preflight succeeds for all routes, including proxied DELETE paths.
+app.options(/.*/, cors(corsOptions));
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
     const requestOrigin = normalizeOrigin(req.headers.origin);
     if (requestOrigin && isAllowedOrigin(requestOrigin)) {
       res.setHeader("Access-Control-Allow-Origin", requestOrigin);
-      res.setHeader("Vary", "Origin");
     }
+    res.setHeader("Vary", "Origin, Access-Control-Request-Headers");
     res.setHeader("Access-Control-Allow-Methods", corsMethods.join(","));
     res.setHeader("Access-Control-Allow-Headers", corsAllowedHeaders.join(","));
+    res.setHeader("Access-Control-Max-Age", "600");
     return res.sendStatus(200);
   }
   return next();
