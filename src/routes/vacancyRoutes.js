@@ -5,6 +5,10 @@ const vacancyController = require("../controllers/vacancyController");
 
 const router = express.Router();
 
+router.options("/institution/:id", (_req, res) => res.sendStatus(200));
+router.options("/lines/:lineId", (_req, res) => res.sendStatus(200));
+router.options("/:id", (_req, res) => res.sendStatus(200));
+
 // Apply database migrations on deploy host with: npx prisma migrate deploy
 router.use(authMiddleware);
 
@@ -40,6 +44,11 @@ router.delete(
   "/lines/:lineId",
   authorizeRoles("ADMIN", "DATA_OFFICER"),
   vacancyController.deleteVacancyLine
+);
+router.delete(
+  "/institution/:id",
+  authorizeRoles("ADMIN"),
+  vacancyController.deleteVacancy
 );
 router.delete("/:id", authorizeRoles("ADMIN"), vacancyController.deleteVacancy);
 

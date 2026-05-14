@@ -12,13 +12,14 @@ const { AppError } = require("./utils/errors");
 const app = express();
 app.set("etag", false);
 
+const normalizeOrigin = (origin) => String(origin || "").trim().replace(/\/+$/, "");
 const defaultOrigins = [
   "http://localhost:5173",
   "http://localhost:8080",
   "https://www.hfwgeneralpost.com",
   "https://hfwgeneralpost.com",
   "https://employee-transfer-frontend.vercel.app",
-];
+].map(normalizeOrigin);
 const configuredOrigins = [
   process.env.CORS_ORIGIN || "",
   process.env.VERCEL_FRONTEND_URL || "",
@@ -26,39 +27,48 @@ const configuredOrigins = [
 ]
   .join(",")
   .split(",")
-  .map((origin) => origin.trim())
+  .map(normalizeOrigin)
   .filter(Boolean);
 const allowVercelPreviewOrigins =
   String(process.env.ALLOW_VERCEL_PREVIEW_ORIGINS || "true").toLowerCase() ===
   "true";
+const isAllowedOrigin = (origin) =>
+  origins.has(origin) ||
+  (allowVercelPreviewOrigins &&
+    /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin));
 const origins = new Set(
   (configuredOrigins.length > 0
     ? [...defaultOrigins, ...configuredOrigins]
     : defaultOrigins
-  ).map((origin) => origin.trim())
+  ).map(normalizeOrigin)
 );
+const corsMethods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
+const corsAllowedHeaders = ["Content-Type", "Authorization", "Accept"];
 
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (origins.has(origin)) return callback(null, true);
-    if (
-      allowVercelPreviewOrigins &&
-      /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)
-    ) {
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (isAllowedOrigin(normalizedOrigin)) {
       return callback(null, true);
     }
     return callback(null, false);
   },
   credentials: false,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+  methods: corsMethods,
+  allowedHeaders: corsAllowedHeaders,
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions));
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
+    const requestOrigin = normalizeOrigin(req.headers.origin);
+    if (requestOrigin && isAllowedOrigin(requestOrigin)) {
+      res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+      res.setHeader("Vary", "Origin");
+    }
+    res.setHeader("Access-Control-Allow-Methods", corsMethods.join(","));
+    res.setHeader("Access-Control-Allow-Headers", corsAllowedHeaders.join(","));
     return res.sendStatus(200);
   }
   return next();
