@@ -11,6 +11,7 @@ const errorHandler = require("./middlewares/errorHandler");
 const { AppError } = require("./utils/errors");
 const app = express();
 app.set("etag", false);
+app.set("trust proxy", true);
 
 const normalizeOrigin = (origin) => String(origin || "").trim().replace(/\/+$/, "");
 const defaultOrigins = [
@@ -44,6 +45,33 @@ const origins = new Set(
 );
 const corsMethods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
 const corsAllowedHeaders = ["Content-Type", "Authorization", "Accept"];
+const buildAllowedHeaders = (requestHeaders = "") => {
+  const fromRequest = String(requestHeaders)
+    .split(",")
+    .map((header) => header.trim())
+    .filter(Boolean);
+  const defaultHeaderSet = new Set(
+    corsAllowedHeaders.map((header) => header.toLowerCase())
+  );
+  const extraHeaders = fromRequest.filter(
+    (header) => !defaultHeaderSet.has(header.toLowerCase())
+  );
+  return [...corsAllowedHeaders, ...extraHeaders].join(",");
+};
+const sendPreflightResponse = (req, res) => {
+  const requestOrigin = normalizeOrigin(req.headers.origin);
+  if (requestOrigin && isAllowedOrigin(requestOrigin)) {
+    res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+  }
+  res.setHeader("Vary", "Origin, Access-Control-Request-Headers");
+  res.setHeader("Access-Control-Allow-Methods", corsMethods.join(","));
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    buildAllowedHeaders(req.headers["access-control-request-headers"])
+  );
+  res.setHeader("Access-Control-Max-Age", "600");
+  return res.sendStatus(200);
+};
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -57,23 +85,16 @@ const corsOptions = {
   credentials: false,
   methods: corsMethods,
   allowedHeaders: corsAllowedHeaders,
+  preflightContinue: true,
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 // Regex-based global OPTIONS handler (compatible with Express 5/path-to-regexp)
 // to ensure preflight succeeds for all routes, including proxied DELETE paths.
-app.options(/.*/, cors(corsOptions));
+app.options(/.*/, (req, res) => sendPreflightResponse(req, res));
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
-    const requestOrigin = normalizeOrigin(req.headers.origin);
-    if (requestOrigin && isAllowedOrigin(requestOrigin)) {
-      res.setHeader("Access-Control-Allow-Origin", requestOrigin);
-    }
-    res.setHeader("Vary", "Origin, Access-Control-Request-Headers");
-    res.setHeader("Access-Control-Allow-Methods", corsMethods.join(","));
-    res.setHeader("Access-Control-Allow-Headers", corsAllowedHeaders.join(","));
-    res.setHeader("Access-Control-Max-Age", "600");
-    return res.sendStatus(200);
+    return sendPreflightResponse(req, res);
   }
   return next();
 });
