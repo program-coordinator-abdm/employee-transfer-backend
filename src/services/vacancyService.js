@@ -17,7 +17,16 @@ const toOptionalString = (value) => {
 const toRequiredInteger = (value) => Number.parseInt(String(value), 10);
 
 const parseUuidOrThrow = (value, fieldName, label) => {
-  const normalized = toOptionalString(value);
+  let decodedValue = value;
+  if (decodedValue !== undefined && decodedValue !== null) {
+    try {
+      decodedValue = decodeURIComponent(String(decodedValue));
+    } catch (_error) {
+      throw new AppError(`${label} is invalid`, 400, { field: fieldName });
+    }
+  }
+
+  const normalized = toOptionalString(decodedValue);
   if (!normalized || !UUID_V4_PATTERN.test(normalized)) {
     throw new AppError(`${label} is invalid`, 400, { field: fieldName });
   }
