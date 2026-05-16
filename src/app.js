@@ -33,8 +33,20 @@ const configuredOrigins = [
 const allowVercelPreviewOrigins =
   String(process.env.ALLOW_VERCEL_PREVIEW_ORIGINS || "true").toLowerCase() ===
   "true";
+const isLocalhostOrigin = (origin) => {
+  try {
+    const { hostname, protocol } = new URL(origin);
+    return (
+      ["http:", "https:"].includes(protocol) &&
+      ["localhost", "127.0.0.1", "::1", "[::1]"].includes(hostname)
+    );
+  } catch (_error) {
+    return false;
+  }
+};
 const isAllowedOrigin = (origin) =>
   origins.has(origin) ||
+  isLocalhostOrigin(origin) ||
   (allowVercelPreviewOrigins &&
     /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin));
 const origins = new Set(
@@ -43,35 +55,8 @@ const origins = new Set(
     : defaultOrigins
   ).map(normalizeOrigin)
 );
-const corsMethods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
-const corsAllowedHeaders = ["Content-Type", "Authorization", "Accept"];
-const buildAllowedHeaders = (requestHeaders = "") => {
-  const fromRequest = String(requestHeaders)
-    .split(",")
-    .map((header) => header.trim())
-    .filter(Boolean);
-  const defaultHeaderSet = new Set(
-    corsAllowedHeaders.map((header) => header.toLowerCase())
-  );
-  const extraHeaders = fromRequest.filter(
-    (header) => !defaultHeaderSet.has(header.toLowerCase())
-  );
-  return [...corsAllowedHeaders, ...extraHeaders].join(",");
-};
-const sendPreflightResponse = (req, res) => {
-  const requestOrigin = normalizeOrigin(req.headers.origin);
-  if (requestOrigin && isAllowedOrigin(requestOrigin)) {
-    res.setHeader("Access-Control-Allow-Origin", requestOrigin);
-  }
-  res.setHeader("Vary", "Origin, Access-Control-Request-Headers");
-  res.setHeader("Access-Control-Allow-Methods", corsMethods.join(","));
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    buildAllowedHeaders(req.headers["access-control-request-headers"])
-  );
-  res.setHeader("Access-Control-Max-Age", "600");
-  return res.sendStatus(200);
-};
+const corsMethods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"];
+const corsAllowedHeaders = ["Authorization", "Content-Type"];
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -82,22 +67,16 @@ const corsOptions = {
     }
     return callback(null, false);
   },
-  credentials: false,
+  credentials: true,
   methods: corsMethods,
   allowedHeaders: corsAllowedHeaders,
-  preflightContinue: true,
+  preflightContinue: false,
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
-// Regex-based global OPTIONS handler (compatible with Express 5/path-to-regexp)
-// to ensure preflight succeeds for all routes, including proxied DELETE paths.
-app.options(/.*/, (req, res) => sendPreflightResponse(req, res));
-app.use((req, res, next) => {
-  if (req.method === "OPTIONS") {
-    return sendPreflightResponse(req, res);
-  }
-  return next();
-});
+// Express 5/path-to-regexp does not accept app.options("*", ...).
+// A regex route provides the same global preflight coverage without parsing errors.
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 app.get("/", (_req, res) => {
