@@ -71,12 +71,55 @@ const updateVacancy = asyncHandler(async (req, res) => {
 });
 
 const deleteVacancy = asyncHandler(async (req, res) => {
-  const result = await vacancyService.deleteVacancy(req.params.id);
+  const vacancyId = req.params.vacancyId;
+  console.info("[vacancies.delete] Route entry", {
+    method: req.method,
+    path: req.originalUrl,
+    vacancyId,
+    role: req.user?.role || null,
+    userId: req.user?.userId ?? req.user?.id ?? null,
+  });
+  const result = await vacancyService.deleteVacancy(vacancyId);
+  console.info("[vacancies.delete] Route result", {
+    path: req.originalUrl,
+    vacancyId,
+    result,
+  });
+  res.json(result);
+});
+
+const deleteVacancyByInstitutionId = asyncHandler(async (req, res) => {
+  const institutionId = req.params.institutionId;
+  console.info("[vacancies.deleteByInstitutionId] Route entry", {
+    method: req.method,
+    path: req.originalUrl,
+    institutionId,
+    role: req.user?.role || null,
+    userId: req.user?.userId ?? req.user?.id ?? null,
+  });
+  const result = await vacancyService.deleteVacancyByInstitutionId(institutionId);
+  console.info("[vacancies.deleteByInstitutionId] Route result", {
+    path: req.originalUrl,
+    institutionId,
+    result,
+  });
   res.json(result);
 });
 
 const deleteVacancyLine = asyncHandler(async (req, res) => {
+  console.info("[vacancies.deleteLine] Route entry", {
+    method: req.method,
+    path: req.originalUrl,
+    lineId: req.params.lineId,
+    role: req.user?.role || null,
+    userId: req.user?.userId ?? req.user?.id ?? null,
+  });
   const result = await vacancyService.deleteVacancyLine(req.params.lineId);
+  console.info("[vacancies.deleteLine] Route result", {
+    path: req.originalUrl,
+    lineId: req.params.lineId,
+    result,
+  });
   res.json(result);
 });
 
@@ -88,5 +131,6 @@ module.exports = {
   getVacancyById,
   updateVacancy,
   deleteVacancy,
+  deleteVacancyByInstitutionId,
   deleteVacancyLine,
 };

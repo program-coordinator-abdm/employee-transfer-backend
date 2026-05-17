@@ -421,6 +421,7 @@ const mapInstitutionHeader = (vacancy) => ({
 const listVacancyInstitutions = async () => {
   const vacancies = await prisma.vacancy.findMany({
     select: {
+      id: true,
       institutionTypeName: true,
       institutionName: true,
       district: true,
@@ -438,6 +439,8 @@ const listVacancyInstitutions = async () => {
 
     if (!uniqueInstitutions.has(institutionKey)) {
       uniqueInstitutions.set(institutionKey, {
+        institutionId: vacancy.id,
+        vacancyId: vacancy.id,
         institutionKey,
         institutionTypeName: vacancy.institutionTypeName,
         institutionName: vacancy.institutionName,
@@ -621,10 +624,21 @@ const updateVacancy = async (id, payload, updatedByUserId) => {
 const deleteVacancy = async (id) => {
   const vacancyId = parseUuidOrThrow(id, "id", "Vacancy id");
 
+  console.info("[vacancies.delete] Service delete start", {
+    vacancyId,
+  });
+
   return prisma.$transaction(async (tx) => {
     const existing = await tx.vacancy.findUnique({
       where: { id: vacancyId },
-      select: { id: true },
+      select: {
+        id: true,
+        institutionTypeName: true,
+        institutionName: true,
+        district: true,
+        taluk: true,
+        cityOrTownOrVillage: true,
+      },
     });
 
     if (!existing) {
@@ -639,8 +653,30 @@ const deleteVacancy = async (id) => {
       where: { id: vacancyId },
     });
 
-    return { message: "Institution vacancy deleted successfully" };
+    const result = {
+      message: "Institution vacancy deleted successfully",
+      vacancyId,
+      institutionId: vacancyId,
+      deleted: true,
+    };
+    console.info("[vacancies.delete] Service delete result", {
+      ...result,
+      institution: mapInstitutionHeader(existing),
+    });
+    return result;
   });
+};
+
+const deleteVacancyByInstitutionId = async (institutionId) => {
+  const normalizedInstitutionId = parseUuidOrThrow(
+    institutionId,
+    "institutionId",
+    "Institution id"
+  );
+  console.info("[vacancies.deleteByInstitutionId] Service alias", {
+    institutionId: normalizedInstitutionId,
+  });
+  return deleteVacancy(normalizedInstitutionId);
 };
 
 const deleteVacancyLine = async (lineId) => {
@@ -672,5 +708,6 @@ module.exports = {
   getVacancyById,
   updateVacancy,
   deleteVacancy,
+  deleteVacancyByInstitutionId,
   deleteVacancyLine,
 };

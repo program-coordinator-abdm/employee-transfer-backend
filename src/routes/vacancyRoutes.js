@@ -5,9 +5,12 @@ const vacancyController = require("../controllers/vacancyController");
 
 const router = express.Router();
 
-router.options("/institution/:id", (_req, res) => res.sendStatus(200));
+router.options("/by-institution-id/:institutionId", (_req, res) =>
+  res.sendStatus(200)
+);
+router.options("/institution/:institutionId", (_req, res) => res.sendStatus(200));
 router.options("/lines/:lineId", (_req, res) => res.sendStatus(200));
-router.options("/:id", (_req, res) => res.sendStatus(200));
+router.options("/:vacancyId", (_req, res) => res.sendStatus(200));
 
 // Apply database migrations on deploy host with: npx prisma migrate deploy
 router.use(authMiddleware);
@@ -46,10 +49,20 @@ router.delete(
   vacancyController.deleteVacancyLine
 );
 router.delete(
-  "/institution/:id",
+  "/by-institution-id/:institutionId",
+  authorizeRoles("ADMIN"),
+  vacancyController.deleteVacancyByInstitutionId
+);
+// Backward-compatible alias for clients that already send the stable vacancy UUID.
+router.delete(
+  "/institution/:institutionId",
+  authorizeRoles("ADMIN"),
+  vacancyController.deleteVacancyByInstitutionId
+);
+router.delete(
+  "/:vacancyId",
   authorizeRoles("ADMIN"),
   vacancyController.deleteVacancy
 );
-router.delete("/:id", authorizeRoles("ADMIN"), vacancyController.deleteVacancy);
 
 module.exports = router;
