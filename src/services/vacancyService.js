@@ -45,6 +45,14 @@ const buildInstitutionKey = (vacancy) =>
     .map((value) => toOptionalString(value) || "")
     .join(INSTITUTION_KEY_SEPARATOR);
 
+const buildInstitutionWhere = (vacancy) => ({
+  institutionTypeName: vacancy.institutionTypeName,
+  institutionName: vacancy.institutionName,
+  district: vacancy.district,
+  taluk: vacancy.taluk,
+  cityOrTownOrVillage: vacancy.cityOrTownOrVillage,
+});
+
 const parseInstitutionKey = (institutionKey) => {
   if (institutionKey === undefined || institutionKey === null) {
     throw new AppError("institutionKey is required", 400, {
@@ -369,6 +377,19 @@ const createVacancy = async (payload, createdByUserId) => {
   });
 };
 
+const mapVacancyWithStableIds = (vacancy) => ({
+  ...vacancy,
+  institutionId: vacancy.id,
+  vacancyId: vacancy.id,
+  lines: Array.isArray(vacancy.lines)
+    ? vacancy.lines.map((line) => ({
+        ...line,
+        vacancyLineId: line.id,
+        vacancyId: line.vacancyId || vacancy.id,
+      }))
+    : vacancy.lines,
+});
+
 const listVacancies = async (filters = {}) =>
   prisma.vacancy
     .findMany({
@@ -384,11 +405,14 @@ const listVacancies = async (filters = {}) =>
         institutionName: filters.institutionName || "",
         resultCount: rows.length,
       });
-      return rows;
+      return rows.map(mapVacancyWithStableIds);
     });
 
 const mapVacancyLinesForInstitution = (lines = []) =>
   lines.map((line) => ({
+    id: line.id,
+    vacancyLineId: line.id,
+    vacancyId: line.vacancyId,
     designationName: line.designationName,
     sanctionedPositions: toRequiredInteger(line.sanctionedPositions),
     filled: toRequiredInteger(line.filled),
@@ -436,20 +460,30 @@ const listVacancyInstitutions = async () => {
 
   for (const vacancy of vacancies) {
     const institutionKey = buildInstitutionKey(vacancy);
+    const institutionHeader = mapInstitutionHeader(vacancy);
 
     if (!uniqueInstitutions.has(institutionKey)) {
       uniqueInstitutions.set(institutionKey, {
+        id: vacancy.id,
         institutionId: vacancy.id,
         vacancyId: vacancy.id,
+        vacancyIds: [],
+        vacancyCount: 0,
         institutionKey,
-        institutionTypeName: vacancy.institutionTypeName,
-        institutionName: vacancy.institutionName,
-        district: vacancy.district,
-        taluk: vacancy.taluk,
-        cityOrTownOrVillage: vacancy.cityOrTownOrVillage,
+        ...institutionHeader,
+        institution: {
+          id: vacancy.id,
+          institutionId: vacancy.id,
+          vacancyId: vacancy.id,
+          ...institutionHeader,
+        },
         latestCreatedAt: vacancy.createdAt,
       });
     }
+
+    const institution = uniqueInstitutions.get(institutionKey);
+    institution.vacancyIds.push(vacancy.id);
+    institution.vacancyCount += 1;
   }
 
   return Array.from(uniqueInstitutions.values());
@@ -484,17 +518,32 @@ const getVacanciesByInstitution = async (institutionKey) => {
     submissionsCount: submissions.length,
   });
 
+  const representative = submissions[0] || null;
+  const institutionId = representative?.id || null;
+  const institutionHeader = {
+    id: institutionId,
+    institutionId,
+    vacancyId: institutionId,
+    institutionTypeName: parsedKey.institutionTypeName,
+    institutionName: parsedKey.institutionName,
+    district: parsedKey.district,
+    taluk: parsedKey.taluk,
+    cityOrTownOrVillage: parsedKey.cityOrTownOrVillage,
+  };
+
   return {
-    institution: {
-      institutionTypeName: parsedKey.institutionTypeName,
-      institutionName: parsedKey.institutionName,
-      district: parsedKey.district,
-      taluk: parsedKey.taluk,
-      cityOrTownOrVillage: parsedKey.cityOrTownOrVillage,
-    },
+    id: institutionId,
+    institutionId,
+    vacancyId: institutionId,
+    institution: institutionHeader,
     submissions: submissions.map((submission) => ({
       id: submission.id,
+      institutionId: submission.id,
+      vacancyId: submission.id,
       createdAt: submission.createdAt,
+      vacancyLineIds: Array.isArray(submission.lines)
+        ? submission.lines.map((line) => line.id)
+        : [],
       lines: mapVacancyLinesForInstitution(submission.lines),
     })),
   };
@@ -524,6 +573,8 @@ const getVacancyById = async (id) => {
 
   const normalizedResponse = {
     id: vacancy.id,
+    institutionId: vacancy.id,
+    vacancyId: vacancy.id,
     institutionTypeName: vacancy.institutionTypeName,
     institutionName: vacancy.institutionName,
     district: vacancy.district,
@@ -537,7 +588,13 @@ const getVacancyById = async (id) => {
       ? vacancy.lines.map(mapVacancyLineForEdit)
       : [],
     // Keep existing key for backward compatibility.
-    lines: Array.isArray(vacancy.lines) ? vacancy.lines : [],
+    lines: Array.isArray(vacancy.lines)
+      ? vacancy.lines.map((line) => ({
+          ...line,
+          vacancyLineId: line.id,
+          vacancyId: line.vacancyId || vacancy.id,
+        }))
+      : [],
   };
 
   console.info("[vacancies.getById] Service lookup success", {
@@ -621,10 +678,14 @@ const updateVacancy = async (id, payload, updatedByUserId) => {
   });
 };
 
-const deleteVacancy = async (id) => {
+const deleteVacancy = async (id, user = {}) => {
   const vacancyId = parseUuidOrThrow(id, "id", "Vacancy id");
+  const userId = user?.userId ?? user?.id ?? null;
+  const userRole = user?.role || null;
 
   console.info("[vacancies.delete] Service delete start", {
+    userId,
+    userRole,
     vacancyId,
   });
 
@@ -645,7 +706,7 @@ const deleteVacancy = async (id) => {
       throw new AppError("Vacancy not found", 404, { field: "id" });
     }
 
-    await tx.vacancyLine.deleteMany({
+    const deletedLines = await tx.vacancyLine.deleteMany({
       where: { vacancyId },
     });
 
@@ -654,29 +715,125 @@ const deleteVacancy = async (id) => {
     });
 
     const result = {
+      success: true,
       message: "Institution vacancy deleted successfully",
       vacancyId,
       institutionId: vacancyId,
-      deleted: true,
+      deleted: {
+        vacancyLines: deletedLines.count,
+        vacancies: 1,
+        institutions: 0,
+      },
     };
     console.info("[vacancies.delete] Service delete result", {
       ...result,
+      userId,
+      userRole,
       institution: mapInstitutionHeader(existing),
     });
     return result;
   });
 };
 
-const deleteVacancyByInstitutionId = async (institutionId) => {
+const deleteVacancyByInstitutionId = async (institutionId, user = {}) => {
   const normalizedInstitutionId = parseUuidOrThrow(
     institutionId,
     "institutionId",
     "Institution id"
   );
-  console.info("[vacancies.deleteByInstitutionId] Service alias", {
+  const userId = user?.userId ?? user?.id ?? null;
+  const userRole = user?.role || null;
+  console.info("[vacancies.deleteByInstitutionId] Service delete start", {
+    userId,
+    userRole,
     institutionId: normalizedInstitutionId,
   });
-  return deleteVacancy(normalizedInstitutionId);
+
+  const representative = await prisma.vacancy.findUnique({
+    where: { id: normalizedInstitutionId },
+    select: {
+      id: true,
+      institutionTypeName: true,
+      institutionName: true,
+      district: true,
+      taluk: true,
+      cityOrTownOrVillage: true,
+    },
+  });
+
+  if (!representative) {
+    console.warn("[vacancies.deleteByInstitutionId] No representative found", {
+      userId,
+      userRole,
+      institutionId: normalizedInstitutionId,
+    });
+    throw new AppError("Institution vacancy not found", 404, {
+      field: "institutionId",
+    });
+  }
+
+  const institutionWhere = buildInstitutionWhere(representative);
+  const [matchingVacancies, matchingLines] = await Promise.all([
+    prisma.vacancy.count({ where: institutionWhere }),
+    prisma.vacancyLine.count({
+      where: {
+        vacancy: {
+          is: institutionWhere,
+        },
+      },
+    }),
+  ]);
+
+  console.info("[vacancies.deleteByInstitutionId] Matching records found", {
+    userId,
+    userRole,
+    institutionId: normalizedInstitutionId,
+    matchingVacancies,
+    matchingLines,
+    institution: mapInstitutionHeader(representative),
+  });
+
+  if (matchingVacancies < 1) {
+    throw new AppError("Institution vacancy not found", 404, {
+      field: "institutionId",
+    });
+  }
+
+  const [deletedLines, deletedVacancies] = await prisma.$transaction([
+    prisma.vacancyLine.deleteMany({
+      where: {
+        vacancy: {
+          is: institutionWhere,
+        },
+      },
+    }),
+    prisma.vacancy.deleteMany({
+      where: institutionWhere,
+    }),
+  ]);
+
+  const result = {
+    success: true,
+    message: "Institution vacancy deleted successfully",
+    institutionId: normalizedInstitutionId,
+    vacancyId: normalizedInstitutionId,
+    deleted: {
+      vacancyLines: deletedLines.count,
+      vacancies: deletedVacancies.count,
+      institutions: 0,
+    },
+  };
+  console.info("[vacancies.deleteByInstitutionId] Service delete result", {
+    ...result,
+    userId,
+    userRole,
+    matchingRecordsFound: {
+      vacancyLines: matchingLines,
+      vacancies: matchingVacancies,
+    },
+    institution: mapInstitutionHeader(representative),
+  });
+  return result;
 };
 
 const deleteVacancyLine = async (lineId) => {

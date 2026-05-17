@@ -79,7 +79,7 @@ const deleteVacancy = asyncHandler(async (req, res) => {
     role: req.user?.role || null,
     userId: req.user?.userId ?? req.user?.id ?? null,
   });
-  const result = await vacancyService.deleteVacancy(vacancyId);
+  const result = await vacancyService.deleteVacancy(vacancyId, req.user);
   console.info("[vacancies.delete] Route result", {
     path: req.originalUrl,
     vacancyId,
@@ -97,7 +97,10 @@ const deleteVacancyByInstitutionId = asyncHandler(async (req, res) => {
     role: req.user?.role || null,
     userId: req.user?.userId ?? req.user?.id ?? null,
   });
-  const result = await vacancyService.deleteVacancyByInstitutionId(institutionId);
+  const result = await vacancyService.deleteVacancyByInstitutionId(
+    institutionId,
+    req.user
+  );
   console.info("[vacancies.deleteByInstitutionId] Route result", {
     path: req.originalUrl,
     institutionId,

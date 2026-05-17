@@ -1,11 +1,15 @@
 const { AppError } = require("../utils/errors");
 
 const authorizeRoles = (...allowedRoles) => (req, _res, next) => {
-  const role = req.user?.role;
+  const role =
+    typeof req.user?.role === "string" ? req.user.role.toUpperCase() : req.user?.role;
   if (!role) {
     return next(new AppError("Unauthorized", 401));
   }
-  if (!allowedRoles.includes(role)) {
+  const normalizedAllowedRoles = allowedRoles.map((allowedRole) =>
+    String(allowedRole).toUpperCase()
+  );
+  if (!normalizedAllowedRoles.includes(role)) {
     return next(new AppError("Forbidden", 403));
   }
   return next();
